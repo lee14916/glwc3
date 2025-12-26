@@ -65,7 +65,7 @@ def bareRC2phy_avgx(key2bare,ens2RCs,mn_conn='mu=nu',mn_disc='mu!=nu',mn_g='mu!=
     
     for j in ['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]:
         ens2dat={ens:key2phy[(ens,j)] for ens in enss}
-        fits=yu.doFit_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt)
+        fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt)
         for fit in fits:
             fitlabel,pars_jk,chi2_jk,Ndof=fit
             key2phy[(f'a=#_{fitlabel}',j)]=pars_jk

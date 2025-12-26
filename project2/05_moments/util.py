@@ -397,7 +397,7 @@ if True:
             return result1
 
 #!============== auto-correlation ==============#
-if True:
+if False:
     import puwr
     def random_autocorrelation(Ncfg,Nm,tau=0.5):
         return np.transpose([puwr.correlated_data(tau, Ncfg)[0][0] for i in range(Nm)])
