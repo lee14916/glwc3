@@ -106,7 +106,7 @@ def extract2pt(paths,mom):
     data=np.concatenate(data,axis=0)
     data=np.einsum('pd,stmd->stmp',dirac2proj,data)
     data_bw=np.concatenate(data_bw,axis=0)
-    data_bw=np.einsum('pd,stmd->stmp',dirac2proj,data_bw)
+    data_bw=np.einsum('pd,stmd->stmp',dirac2proj_bw,data_bw)
     return srcs_all,data,data_bw
 
 def extractLoop(basepath,mom):
