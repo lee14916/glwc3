@@ -30,7 +30,7 @@ mpl.rcParams['legend.fontsize'] = 16
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
 
-__all__ = ['np','os','plt','h5py','pickle','pd','display']
+__all__ = ['np','os','mpl','plt','h5py','pickle','pd','display']
 
 #!============== Initialization ==============#
 if True:
@@ -140,6 +140,7 @@ if True:
 if True:
     hbarc = 1/197.3
     m_proton,m_neutron=938.2721,939.5654
+    m_avgpn=(m_proton+m_neutron)/2
 
 #!============== error analysis ==============#
 if True:
@@ -417,7 +418,6 @@ if False:
         mean=func(np.mean(dat,axis=0))
         return mean,delta,tint,d_tint
         
-
 #!============== fit (basic) ==============#
 if True:
     def jackfit(fitfunc,y_jk,pars0,mask=None,parsExtra_jk=None,priors=[],**kargs):
@@ -1453,6 +1453,23 @@ if True:
     ens2amul_iso_err={'b':0.0000028,'c':0.0000034,'d':0.0000024,'e': 0.0000023}
 
     ens2aInv={ens:1/(ens2a[ens]*hbarc) for ens in ens2a.keys()} # MeV
+    
+    def mom2Q2(mom,ens,mN=None):
+        L=ens2NL[ens]
+        n1vec=np.array(mom[:3]); nqvec=np.array(mom[3:6])
+        nvec=n1vec+nqvec
+        pvec=nvec*(2*np.pi/L); p1vec=n1vec*(2*np.pi/L)
+        qvec=nqvec*(2*np.pi/L)
+        
+        if mN is None:
+            mN=m_avgpn/ens2aInv[ens]
+        
+        xE_jk=np.sqrt(pvec.dot(pvec)+mN**2)
+        xE1_jk=np.sqrt(p1vec.dot(p1vec)+mN**2)
+        Q2_jk=(qvec.dot(qvec) - (xE_jk-xE1_jk)**2 )
+        Q2=np.mean(Q2_jk)
+        
+        return Q2*ens2aInv[ens]**2/(1000**2)
 
 #!============== obsolete  ==============#
 if False:
