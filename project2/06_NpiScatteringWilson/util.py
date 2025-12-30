@@ -224,7 +224,7 @@ if True:
         dat_jk=A[None,:]*dat_jk+B[None,:]
         return dat_jk
     
-    def jackknife2(in_dat,in_func=lambda dat:np.mean(np.real(dat),axis=0),minNcfg:int=600,d:int=0,outputFlatten=False,sl_key=None,sl_saveQ=False):
+    def jackknife2(in_dat,in_func=lambda dat:np.mean(np.real(dat),axis=0),minNcfg:int=600,d:int=0):
         '''
         - in_dat: any-dimensional list of ndarrays. Each ndarray in the list has 0-axis for cfgs
         - in_func: dat -> estimator
@@ -297,6 +297,26 @@ if True:
             
         ret=(mean,err,cov)
         return ret
+    def jackknife2_ErrErr(dat,func_mean_err=lambda mean,err:err):
+        def func(dat):
+            Ncfg,Ntime=dat.shape
+            mean=np.mean(dat,axis=0)
+            err=np.sqrt(np.var(dat,axis=0,ddof=1)/Ncfg)    
+            return func_mean_err(mean,err)
+        return jackknife2(dat,func)
+    def get_autocorrelation(dat,normalizeQ=True):
+        Ncfg, Ntime = dat.shape
+        dat = dat - dat.mean(axis=0, keepdims=True)
+        C = np.empty((Ncfg, Ntime))
+        for tau in range(Ncfg):
+            C[tau] = np.mean(dat[:Ncfg - tau] * dat[tau:], axis=0)
+        if normalizeQ:
+            C /= C[0]
+        return np.array(C)
+    def jackknife2_autocorrelation(dat,normalizeQ=True):
+        Ncfg=len(dat)
+        mean,err,_=jackknife2(dat,lambda dat:get_autocorrelation(dat,normalizeQ)[:Ncfg-1])
+        return np.array(mean),np.array(err)
 
     def superjackknife(dats_jk):
         Nens=len(dats_jk)
