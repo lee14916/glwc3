@@ -243,6 +243,46 @@ if True:
         momE=mom_exchangeSourceSink(mom)
         moms=list(set([tuple(rotate_mom(e,mom)) for e in elements]+[tuple(rotate_mom(e,momE)) for e in elements])) 
         return list(max(moms, key=lambda x: x[::-1]))
+    def mom2n2qpp1(mom):
+        p1x,p1y,p1z,qx,qy,qz=mom
+        px,py,pz=p1x+qx,p1y+qy,p1z+qz
+        
+        q2=qx**2+qy**2+qz**2
+        p2=px**2+py**2+pz**2
+        p12=p1x**2+p1y**2+p1z**2
+        return (q2,p2,p12)
+    def mom2n2qpp1_sym(mom):
+        (q2,p2,p12)=mom2n2qpp1(mom)
+        return (q2,p2,p12) if p2>=p12 else (q2,p12,p2)
+    
+    def mom2Q2(mom,ens,mN=None):
+        L=yu.ens2NL[ens]
+        n1vec=np.array(mom[:3]); nqvec=np.array(mom[3:6])
+        nvec=n1vec+nqvec
+        pvec=nvec*(2*np.pi/L); p1vec=n1vec*(2*np.pi/L)
+        qvec=nqvec*(2*np.pi/L)
+        
+        if mN is None:
+            mN=yu.m_avgpn/yu.ens2aInv[ens]
+        
+        xE=np.sqrt(pvec.dot(pvec)+mN**2)
+        xE1=np.sqrt(p1vec.dot(p1vec)+mN**2)
+        Q2=(qvec.dot(qvec) - (xE-xE1)**2 )
+        
+        return Q2*yu.ens2aInv[ens]**2/(1000**2)
+    
+    def n2qpp12Q2(n2qpp1,ens,mN=None):
+        L=yu.ens2NL[ens]
+        q2,p2,p12=np.array(n2qpp1)*(2*np.pi/L)**2
+        
+        if mN is None:
+            mN=yu.m_avgpn/yu.ens2aInv[ens]
+            
+        xE=np.sqrt(p2+mN**2)
+        xE1=np.sqrt(p12+mN**2)
+        Q2=(q2 - (xE-xE1)**2 )
+        
+        return Q2*yu.ens2aInv[ens]**2/(1000**2)
     
 #!============== Form factor decomposition ==============#
 if True:

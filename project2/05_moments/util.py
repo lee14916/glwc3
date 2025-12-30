@@ -87,6 +87,13 @@ if True:
         return ','.join([str(ele) for ele in mom])
     def str2mom(momstr):
         return [int(ele) for ele in momstr.split(',')]
+    def mom2msq(mom):
+        return mom[0]**2+mom[1]**2+mom[2]**2
+    def sortMom_msq(moms):
+        msqs=[mom2msq(mom) for mom in moms]
+        inds=np.argsort(msqs)
+        moms=[moms[ind] for ind in inds]
+        return moms
     
     def decodeList(l):
         return [ele.decode() for ele in l]
@@ -103,7 +110,14 @@ if True:
     def save_pkl(file,res):
         with open(file,'wb') as f:
             pickle.dump(res,f)
+    def save_txt(file,txt):
+        if type(txt)==list:
+            txt='\n'.join(txt)
+        with open(file,'w') as f:
+            f.write(txt)
     def load_pkl(file):
+        if not os.path.isfile(file):
+            return None        
         with open(file,'rb') as f:
             res=pickle.load(f)
         return res
@@ -113,16 +127,18 @@ if True:
             return False
         save_pkl(f'{path_pkl_internal}{any2filename(label)}.pkl',res)
         return True
+    def save_txt_internal(label,txt):
+        save_txt(f'{path_pkl_internal}{any2filename(label)}.txt',txt)
     def load_pkl_internal(file):
         if path_pkl_internal is None:
             print('path_pkl_internal is None, stop loading')
             return None
-        if not os.path.isfile(f'{path_pkl_internal}{any2filename(file)}.pkl'):
-            return None
         res=load_pkl(f'{path_pkl_internal}{any2filename(file)}.pkl')
         return res
     def save_pkl_reg(label,res):
-        save_pkl(f'{path_pkl}{label}.pkl',res)
+        save_pkl(f'{path_pkl}{any2filename(label)}.pkl',res)
+    def save_txt_reg(label,txt):
+        save_txt(f'{path_pkl}{any2filename(label)}.txt',txt)
     def load_pkl_reg(label):
         return load_pkl(f'{path_pkl}{label}.pkl')
     def clear_pkl_internal(file):
@@ -538,8 +554,7 @@ if True:
             if label is not None:
                 if save_pkl_internal(label,res):
                     text=fits2text(res)
-                    with open(f'{path_pkl_internal}{any2filename(label)}.txt','w') as f:
-                        f.write('\n'.join(text))
+                    save_txt_internal(label,text)
             return res
         return wrapper
     
@@ -603,6 +618,8 @@ if True:
         fits=[]
         for tmin in tmins:
             ts=np.arange(tmin,tmax,downSampling)
+            if len(ts)<2:
+                continue
             def fitfunc(pars):
                 return func(ts,*pars)
             y_jk=dat[:,ts]
@@ -628,8 +645,7 @@ if True:
                         text.append(f'{i+1} state fit')
                         text+=fits2text(fits)
                         text.append('\n')
-                    with open(f'{path_pkl_internal}{any2filename(label)}.txt','w') as f:
-                        f.write('\n'.join(text))
+                    save_txt_internal(label,text)
             return res
         return wrapper
 
@@ -830,6 +846,22 @@ if True:
     colors16=['blue','orange','green','red','purple','brown','darkblue','olive','darkgreen','darkred','grey','tan','peru','magenta','gold','skyblue']
     fmts16=['o','v','^','<','>','d','s','h','*','H','p','8','X','P','D','.']
     
+    def jitter_duplicate_x(x, fraction=0.2):
+        x = np.asarray(x, float)
+        out = x.copy()
+        ux = np.unique(x)
+
+        for s in ux:
+            idx = np.where(x == s)[0]
+            k = idx.size
+            if k < 2:
+                continue
+
+            d = np.min(np.abs(ux[ux != s] - s)) if ux.size > 1 else 1.0
+            out[idx] = s + (np.arange(k) - (k - 1) / 2) * d * fraction
+
+        return out
+    
     def getFigAxs(Nrow,Ncol,Lrow=None,Lcol=None,scale=1,**kwargs):
         if (Lrow,Lcol)==(None,None):
             Lcol,Lrow=mpl.rcParams['figure.figsize']
@@ -976,17 +1008,19 @@ if True:
 
         return fig, axs, result
     
-    def makePlot_2pt_SimoneStyle(meff,fitss,xunit=1,yunit=1,mN_exp=None,selection={},ylims='auto'):
+    def makePlot_2pt_SimoneStyle(meff,fitss,xunit=1,yunit=1,E0_ref=None,selection={},ylims='auto',labelType='mN'):
         for _ in [0]:
             result={}
             fig, axd = plt.subplot_mosaic([['f1','f1','f1'],['f2','f2','f3']],figsize=(24,10))
             (ax1,ax2,ax3)=(axd[key] for key in ['f1','f2','f3'])
-            ax1.set_xlabel(r'$t$ [fm]')
-            ax2.set_xlabel(r'$t_{\mathrm{min}}$ [fm]')
-            ax3.set_xlabel(r'$t_{\mathrm{min}}$ [fm]')
-            ax1.set_ylabel(r'$m_N^{\mathrm{eff}}$ [GeV]')
-            ax2.set_ylabel(r'$m_N$ [GeV]')
-            ax3.set_ylabel(r'$E_1$ [GeV]')
+            label_fm=' [fm]' if xunit!=1 else None
+            label_GeV=' [GeV]' if yunit!=1 else None
+            ax1.set_xlabel(r'$t$'+label_fm)
+            ax2.set_xlabel(r'$t_{\mathrm{min}}$'+label_fm)
+            ax3.set_xlabel(r'$t_{\mathrm{min}}$'+label_fm)
+            ax1.set_ylabel(r'$E_0^{\mathrm{eff}}$'+label_GeV)
+            ax2.set_ylabel(r'$E_0$'+label_GeV)
+            ax3.set_ylabel(r'$E_1$'+label_GeV)
             if ylims=='std_N':
                 ylims=[[0.86,1.11],[0.86,1.11],[0,3.9]]
             if ylims!='auto':
@@ -999,9 +1033,9 @@ if True:
             plt_x=np.arange(tmin,tmax)*xunit; plt_y=mean[tmin:tmax]*yunit; plt_yerr=err[tmin:tmax]*yunit
             ax1.errorbar(plt_x,plt_y,plt_yerr,color='black',fmt='s')
             
-            if mN_exp is not None:
-                ax1.axhline(y=mN_exp,color='black',linestyle = '--', marker='')
-                ax2.axhline(y=mN_exp,color='black',linestyle = '--', marker='', label=r'$m_N^{\mathrm{exp}}=$'+'%0.3f'%mN_exp)
+            if E0_ref is not None:
+                ax1.axhline(y=E0_ref,color='black',linestyle = '--', marker='')
+                ax2.axhline(y=E0_ref,color='black',linestyle = '--', marker='', label=r'$E_0^{\mathrm{ref}}=$'+f'{E0_ref:0.3f}')
             
             Nst=len(fitss)
             probThreshold=0.1
@@ -1026,7 +1060,7 @@ if True:
                 result[fitcase]=pars_jk
             pars_mean,pars_err=jackme(result[fitcase])
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
-            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2,label=r'$m_N^{\mathrm{1st}}=$'+un2str(plt_y,plt_yerr))
+            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2,label=r'$E_0^{\mathrm{1st}}=$'+un2str(plt_y,plt_yerr))
             if ylims=='auto':
                 ax1.set_ylim([plt_y-plt_yerr*20,plt_y+plt_yerr*40])
                 ax2.set_ylim([plt_y-plt_yerr*20,plt_y+plt_yerr*30])
@@ -1063,7 +1097,7 @@ if True:
             t=np.transpose([result[fitcase][:,0],result[fitcase][:,0]+result[fitcase][:,2-DNpar]])
             pars_mean,pars_err=jackme(t)
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
-            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$m_N^{\mathrm{2st}}=$'+un2str(plt_y,plt_yerr))
+            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_0^{\mathrm{2st}}=$'+un2str(plt_y,plt_yerr))
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
             ax3.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_1^{\mathrm{2st}}=$'+un2str(plt_y,plt_yerr))
             if ylims=='auto':
@@ -1110,7 +1144,7 @@ if True:
             t=np.transpose([result[fitcase][:,0],result[fitcase][:,0]+result[fitcase][:,2-DNpar]])
             pars_mean,pars_err=jackme(t)
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
-            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$m_N^{\mathrm{3st}}=$'+un2str(plt_y,plt_yerr))
+            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_0^{\mathrm{3st}}=$'+un2str(plt_y,plt_yerr))
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
             ax3.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_1^{\mathrm{3st}}=$'+un2str(plt_y,plt_yerr))    
             for i,fit in enumerate(fits):
@@ -1453,23 +1487,6 @@ if True:
     ens2amul_iso_err={'b':0.0000028,'c':0.0000034,'d':0.0000024,'e': 0.0000023}
 
     ens2aInv={ens:1/(ens2a[ens]*hbarc) for ens in ens2a.keys()} # MeV
-    
-    def mom2Q2(mom,ens,mN=None):
-        L=ens2NL[ens]
-        n1vec=np.array(mom[:3]); nqvec=np.array(mom[3:6])
-        nvec=n1vec+nqvec
-        pvec=nvec*(2*np.pi/L); p1vec=n1vec*(2*np.pi/L)
-        qvec=nqvec*(2*np.pi/L)
-        
-        if mN is None:
-            mN=m_avgpn/ens2aInv[ens]
-        
-        xE_jk=np.sqrt(pvec.dot(pvec)+mN**2)
-        xE1_jk=np.sqrt(p1vec.dot(p1vec)+mN**2)
-        Q2_jk=(qvec.dot(qvec) - (xE_jk-xE1_jk)**2 )
-        Q2=np.mean(Q2_jk)
-        
-        return Q2*ens2aInv[ens]**2/(1000**2)
 
 #!============== obsolete  ==============#
 if False:
