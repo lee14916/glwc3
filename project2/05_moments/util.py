@@ -75,31 +75,11 @@ if True:
     
     cfg2old=lambda cfg: cfg[1:]+'_r'+{'a':'0','b':'1','c':'2','d':'3'}[cfg[0]]
     cfg2new=lambda cfg: {'0':'a','1':'b','2':'c','3':'d'}[cfg[-1]] + cfg[:4]
-    
-    def moms2dic(moms):
-        dic={}
-        for i,mom in enumerate(moms):
-            dic[tuple(mom)]=i
-        return dic
-    def moms2list(moms):
-        return [list(mom) for mom in moms]
-    def mom2str(mom):
-        return ','.join([str(ele) for ele in mom])
-    def str2mom(momstr):
-        return [int(ele) for ele in momstr.split(',')]
-    def mom2msq(mom):
-        return mom[0]**2+mom[1]**2+mom[2]**2
-    def sortMom_msq(moms):
-        msqs=[mom2msq(mom) for mom in moms]
-        inds=np.argsort(msqs)
-        moms=[moms[ind] for ind in inds]
-        return moms
-    
+        
     def decodeList(l):
         return [ele.decode() for ele in l]
     def removeDuplicates(l):
-        l=list(set(l)); l.sort()
-        return l
+        return list(set(l))
     
     def any2filename(t):
         if type(t)==str:
@@ -152,6 +132,94 @@ if True:
         t=np.mean(dat,axis=0)
         return dat*0 + t[None,...]
 
+#!============== mom opearations ==============#
+if True:
+    def removeDuplicates_moms(moms):
+        return [list(mom) for mom in {tuple(mom) for mom in moms}]
+    
+    def moms2dic(moms):
+        dic={}
+        for i,mom in enumerate(moms):
+            dic[tuple(mom)]=i
+        return dic
+    def moms2list(moms):
+        return [list(mom) for mom in moms]
+    def mom2str(mom):
+        return ','.join([str(ele) for ele in mom])
+    def str2mom(momstr):
+        return [int(ele) for ele in momstr.split(',')]
+    
+    def mom2msq(mom):
+        assert(len(mom)==3)
+        return mom[0]**2+mom[1]**2+mom[2]**2
+    def getSortkey_mom(mom): # @mom2standard
+        msq=mom2msq(mom)
+        return (msq,-mom[2],-mom[1],-mom[0])
+    def mom2standard(mom): # @getSortkey_mom
+        return sorted([abs(mom[0]),abs(mom[1]),abs(mom[2])]) 
+    
+    elements_rot48=[(sx,sy,sz,xyz) for sx in [1,-1] for sy in [1,-1] for sz in [1,-1] for xyz in [(0,1,2),(0,2,1),(1,0,2),(1,2,0),(2,0,1),(2,1,0)]]
+    def rotate_mom(e,mom):
+        if len(mom)!=3:
+            return rotate_mom(e,mom[:3])+rotate_mom(e,mom[3:])
+        sx,sy,sz,xyz=e; ix,iy,iz=xyz; iix,iiy,iiz=tuple([ix,iy,iz].index(i) for i in range(3))
+        return [sx*mom[iix],sy*mom[iiy],sz*mom[iiz]]
+    def mom2moms(mom):
+        return [list(mom) for mom in {tuple(rotate_mom(e,mom)) for e in elements_rot48}] 
+    
+    #==== for mom3pt=[p1,q] ====#
+    def mom2n2qpp1(mom):
+        p1x,p1y,p1z,qx,qy,qz=mom
+        px,py,pz=p1x+qx,p1y+qy,p1z+qz
+        
+        q2=qx**2+qy**2+qz**2
+        p2=px**2+py**2+pz**2
+        p12=p1x**2+p1y**2+p1z**2
+        return (q2,p2,p12)
+    def mom2n2qpp1_sym(mom):
+        (q2,p2,p12)=mom2n2qpp1(mom)
+        return (q2,p2,p12) if p2>=p12 else (q2,p12,p2)
+        
+    def mom_exchangeSourceSink(mom):
+        p1x,p1y,p1z,qx,qy,qz=mom
+        px,py,pz=p1x+qx,p1y+qy,p1z+qz
+        return [px,py,pz,-qx,-qy,-qz]
+    
+    def getSortkey_mom3pt_internal(mom):
+        return (-mom[2+3],-mom[1+3],-mom[0+3],-mom[2],-mom[1],-mom[0])
+    def mom3pt2standard_internal(mom):
+        return min(mom2moms(mom),key=getSortkey_mom3pt_internal)
+    def getSortkey_mom3pt(mom):
+        p1x,p1y,p1z,qx,qy,qz=mom
+        px,py,pz=p1x+qx,p1y+qy,p1z+qz
+        
+        q2=qx**2+qy**2+qz**2
+        p2=px**2+py**2+pz**2
+        p12=p1x**2+p1y**2+p1z**2
+        
+        if p2>p12:
+            exchangeQ=0
+            return (q2,-p2,p12,exchangeQ,getSortkey_mom3pt_internal(mom))
+        momE=mom_exchangeSourceSink(mom)
+        if p2<p12:
+            exchangeQ=1
+            return (q2,-p12,p2,exchangeQ,getSortkey_mom3pt_internal(momE))
+        
+        mom_std=mom3pt2standard_internal(mom)
+        momE_std=mom3pt2standard_internal(momE)
+        if getSortkey_mom3pt_internal(mom_std)<=getSortkey_mom3pt_internal(momE_std):
+            exchangeQ=0
+            return (q2,-p2,p12,exchangeQ,getSortkey_mom3pt_internal(mom))
+        else:
+            exchangeQ=1
+            return (q2,-p12,p2,exchangeQ,getSortkey_mom3pt_internal(momE))
+    def mom3pt2standard(mom):
+        moms=mom2moms(mom)
+        return min(moms,key=getSortkey_mom3pt)
+    def mom3pt2standard_sym(mom):
+        moms=mom2moms(mom)+mom2moms(mom_exchangeSourceSink(mom))
+        return min(moms,key=getSortkey_mom3pt)
+        
 #!============== constants ==============#
 if True:
     hbarc = 1/197.3

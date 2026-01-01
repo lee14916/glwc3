@@ -218,43 +218,9 @@ if True:
             ax.legend(fontsize=10,ncol=2)
         
         return fig,axs
-
-#!============== Rotation ==============#
+    
+#!============== mom transformations ==============#
 if True:
-    from itertools import permutations
-    
-    elements=[(sx,sy,sz,xyz) for sx in [1,-1] for sy in [1,-1] for sz in [1,-1] for xyz in permutations([0, 1, 2], 3)] # Permute first Flip next    
-    def rotate_mom(e,mom):
-        sx,sy,sz,xyz=e; ix,iy,iz=xyz; iix,iiy,iiz=tuple([ix,iy,iz].index(i) for i in range(3))
-        return [sx*mom[iix],sy*mom[iiy],sz*mom[iiz],sx*mom[iix+3],sy*mom[iiy+3],sz*mom[iiz+3]]
-    def mom2moms(mom):
-        moms=list(set([tuple(rotate_mom(e,mom)) for e in elements])) 
-        moms.sort()
-        moms=np.array(moms)
-        return moms
-    def mom2standard(mom):
-        moms=list(set([tuple(rotate_mom(e,mom)) for e in elements])) 
-        return list(max(moms, key=lambda x: x[::-1]))
-    def mom_exchangeSourceSink(mom):
-        p1x,p1y,p1z,qx,qy,qz=mom
-        px,py,pz=p1x+qx,p1y+qy,p1z+qz
-        return [px,py,pz,-qx,-qy,-qz]
-    def mom2standard_exchangeSourceSink(mom):
-        momE=mom_exchangeSourceSink(mom)
-        moms=list(set([tuple(rotate_mom(e,mom)) for e in elements]+[tuple(rotate_mom(e,momE)) for e in elements])) 
-        return list(max(moms, key=lambda x: x[::-1]))
-    def mom2n2qpp1(mom):
-        p1x,p1y,p1z,qx,qy,qz=mom
-        px,py,pz=p1x+qx,p1y+qy,p1z+qz
-        
-        q2=qx**2+qy**2+qz**2
-        p2=px**2+py**2+pz**2
-        p12=p1x**2+p1y**2+p1z**2
-        return (q2,p2,p12)
-    def mom2n2qpp1_sym(mom):
-        (q2,p2,p12)=mom2n2qpp1(mom)
-        return (q2,p2,p12) if p2>=p12 else (q2,p12,p2)
-    
     def mom2Q2(mom,ens,mN=None):
         L=yu.ens2NL[ens]
         n1vec=np.array(mom[:3]); nqvec=np.array(mom[3:6])
@@ -409,8 +375,8 @@ if True:
         return [mom1,proj1,insert1]
     
     def mpi2standard_pi(mom,proj,insert):
-        assert(np.all(mom==mom2standard(mom)))
-        mpis=[rotateMPI(e,mom,proj,insert) for e in elements]
+        assert(np.all(list(mom)==yu.mom3pt2standard(mom)))
+        mpis=[rotateMPI(e,mom,proj,insert) for e in yu.elements_rot48]
         pis=[(p,i) for m,p,i in mpis if np.all(m==mom)]
         pis.sort(key=lambda mpi:''.join(mpi))
         return pis[-1]
