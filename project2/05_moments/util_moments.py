@@ -250,6 +250,22 @@ if True:
         
         return Q2*yu.ens2aInv[ens]**2/(1000**2)
     
+    def get_n2qpp1s(max_mom2_pc,max_mom2_pf,noZeroQ=False):
+        range_xyz=range(0,int(np.sqrt(max_mom2_pc))+2)
+        moms_pc=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pc]
+
+        range_xyz=range(-int(np.sqrt(max_mom2_pf))-1,int(np.sqrt(max_mom2_pf))+2)
+        moms_pf=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pf]
+
+        moms=[pf+pc for pf in moms_pf for pc in moms_pc]
+        n2qpp1s=yu.removeDuplicates([yu.mom2n2qpp1_sym(mom) for mom in moms])
+        n2qpp1s=sorted(n2qpp1s, key=lambda x: (n2qpp12Q2(x,'b'),x[1]))
+        
+        if noZeroQ:
+            n2qpp1s=[(e1,e2,e3) for e1,e2,e3 in n2qpp1s if e1!=0]
+        
+        return n2qpp1s
+
 #!============== Form factor decomposition ==============#
 if True:
     import sympy as sp
@@ -302,11 +318,17 @@ if True:
         p1x,p1y,p1z=pvec1
         
         if m==sp.symbols('m'):
-            pt=sp.symbols('pt')
-            p1t=sp.symbols('p1t')
+            xE = m if px==py==pz==0 else sp.symbols('E')
+            xE1 = m if p1x==p1y==p1z==0 else sp.symbols('E1')
+            factorBase = 1/(2*xE*(xE+m)) if px==p1x and py==p1y and pz==p1z else sp.symbols('K')/(4*m**2)
+            pt=1j*xE; p1t=1j*xE1
+
         else:
-            pt=1j*np.sqrt(px**2+py**2+pz**2+m**2)
-            p1t=1j*np.sqrt(p1x**2+p1y**2+p1z**2+m**2)
+            xE=np.sqrt(px**2+py**2+pz**2+m**2)
+            xE1=np.sqrt(p1x**2+p1y**2+p1z**2+m**2)
+            pt=1j*xE
+            p1t=1j*xE1
+            factorBase=1/np.sqrt(2*xE1*(xE1+m)*2*xE*(xE+m))
             
         p=np.array([px,py,pz,pt])
         p1=np.array([p1x,p1y,p1z,p1t])
@@ -321,32 +343,13 @@ if True:
         
         #==============================
         factorA= 1j; factorB= -1j; factorC=1
-        factorBase=sp.symbols('K')/(4*m**2); factorSgm=1
-        
-        if m!=sp.symbols('m'):
-            xE=pt/1j; xE1=p1t/1j
-            factorBase=1/np.sqrt(2*xE1*(xE1+m)*2*xE*(xE+m))
+        factorSgm=1
         
         la=(gm[mu]*P[nu]/2+gm[nu]*P[mu]/2)/2-(np.sum(gm*P[:,None,None]/2,axis=0))*id[mu,nu]/4
         lb=(1j/(2*m))*((np.einsum('rab,r->ab',sgm[mu],q)*P[nu]/2+np.einsum('rab,r->ab',sgm[nu],q)*P[mu]/2)/2-np.einsum('srab,r,s->ab',sgm,q,P/2)*id[mu,nu]/4)*factorSgm
         lc=(id/m)*(q[mu]*q[nu]-Q2/4*id[mu,nu])
         
         res=np.array([factorBase*factor*np.trace(Gn@(-1j*p1S+m*id)@Lambda@(-1j*pS+m*id)) for Lambda,factor in zip([la,lb,lc],[factorA,factorB,factorC])])
-        
-        if m==sp.symbols('m'):
-            xE = sp.symbols('E')
-            xE1 = sp.symbols('E1')
-            xE1=xE=sqrt(px**2+py**2+pz**2+m**2)
-            for t in res:
-                # t=t.subs({p1x:0,p1y:0,p1z:0,p1t:1j*m,pt:1j*xE})
-                # t=t.subs({px:sqrt(xE**2-m**2-py**2-pz**2)})            
-                t=t.subs({p1t:1j*xE1,pt:1j*xE})
-                if px==p1x and py==p1y and pz==p1z:
-                    t=t.subs({sp.symbols('K'):(4*m**2)/(2*xE*(xE+m))})
-                t=sp.expand(sp.sympify(t))
-                print(t)
-            print()
-            return
         
         return res
 
@@ -387,6 +390,8 @@ if True:
             return (False,False)
         if insert == 'tt': # traceless makes tt=-xx-yy-zz
             return (False,False)
+        # if insert in ['xx','yy','zz']: # test
+        #     return (False,False)
         
         if (proj,insert) != mpi2standard_pi(mom,proj,insert):
             return (False,False)

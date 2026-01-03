@@ -168,6 +168,10 @@ if True:
         return [list(mom) for mom in {tuple(rotate_mom(e,mom)) for e in elements_rot48}] 
     
     #==== for mom3pt=[p1,q] ====#
+    def n2qpp12str(n2qpp1):
+        return ','.join([str(ele) for ele in n2qpp1])
+    def str2n2qpp1(n2qpp1_str):
+        return [int(ele) for ele in n2qpp1_str.split(',')]
     def mom2n2qpp1(mom):
         p1x,p1y,p1z,qx,qy,qz=mom
         px,py,pz=p1x+qx,p1y+qy,p1z+qz
@@ -968,9 +972,12 @@ if True:
         if closeQ:
             plt.close()
     
-    def makePDF(file,figs):
+    def makePDF(file,figs,mkdirQ=False):
         assert(path_fig_internal is not None)
-        pdf = PdfPages(f'{path_fig_internal}{any2filename(file)}.pdf')
+        file=f'{path_fig_internal}{any2filename(file)}.pdf'
+        if mkdirQ:
+            os.makedirs(os.path.dirname(file), exist_ok=True)
+        pdf = PdfPages(file)
         for fig in figs:
             pdf.savefig(fig,bbox_inches="tight")
         pdf.close()
@@ -1244,7 +1251,14 @@ if True:
         return fig,axd,result           
 #!============== plot (3pt) ==============#
 if True:
-    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8):
+    def makePlot_3pt(*args,symQ=True,**kargs):
+        #! This function will be removed outside 05_moments, avoid using it
+        if symQ:
+            return makePlot_3ptsym(*args,**kargs)
+        else:
+            return makePlot_3ptasy(*args,**kargs)
+        
+    def makePlot_3ptsym(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8):
         '''
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
         rainbow:[tfmin,tfmax,tcmin,dt] \\
@@ -1480,7 +1494,253 @@ if True:
             plot_fits('fit_2st',fits_2st,tfmins_2st,tcmins_2st,fit_2st_MA)
                                   
         return fig,axs
-                   
+
+    def makePlot_3ptasy(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8):
+        '''
+        base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
+        rainbow:[tfmin,tfmax,tcmin,dt] \\
+        fit_band:[tfmin,tfmax,tcmin_min,tcmin_max] \\
+        fit_band_WA \\
+        fit_#:[tfmin_min,tfmin_max,tcmin_min,tcmin_max] \\
+        fit_#_MA \\
+        fit_2st_rainbow_midpoint:[pars_jk_meff2st]
+        '''
+        if type(list_dic)==dict:
+            list_dic=[list_dic]
+        width_ratios=[3 if show in ['rainbow'] else 2 for show in shows]
+        Nrow=len(list_dic); Ncol=len(shows)
+        fig, axs = getFigAxs(Nrow,Ncol,Lrow=4,Lcol=6,sharex='col',sharey='row', gridspec_kw={'width_ratios': width_ratios})
+        if colHeaders is not None:
+            show2Header={'rainbow':r'ratio','midpoint':r'mid point','fit_band':r'const fit to each $t_s$',
+                    'fit_const':r'const fit', 'fit_2st':r'2st fit', 'fit_sum':r'summation method',
+                    'fit_const_prob':r'Fit Prob. (const)','fit_sum_prob':r'Fit Prob. (sum)','fit_2st_prob':r'Fit Prob. (2st)'}
+            addColHeader(axs,[show2Header[show] for show in shows] if colHeaders=='auto' else colHeaders)
+            
+        show2xlabel={'rainbow':r'$t_{\rm ins}-t_{s}/2$ [fm]','midpoint':r'$t_{s}^{\rm}$ [fm]','fit_band':r'$t_{s}^{\rm}$ [fm]',
+                    'fit_const':r'$t_{s}^{\rm low}$ [fm]', 'fit_2st':r'$t_{s}^{\rm low}$ [fm]', 'fit_sum':r'$t_{s}^{\rm low}$ [fm]',
+                    'fit_const_prob':r'Fit Prob.','fit_sum_prob':r'Fit Prob.','fit_2st_prob':r'Fit Prob.'}
+        for i in range(Ncol):
+            axs[-1,i].set_xlabel(show2xlabel[shows[i]])
+        
+        for show in shows:
+            if show.endswith('_prob'):
+                ax=axs[-1,shows.index(show)]  
+                xticks=[1,3,10,30,90]
+                ax.set_xlim([xticks[0]/2,150])
+                ax.set_xscale('log')
+                ax.set_xticks(xticks)
+                ax.set_xticklabels([f'{x}%' for x in xticks])
+                
+        # determine fit ranges
+        tfs_mids_phy=[]
+        for irow in range(Nrow):
+            dic=list_dic[irow]
+            def setParameter(default,key):
+                if type(default) is not list:
+                    return dic[key] if key in dic else default                
+                if key in dic:
+                    res=dic[key]
+                    for i in range(len(res)):
+                        if res[i] is None:
+                            res[i]=default[i]
+                    return res
+                return default
+            
+            # general
+            xunit=setParameter(1,'xunit')
+            yunit=setParameter(1,'yunit')
+            (tf2ratio,fits_band,fits_const,fits_sum,fits_2st)=setParameter([None,None,None,None,None],'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]')
+            tfs_all=list(tf2ratio.keys()); tfs_all.sort()
+            # rainbow
+            (tfmin,tfmax,tcmin,dt)=setParameter([0,np.inf,1,1],'rainbow:[tfmin,tfmax,tcmin,dt]')
+            tfs_rainbow=[tf for tf in tfs_all if tfmin<=tf<=tfmax and tf%dt==0 and tf>=tcmin*2]
+            tcmin_rainbow=tcmin
+            tfs_mid=setParameter(tfs_rainbow,'tfs_mid')
+            tfs_mids_phy+=[(min(tfs_mid)-1)*xunit,(max(tfs_mid)+1)*xunit]
+        if 'midpoint' in shows:
+            ax=axs[-1,shows.index('midpoint')]
+            ax.set_xlim([min(tfs_mids_phy),max(tfs_mids_phy)])
+                
+        for irow in range(Nrow):
+            dic=list_dic[irow]
+            def setParameter(default,key):
+                if type(default) is not list:
+                    return dic[key] if key in dic else default                
+                if key in dic:
+                    res=dic[key]
+                    for i in range(len(res)):
+                        if res[i] is None:
+                            res[i]=default[i]
+                    return res
+                return default
+            
+            # general
+            xunit=setParameter(1,'xunit')
+            yunit=setParameter(1,'yunit')
+            (tf2ratio,fits_band,fits_const,fits_sum,fits_2st)=setParameter([None,None,None,None,None],'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]')
+            tfs_all=list(tf2ratio.keys()); tfs_all.sort()
+            # rainbow
+            (tfmin,tfmax,tcmin,dt)=setParameter([0,np.inf,1,1],'rainbow:[tfmin,tfmax,tcmin,dt]')
+            tfs_rainbow=[tf for tf in tfs_all if tfmin<=tf<=tfmax and tf%dt==0 and tf>=tcmin*2]
+            tcmin_rainbow=tcmin
+            tfs_mid=setParameter(tfs_rainbow,'tfs_mid')
+            # fit_band
+            if fits_band is not None:
+                tfs=removeDuplicates([fit[0][0] for fit in fits_band])
+                tcmins=removeDuplicates([fit[0][1] for fit in fits_band])
+                (tfmin,tfmax,tcmin_min,tcmin_max)=setParameter([min(tfs),max(tfs),min(tcmins),max(tcmins)],'fit_band:[tfmin,tfmax,tcmin_min,tcmin_max]')
+                [dt]=setParameter([1],'fit_band:[dt]')
+                tfs_band=[tf for tf in tfs if tfmin<=tf<=tfmax and tf%dt==0]
+                tcmins_band=[tcmin for tcmin in tcmins if tcmin_min<=tcmin<=tcmin_max]
+                fit_band_WA=setParameter(None,'fit_band_WA')
+            else:
+                tfs_band=[]
+                
+            def process_fits(fits,name):
+                if fits is not None:
+                    tfmins=removeDuplicates([fit[0][0] for fit in fits])
+                    tcmins=removeDuplicates([fit[0][1] for fit in fits])
+                    (tfmin_min,tfmin_max,tcmin_min,tcmin_max)=setParameter([min(tfmins),max(tfmins),min(tcmins),max(tcmins)],f'{name}:[tfmin_min,tfmin_max,tcmin_min,tcmin_max]')
+                    tfmins=[tfmin for tfmin in tfmins if tfmin_min<=tfmin<=tfmin_max]
+                    tcmins=[tcmin for tcmin in tcmins if tcmin_min<=tcmin<=tcmin_max]
+                    fit_MA=setParameter(None,f'{name}_MA')
+                    return tfmins,tcmins,fit_MA
+                return None,None,None
+            tfmins_const,tcmins_const,fit_const_MA=process_fits(fits_const,'fit_const')
+            tfmins_sum,tcmins_sum,fit_sum_MA=process_fits(fits_sum,'fit_sum')
+            tfmins_2st,tcmins_2st,fit_2st_MA=process_fits(fits_2st,'fit_2st')
+
+            tfs_color=removeDuplicates(tfs_rainbow+tfs_band+tfs_mid)
+            
+            show='rainbow'
+            if show in shows:
+                ax=axs[irow,shows.index(show)]                
+                for itf,tf in enumerate(tfs_rainbow):
+                    mean,err=jackme(tf2ratio[tf])
+                    tcs=np.arange(tcmin_rainbow,tf-tcmin_rainbow+1)
+                    plt_x=(tcs-tf/2+0.05*(itf-len(tfs_rainbow)/2))*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
+                    itf_color=tfs_color.index(tf)
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16])
+                    
+            show='midpoint'
+            if show in shows:
+                ax=axs[irow,shows.index(show)]                
+                for itf,tf in enumerate(tfs_mid):
+                    if tf%2!=0:
+                        continue
+                    mean,err=jackme(tf2ratio[tf][:,tf//2])
+                    plt_x=tf*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                    itf_color=tfs_color.index(tf)
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16])
+                    
+            show='fit_band'
+            if show in shows and fits_band is not None:
+                ax=axs[irow,shows.index(show)]   
+                fits=fits_band
+                if fit_band_WA is not None:
+                    pars_jk,chi2_jk,Ndof,tf_min_WA,tf_max_WA,tcmin_WA=fit_band_WA
+                    mean,err=jackme(pars_jk[:,0])
+                    plt_x=[tf_min_WA*xunit,tf_max_WA*xunit]; plt_y=mean*yunit; plt_yerr=err*yunit
+                    ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))  
+                    ax.legend()
+                    
+                tcmins=removeDuplicates([fit[0][1] for fit in fits])
+                for fit in fits:
+                    (tf,tcmin),pars_jk,chi2_jk,Ndof=fit
+                    if tf not in tfs_band or tcmin not in tcmins_band:
+                        continue
+                    itf=tfs_color.index(tf)
+                    itcmin=tcmins.index(tcmin)
+                    mfc=None
+                    if fit_band_WA is not None and tf_min_WA<=tf<=tf_max_WA and tcmin==tcmin_WA:
+                        mfc='white'
+                    mean,err=jackme(pars_jk[:,0])
+                    plt_x=(tf+itcmin*0.1)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf%16],fmt=fmts16[itf%16],mfc=mfc)
+                    
+            def plot_fits(show,fits,tfmins,tcmins,fit_MA):
+                show_prob=show+'_prob'
+                if show in shows and fits is not None:
+                    ax=axs[irow,shows.index(show)]
+                    if fit_MA is not None:
+                        pars_jk,probs_jk,fits_MA=fit_MA
+                        fitlabels=[fit[0] for fit in fits_MA]
+                        probs=np.mean(probs_jk,axis=0)
+                        tfs=removeDuplicates([fitlabel[0] for fitlabel in fitlabels])
+                        mean,err=jackme(pars_jk[:,0])
+                        plt_y=mean*yunit; plt_yerr=err*yunit
+                        ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
+                        ax.legend()
+                        if show_prob in shows:
+                            axp=axs[irow,shows.index(show_prob)]
+                            axp.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2)
+                    for fit in fits:
+                        (tfmin,tcmin),pars_jk,chi2_jk,Ndof=fit
+                        if tfmin not in tfmins or tcmin not in tcmins:
+                            continue
+                        itcmin=tcmins.index(tcmin)
+                        mfc=None
+                        if fit_MA is not None and (tfmin,tcmin) in fitlabels:
+                            mfc='white'
+                        mean,err=jackme(pars_jk[:,0])
+                        plt_x=(tfmin+itcmin*0.1)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_fit[itcmin],fmt=fmts8[itcmin%8],mfc=mfc)
+                        
+                        if show_prob in shows and (tfmin,tcmin) in fitlabels:
+                            ind=fitlabels.index((tfmin,tcmin))
+                            prob=probs[ind]
+                            if prob<1/100:
+                                continue
+                            mean,err=jackme(pars_jk)
+                            plt_x=(prob)*100; plt_y=mean[0]*yunit; plt_yerr=err[0]*yunit
+                            axp.errorbar(plt_x,plt_y,plt_yerr,color=colors_fit[itcmin],fmt=fmts8[itcmin%8],mfc=mfc)
+
+                    if show=='fit_2st' and 'fit_2st_rainbow_midpoint:[pars_jk_meff2st]' in dic:
+                        pars_jk_meff2st=dic['fit_2st_rainbow_midpoint:[pars_jk_meff2st]']
+                        ind_mpf=np.argmax(probs)
+                        (tfmin,tcmin),pars_jk,chi2_jk,Ndof=fits_MA[ind_mpf]
+                        if pars_jk_meff2st is not None:
+                            pars_jk=np.array([[pars[0],pars_2pt[1],pars_2pt[2],pars[1],pars[2]] for pars,pars_2pt in zip(pars_jk,pars_jk_meff2st)])
+                        ax=axs[irow,shows.index('rainbow')]
+                        for itf,tf in enumerate(tfs_rainbow):
+                            if tf<tfmin:
+                                continue
+                            tcs=np.arange(tcmin,tf-tcmin,0.1)
+                            t=np.array([func_ratio_2st(tf,tcs,*pars) for pars in pars_jk])
+                            mean,err=jackme(t)
+                            plt_x=(tcs-tf//2)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                            itf_color=tfs_color.index(tf)
+                            ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=colors_rainbow[itf_color%16],alpha=0.2)   
+                        if 'midpoint' in shows:
+                            ax=axs[irow,shows.index('midpoint')]
+                            xlim=ax.get_xlim()
+                            tfs=np.arange(xlim[0]/xunit,xlim[-1]/xunit,0.1)
+                            t=np.array([func_ratio_2st(tfs,tfs/2,*pars) for pars in pars_jk])
+                            mean,err=jackme(t)
+                            plt_x=tfs*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                            ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='grey',alpha=0.2)   
+
+                            tfs=np.arange(tfmin,tfs_mid[-1],0.1)
+                            t=np.array([func_ratio_2st(tfs,tfs/2,*pars) for pars in pars_jk])
+                            mean,err=jackme(t)
+                            plt_x=tfs*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                            ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='grey',alpha=0.7) 
+                
+            plot_fits('fit_const',fits_const,tfmins_const,tcmins_const,fit_const_MA)
+            plot_fits('fit_sum',fits_sum,tfmins_sum,tcmins_sum,fit_sum_MA)
+            plot_fits('fit_2st',fits_2st,tfmins_2st,tcmins_2st,fit_2st_MA)
+                                  
+        return fig,axs
+
+    def makePlot_3pt_rainbow(list_tf2ratio,tfmin=None,tfmax=None,tcmin=None,dt=None,xunit=1,yunit=1):
+        if type(list_tf2ratio)==dict:
+            list_tf2ratio=[list_tf2ratio]
+        list_dic=[{
+            'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]':[tf2ratio,None,None,None,None],
+            'rainbow:[tfmin,tfmax,tcmin,dt]':[tfmin,tfmax,tcmin,dt],
+            'xunit':xunit, 'yunit':yunit,
+        } for tf2ratio in list_tf2ratio]
+        return makePlot_3ptsym(list_dic,shows=['rainbow','midpoint'])
 #!============== GEVP ==============#
 if True:
     def GEVP(Ct,t0List,tList=None,tvList=None):

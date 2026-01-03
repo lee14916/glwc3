@@ -150,6 +150,9 @@ moms_target=moms
 jqs=['j+','js','jc'] # disc
 stouts=range(40+1) # gluon
 
+moms_target=[[0,0,0,0,1,1]]
+jqs=[]; stouts=[20]
+
 ens='cB211.072.64'
 lat_L={'cB211.072.64':64,'cC211.060.80':80,'cD211.054.96':96,'cE211.044.112':112}[ens]
 tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]

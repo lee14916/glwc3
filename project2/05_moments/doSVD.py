@@ -1,23 +1,52 @@
 '''
-cat data_aux/ens_n2qpp1_conn_run | xargs -I @ -P 10 python3 -u doSVD_conn.py -e @ > log/doSVD_conn.out & 
+cat data_aux/ens_n2qpp1_run | xargs -I @ -P 10 python3 -u doSVD.py -e @ > log/doSVD.out & 
 '''
 import util as yu
 from util import *
 import util_moments as yum
 import click
+from scipy.linalg import sqrtm
 
-basepath=f'/p/project1/ngff/li47/code/projectData/05_moments/'
+#============================= input start
+
+cd='conn'
+cd_2pt=cd
+
+basepath_2pt_conn=f'/p/project1/ngff/li47/code/projectData/05_moments/'
+basepath_2pt_disc=basepath_2pt_conn
+
+basepath_3pt_conn=basepath_2pt_conn
+basepath_3pt_disc=f'/p/project1/ngff/li47/code/projectData/05_moments/'
+basepath_3pt={'conn':basepath_3pt_conn,'disc':basepath_3pt_disc}[cd]
+
+basepath_output=f'{basepath_3pt}doSVD/'
+
 ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
+ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
+
+js_conn=['j+;conn','j-;conn']
+js_disc=['jg;stout20']
+js={'conn':js_conn,'disc':js_disc}[cd]
+
+cases_munu=['unequal','equal','all']
+cases_SVD=['err','cov','errTopMid','covTopMid']
+cases=[(c1,c2) for c1 in cases_munu for c2 in cases_SVD]
+
+#============================= input end
+
+assert(cd in ['conn','disc'])
+assert(cd_2pt in ['conn','disc'])
 
 projs=['P0', 'Px', 'Py', 'Pz']
 inserts=['tt', 'tx', 'ty', 'tz', 'xx', 'xy', 'xz', 'yy', 'yz', 'zz']
-js=['j+;conn','j-;conn']
+
+os.makedirs(basepath_output,exist_ok=True)
 
 def mom2num(mom):
     moms=yu.mom2moms(list(mom))
     return len(moms)
-def extract2pt(ens,n2qpp1):
-    inpath=f'{basepath}{yu.ens2full[ens]}/data_merge/'
+def extract2pt_conn(ens,n2qpp1):
+    inpath=f'{basepath_2pt_conn}{yu.ens2full[ens]}/data_merge/'
     n2q,n2p,n2p1=n2qpp1
     path=f'{inpath}conn_2pt.h5'
     
@@ -49,10 +78,38 @@ def extract2pt(ens,n2qpp1):
             tf2c2ptb[tf]=t
 
     return tf2c2pta,tf2c2ptb
+def extract2pt_disc(ens,n2qpp1):
+    inpath=f'{basepath_2pt_disc}{yu.ens2full[ens]}/data_merge/'
+    n2q,n2p,n2p1=n2qpp1
+    path=f'{inpath}disc_2pt.h5'
+    
+    with h5py.File(path) as f:
+        moms=yu.moms2list(f['moms'])
+        msqs=[yu.mom2msq(mom) for mom in moms]
+        
+        # sink
+        inds=np.where(np.array(msqs)==n2p1)[0]
+        Ns=[mom2num(moms[ind]) for ind in inds]
+        weights=np.array(Ns)/np.sum(Ns)
+        t=np.real(f['data/N_N'][:])
+        t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+        t=yu.jackknife(t)
+        c2pta=t
+        
+        # source
+        inds=np.where(np.array(msqs)==n2p)[0]
+        Ns=[mom2num(moms[ind]) for ind in inds]
+        weights=np.array(Ns)/np.sum(Ns)
+        t=np.real(f['data/N_N'][:])
+        t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+        t=yu.jackknife(t)
+        c2ptb=t
+
+    return c2pta,c2ptb
 
 conj_sgns=np.array([1,-1,-1,-1,1, 1,1,1,1,1])[None,None,None,:]
 def extract3pt(ens,moms):
-    inpath=f'{basepath}{yu.ens2full[ens]}/data_merge/'
+    inpath=f'{basepath_3pt}{yu.ens2full[ens]}/data_merge/'
     n2qpp1=yu.mom2n2qpp1_sym(moms[0])
     
     j2mom2tf2c3pt={j:{} for j in js}
@@ -63,6 +120,8 @@ def extract3pt(ens,moms):
         with h5py.File(path) as f:
             for key in f['data'].keys():
                 j,tf=key.split('_'); tf=int(tf)
+                if j not in js:
+                    continue
                 c3pt=f['data'][key][:,:,0,:,:]
                 c3pt=yu.jackknife(c3pt)
                 j2mom2tf2c3pt[j][tuple(mom)][tf]=c3pt
@@ -82,11 +141,14 @@ def extract3pt(ens,moms):
     return j2mom2tf2c3pt
     
 def extractRatio(ens,moms):
-    inpath=f'{basepath}{yu.ens2full[ens]}/data_merge/'
     n2qpp1=yu.mom2n2qpp1_sym(moms[0])
     n2q,n2p,n2p1=n2qpp1
     
-    tf2c2pta,tf2c2ptb=extract2pt(ens,n2qpp1)
+    if cd_2pt=='conn':
+        tf2c2pta,tf2c2ptb=extract2pt_conn(ens,n2qpp1)
+    else:
+        c2pta,c2ptb=extract2pt_disc(ens,n2qpp1)
+        
     j2mom2tf2c3pt=extract3pt(ens,moms)
     
     E0a=ens2msq2pars_jk[ens][n2p1][:,0][:,None,None,None]
@@ -98,16 +160,35 @@ def extractRatio(ens,moms):
             j2mom2tf2ratio[j][mom]={}
             for tf in j2mom2tf2c3pt[j][mom].keys():
                 c3pt=j2mom2tf2c3pt[j][mom][tf]
-                c2pta=tf2c2pta[tf]; c2ptb=tf2c2ptb[tf]
+                if cd_2pt=='conn':
+                    c2pta=tf2c2pta[tf]; c2ptb=tf2c2ptb[tf]
                 tcs_tfby2=(np.arange(tf+1)-tf/2)[None,:,None,None]
                 ratio=c3pt / np.sqrt(c2pta[:,tf:tf+1,None,None]*c2ptb[:,tf:tf+1,None,None]) / np.sqrt(np.exp(+E0a*tcs_tfby2)*np.exp(-E0b*tcs_tfby2))
+                # ratio=c3pt/np.sqrt(
+                #     c2pta[:,tf:tf+1]*c2ptb[:,tf:tf+1]*\
+                #     c2pta[:,:tf+1][:,::-1]/c2pta[:,:tf+1]*\
+                #     c2ptb[:,:tf+1]/c2ptb[:,:tf+1][:,::-1]
+                # )[:,:,None,None]
                 j2mom2tf2ratio[j][mom][tf]=ratio
     
     return j2mom2tf2ratio
 
 def doSVD_err(G,M):
     err=yu.jackme(M)[-1]
-    covIsq=np.diag(1/np.sqrt(err))
+    covIsq=np.diag(1/err)
+    def get(g,m):
+        gt=covIsq@g
+        u,s,vT=np.linalg.svd(gt)
+        sI=np.zeros(gt.T.shape)
+        np.fill_diagonal(sI,1/s)
+        return vT.T@sI@(u.T)@covIsq@m
+    F=np.array([get(g,m) for g,m in zip(G,M)])
+    return F
+def doSVD_cov(G,M):
+    cov=yu.jackmec(M)[-1]
+    cov=np.diag(np.diag(cov))
+    covI=np.linalg.inv(cov)
+    covIsq = sqrtm(covI)
     def get(g,m):
         gt=covIsq@g
         u,s,vT=np.linalg.svd(gt)
@@ -118,14 +199,14 @@ def doSVD_err(G,M):
     return F
 
 funcs_ri=[np.real,np.imag]
-def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
+def get_tf2ratio_SVD(ens,mom2tf2ratio,case_munu,extra=None):
     moms=[list(mom) for mom in mom2tf2ratio.keys()]
     
-    if case=='unequal':
+    if case_munu=='unequal':
         mpirs=[(mom,proj,insert,ri) for mom in moms for proj in projs for insert in inserts for ri in [0,1] if insert[0]!=insert[1] and yum.useQ(mom,proj,insert)[ri]]
-    elif case=='equal':
+    elif case_munu=='equal':
         mpirs=[(mom,proj,insert,ri) for mom in moms for proj in projs for insert in inserts for ri in [0,1] if insert[0]==insert[1] and yum.useQ(mom,proj,insert)[ri]]
-    elif case=='all':
+    elif case_munu=='all':
         mpirs=[(mom,proj,insert,ri) for mom in moms for proj in projs for insert in inserts for ri in [0,1] if yum.useQ(mom,proj,insert)[ri]]
     else:
         1/0
@@ -152,7 +233,7 @@ def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
     for tf in tfs:
         M_all=np.transpose([funcs_ri[ri](mom2tf2ratio[tuple(mom)][tf][:,:,projs.index(proj),inserts.index(insert)]) for mom,proj,insert,ri in mpirs],[1,2,0])
         
-        if case=='all':
+        if case_munu=='all':
             inds=[i for i,mpir in enumerate(mpirs) if mpir[2][0]!=mpir[2][1]]
             M_all[:,:,inds]*=extra
         
@@ -170,7 +251,7 @@ ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
 @click.command()
 @click.option('-e','--ens_n2qpp1')
 def run(ens_n2qpp1):
-    outfile=f'/p/project1/ngff/li47/code/projectData/05_moments/doSVD_conn/{ens_n2qpp1}.h5'
+    outfile=f'{basepath_output}conn_{ens_n2qpp1}.h5'
     outfile_flag=outfile+'_flag'
     if os.path.isfile(outfile) and (not os.path.isfile(outfile_flag)):
         print('flag_skip: ' + ens_n2qpp1)
@@ -183,24 +264,28 @@ def run(ens_n2qpp1):
     n2q,n2p,n2p1=n2qpp1
     assert(n2q!=0 and n2p>=n2p1)
     
-    inpath=f'{basepath}{yu.ens2full[ens]}/data_merge/'
+    inpath=f'{basepath_3pt}{yu.ens2full[ens]}/data_merge/'
     moms=[[int(e) for e in file[5:-3].split(',')] for file in os.listdir(inpath) \
-        if file.startswith('conn') and not file.endswith('n.h5') and not file.endswith('t.h5')]
+        if file.startswith('conn') and file.endswith('.h5') and not file.endswith('n.h5') and not file.endswith('t.h5')]
     moms=[mom for mom in moms if yu.mom2n2qpp1_sym(mom)==n2qpp1]
     
     j2mom2tf2ratio=extractRatio(ens,moms)
     
-    rescale=ens2RCs_me[ens]['Zqq^s(mu!=nu)']/ens2RCs_me[ens]['Zqq^s(mu=nu)']
     
     with h5py.File(outfile,'w') as f:
         for j in js:
-            for case,extra in zip(['unequal','equal','all'],[None,None,rescale]):
-                tf2ratio=get_tf2ratio_SVD(ens,j2mom2tf2ratio[j],case,extra=rescale)
+            for case_munu in cases_munu:
+                extra=None
+                if case_munu in ['all']:
+                    Zqq={'j+;conn':'Zqq^s','j-;conn':'Zqq'}[j]
+                    rescale=ens2RCs_me[ens][f'{Zqq}(mu!=nu)']/ens2RCs_me[ens][f'{Zqq}(mu=nu)']
+                    extra=rescale
+                tf2ratio=get_tf2ratio_SVD(ens,j2mom2tf2ratio[j],case_munu,extra=extra)
                 if tf2ratio is None:
                     continue                
                 for tf in tf2ratio.keys():
                     for i,ff in enumerate(['A20','B20','C20']):
-                        f.create_dataset(f'{case}/{ff}_{j}_{tf}',data=tf2ratio[tf][:,:,i])
+                        f.create_dataset(f'{case_munu}/{ff}_{j}_{tf}',data=tf2ratio[tf][:,:,i])
             
     os.remove(outfile_flag)
     print('flag_done: ' + ens_n2qpp1)
