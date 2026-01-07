@@ -390,9 +390,15 @@ if True:
             return (False,False)
         if insert == 'tt': # traceless makes tt=-xx-yy-zz
             return (False,False)
-        # if insert in ['xx','yy','zz']: # test
-        #     return (False,False)
-        
+        if (proj,insert) != mpi2standard_pi(mom,proj,insert):
+            return (False,False)
+        return (r,i)
+    def useQ_Kyriakos(mom,proj,insert):
+        r,i=nonzeroQ(mom,proj,insert)
+        if (r,i)==(False,False):
+            return (False,False)
+        if insert in ['xx','yy','zz']:
+            return (False,False)
         if (proj,insert) != mpi2standard_pi(mom,proj,insert):
             return (False,False)
         return (r,i)

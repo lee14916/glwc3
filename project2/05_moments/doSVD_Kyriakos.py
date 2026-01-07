@@ -1,5 +1,5 @@
 '''
-cat data_aux/dat_ignore/doSVD_run | xargs -I @ -P 10 python3 -u doSVD.py -e @ > log/doSVD.out & 
+cat data_aux/ens_n2qpp1_run | xargs -I @ -P 10 python3 -u doSVD_Kyriakos.py -e @ > log/doSVD_Kyriakos.out & 
 '''
 import util as yu
 from util import *
@@ -20,23 +20,14 @@ basepath_3pt={'conn':basepath_3pt_conn,'disc':basepath_3pt_disc}[cd]
 
 basepath_output=f'{basepath_3pt}doSVD/'
 
+ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
+ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
+
 js_conn=['j+;conn','j-;conn']
 js_disc=['jg;stout20']
 js={'conn':js_conn,'disc':js_disc}[cd]
 
-cases_munu=['unequal','equal','all']
-if 'all' in cases_munu:
-    ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
-
-cases_SVD_conn=['err','cov','err1c','cov1c']
-cases_SVD_disc=['err','cov','err1d','cov1d']
-cases_SVD={'conn':cases_SVD_conn,'disc':cases_SVD_disc}[cd]
-cases=[(c1,c2) for c1 in cases_munu for c2 in cases_SVD]
-
-ratiotype=['sqtm','Efit'][1]
-if ratiotype=='Efit':
-    ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
-    
+cases=[('Kyriakos','err')]
 
 #============================= input end
 
@@ -157,9 +148,8 @@ def extractRatio(ens,moms):
         
     j2mom2tf2c3pt=extract3pt(ens,moms)
     
-    if ratiotype in ['Efit']:
-        E0a=ens2msq2pars_jk[ens][n2p1][:,0][:,None,None,None]
-        E0b=ens2msq2pars_jk[ens][n2p][:,0][:,None,None,None]
+    E0a=ens2msq2pars_jk[ens][n2p1][:,0][:,None,None,None]
+    E0b=ens2msq2pars_jk[ens][n2p][:,0][:,None,None,None]
     
     j2mom2tf2ratio={j:{} for j in js}
     for j in js:
@@ -169,19 +159,14 @@ def extractRatio(ens,moms):
                 c3pt=j2mom2tf2c3pt[j][mom][tf]
                 if cd_2pt=='conn':
                     c2pta=tf2c2pta[tf]; c2ptb=tf2c2ptb[tf]
+                tcs_tfby2=(np.arange(tf+1)-tf/2)[None,:,None,None]
                 
-                if ratiotype in ['Efit']:
-                    tcs_tfby2=(np.arange(tf+1)-tf/2)[None,:,None,None]
-                    ratio=c3pt / np.sqrt(c2pta[:,tf:tf+1,None,None]*c2ptb[:,tf:tf+1,None,None]) / np.sqrt(np.exp(+E0a*tcs_tfby2)*np.exp(-E0b*tcs_tfby2))
-                elif ratiotype in ['sqtm']:
-                    ratio=c3pt/np.sqrt(
-                        c2pta[:,tf:tf+1]*c2ptb[:,tf:tf+1]*\
-                        c2pta[:,:tf+1][:,::-1]/c2pta[:,:tf+1]*\
-                        c2ptb[:,:tf+1]/c2ptb[:,:tf+1][:,::-1]
-                    )[:,:,None,None]
-                else:
-                    1/0
-                    
+                # ratio=c3pt / np.sqrt(c2pta[:,tf:tf+1,None,None]*c2ptb[:,tf:tf+1,None,None]) / np.sqrt(np.exp(+E0a*tcs_tfby2)*np.exp(-E0b*tcs_tfby2))
+                ratio=c3pt/np.sqrt(
+                    c2pta[:,tf:tf+1]*c2ptb[:,tf:tf+1]*\
+                    c2pta[:,:tf+1][:,::-1]/c2pta[:,:tf+1]*\
+                    c2ptb[:,:tf+1]/c2ptb[:,:tf+1][:,::-1]
+                )[:,:,None,None]
                 j2mom2tf2ratio[j][mom][tf]=ratio
     
     return j2mom2tf2ratio
@@ -231,6 +216,8 @@ def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
         mpirs=[(mom,proj,insert,ri) for mom in moms for proj in projs for insert in inserts for ri in [0,1] if insert[0]==insert[1] and yum.useQ(mom,proj,insert)[ri]]
     elif case_munu=='all':
         mpirs=[(mom,proj,insert,ri) for mom in moms for proj in projs for insert in inserts for ri in [0,1] if yum.useQ(mom,proj,insert)[ri]]
+    elif case_munu=='Kyriakos':
+        mpirs=[(mom,proj,insert,ri) for mom in moms for proj in projs for insert in inserts for ri in [0,1] if yum.useQ_Kyriakos(mom,proj,insert)[ri]]
     else:
         1/0
         
@@ -263,7 +250,7 @@ def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
     res_tf2ratio={}
     for tf in tfs:
         M_all=np.transpose([funcs_ri[ri](mom2tf2ratio[tuple(mom)][tf][:,:,projs.index(proj),inserts.index(insert)]) for mom,proj,insert,ri in mpirs],[1,2,0])
-        if case_munu=='all':
+        if case_munu in ['all','Kyriakos']:
             inds=[i for i,mpir in enumerate(mpirs) if mpir[2][0]!=mpir[2][1]]
             M_all[:,:,inds]*=extra
             
@@ -289,9 +276,9 @@ ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
 def run(ens_n2qpp1):
     outfile=f'{basepath_output}conn_{ens_n2qpp1}.h5'
     outfile_flag=outfile+'_flag'
-    if os.path.isfile(outfile) and (not os.path.isfile(outfile_flag)):
-        print('flag_skip: ' + ens_n2qpp1)
-        return
+    # if os.path.isfile(outfile) and (not os.path.isfile(outfile_flag)):
+    #     print('flag_skip: ' + ens_n2qpp1)
+    #     return
     with open(outfile_flag,'w') as f:
         pass
     
@@ -307,7 +294,7 @@ def run(ens_n2qpp1):
     
     j2mom2tf2ratio=extractRatio(ens,moms)
     
-    with h5py.File(outfile,'w') as f:
+    with h5py.File(outfile,'a') as f:
         for j in js:
             for case in cases:
                 case_str='_'.join(case)
@@ -316,13 +303,21 @@ def run(ens_n2qpp1):
                     Zqq={'j+;conn':'Zqq^s','j-;conn':'Zqq'}[j]
                     rescale=ens2RCs_me[ens][f'{Zqq}(mu!=nu)']/ens2RCs_me[ens][f'{Zqq}(mu=nu)']
                     extra=rescale
+                if case[0] in ['Kyriakos']:
+                    rescale=1.160/1.151
+                    # rescale=1
+                    # reslace = 1.0078
+                    # new rescale = 1.1262/1.1167=1.0085 (ns), 1.134/1.066=1.0638 (s)
+                    extra=rescale
+                
                 tf2ratio=get_tf2ratio_SVD(ens,j2mom2tf2ratio[j],case,extra=extra)
                 if tf2ratio is None:
                     continue                
                 for tf in tf2ratio.keys():
                     for i,ff in enumerate(['A20','B20','C20']):
+                        if f'{case_str}/{ff}_{j}_{tf}' in f:
+                            del f[f'{case_str}/{ff}_{j}_{tf}']
                         f.create_dataset(f'{case_str}/{ff}_{j}_{tf}',data=tf2ratio[tf][:,:,i])
-            
     os.remove(outfile_flag)
     print('flag_done: ' + ens_n2qpp1)
 
