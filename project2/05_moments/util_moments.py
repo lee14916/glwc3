@@ -3,6 +3,19 @@ from util import *
 
 #!============== General ==============#
 
+#!============== exp ==============#
+if True:
+    src2j2avgx={
+        'NNPDF3.1':{'j-': (0.152,0.003), 'ju': (0.348,0.004), 'jd': (0.196,0.003), 'js': (0.039,0.003), 'jg': (0.410,0.004)}
+    }
+    
+    def get_avgx_from_src(src,j):
+        j2avgx=src2j2avgx[src]
+        if j in j2avgx:
+            return j2avgx[j]
+        return {'jc':(0,0), 'jq':(0.583,0.006), 'jtot':(0.993,0.007)}[j]
+        
+
 #!============== Renomalization ==============#
 if True:
     j2j1={
@@ -137,24 +150,54 @@ if True:
                 key2phy[key]=key2phy_old[key]
         return key2phy                
 
-    def makePlot_a2dependence_avgx(list_dic):
+    def makePlot_a2dependence_avgx(list_dic,case='avgx'):
         Ncol=len(list_dic)
         fig, axs = yu.getFigAxs(2,Ncol,Lrow=4,Lcol=6,sharex=True,sharey='row')
+        caselabel={'avgx':r'\langle \mathrm{x} \rangle', 'B20':r'B20', 'J':r'J'}[case]
+        
+        if case == 'avgx':
+            ax=axs[0,0]
+            ax.set_ylim([0.2,1.4])
+            ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
+            ax=axs[1,0]
+            ax.set_ylim([-0.1,0.5])
+            for icol in range(Ncol):
+                axs[0,icol].axhline(1,color='black',ls='--',marker='')
+                axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
+                axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
+        if case == 'B20':
+            ax=axs[0,0]
+            ax.set_ylim([-0.5,0.5])
+            # ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
+            ax=axs[1,0]
+            ax.set_ylim([-0.5,0.5])
+            for icol in range(Ncol):
+                axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
+                axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
+        if case =='J':
+            ax=axs[0,0]
+            ax.set_ylim([0.,0.8])
+            # ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
+            ax=axs[1,0]
+            ax.set_ylim([-0.1,0.5])
+            for icol in range(Ncol):
+                axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
+                axs[0,icol].axhline(0.5,color='black',ls='--',marker='')
+                axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
+                axs[1,icol].axhline(0.5,color='black',ls='--',marker='')
+                
+        
         ax=axs[0,0]
         ax.set_xlim([0,lat_a2s_plt[-1]])
         ax.set_xticks([0,0.003,0.006])
-        ax.set_ylim([0.2,1.4])
-        ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
-        ax.set_ylabel(r'$\langle \mathrm{x} \rangle_{q,g}$')
+        ax.set_ylabel(rf'${caselabel}_{{q,g}}$')
+
         ax=axs[1,0]
-        ax.set_ylim([-0.1,0.5])
-        ax.set_ylabel(r'$\langle \mathrm{x}\rangle_{q}$')
+        ax.set_ylabel(rf'${caselabel}_{{q}}$')
+        
         for icol in range(Ncol):
-            axs[0,icol].axhline(1,color='black',ls='--',marker='')
-            axs[0,icol].axvline(0,color='black',ls='dotted',marker='')
             axs[1,icol].set_xlabel(r'$a^2$ [fm$^2$]')
-            axs[1,icol].axhline(0,color='black',ls='--',marker='')
-            
+         
         for icol in range(Ncol):
             dic=list_dic[icol]
             def setParameter(default,key):
@@ -181,7 +224,7 @@ if True:
             for ij,j in enumerate(js):
                 color=j2color[j]
                 mean,err=yu.jackme(get('a=#_MA',j))
-                label=rf'$\langle x\rangle _{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
+                label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
                 for iens,ens in enumerate(enss):
                     plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-5; plt_y,plt_yerr=yu.jackme(get(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
@@ -202,7 +245,7 @@ if True:
             for ij,j in enumerate(js):
                 color=j2color[j]
                 mean,err=yu.jackme(get('a=#_MA',j))
-                label=rf'$\langle x\rangle _{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
+                label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
                 for iens,ens in enumerate(enss):
                     plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-5; plt_y,plt_yerr=yu.jackme(get(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)

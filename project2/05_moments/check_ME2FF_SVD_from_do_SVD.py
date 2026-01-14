@@ -1,10 +1,6 @@
-'''
-cat data_aux/dat_ignore/doSVD_run | xargs -I @ -P 10 python3 -u doSVD.py -e @ > log/doSVD.out & 
-'''
 import util as yu
 from util import *
 import util_moments as yum
-import click
 
 #============================= input start
 
@@ -20,25 +16,25 @@ basepath_3pt={'conn':basepath_3pt_conn,'disc':basepath_3pt_disc}[cd]
 
 basepath_output=f'{basepath_3pt}doSVD/'
 
-stouts=[5,7,10,13,15,20]
+stouts=[10]
 js_conn=['j+;conn','j-;conn']
-js_disc=[f'{j};disc' for j in ['j+','js','jc']] + [f'jg;stout{stout}' for stout in stouts]
+js_disc=[f'{j};disc' for j in ['j+']] + [f'jg;stout{stout}' for stout in stouts]
 js={'conn':js_conn,'disc':js_disc}[cd]
 
-cases_munu_conn=['unequal','equal','all']
-cases_munu_disc=['unequal','equal']
+cases_munu_conn=['all']
+cases_munu_disc=['unequal']
 cases_munu={'conn':cases_munu_conn,'disc':cases_munu_disc}[cd]
 if 'all' in cases_munu:
     ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
 
-cases_SVD_conn=['err','cov','err1c','cov1c']
+cases_SVD_conn=['err']
 cases_SVD_disc=['err']
 cases_SVD={'conn':cases_SVD_conn,'disc':cases_SVD_disc}[cd]
 cases=[(c1,c2) for c1 in cases_munu for c2 in cases_SVD]
 
 ratiotype=['sqrt','Efit'][1]
 
-ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')    
+ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')  
 
 #============================= input end
 
@@ -249,10 +245,21 @@ def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
         U, S, VT = np.linalg.svd(G[0])
         tol = 1e-10
         rank = np.sum(S > tol)
-    if rank!=3:
-        return None
+    # if rank!=3:
+    #     return None
     
-    tfs=mom2tf2ratio[tuple(moms[0])].keys()
+    tfs=list(mom2tf2ratio[tuple(moms[0])].keys())
+    tfs.sort()
+    
+    tf2Mall={}
+    for tf in tfs:
+        M_all=np.transpose([funcs_ri[ri](mom2tf2ratio[tuple(mom)][tf][:,:,projs.index(proj),inserts.index(insert)]) for mom,proj,insert,ri in mpirs],[1,2,0])
+        if case_munu=='all':
+            inds=[i for i,mpir in enumerate(mpirs) if mpir[2][0]!=mpir[2][1]]
+            M_all[:,:,inds]*=extra
+        tf2Mall[tf]=M_all
+    return tf2Mall
+        
     
     if case_SVD in ['err1c','cov1c']:
         tf=max(tfs); tc=tf//2
@@ -277,7 +284,7 @@ def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
             cov=np.array([yu.jackmec(M_all[:,tc])[-1] for tc in range(tf+1)]); covIsq=cov2covIsq(cov)
             F=doSVD_cov(G,M_all,covIsq)
         elif case_SVD in ['err1c']:
-            F=doSVD_err1(G,M_all,errUSE)
+            F=doSVD_err1(G,M_all,errIUSE)
         elif case_SVD in ['cov1c']:
             F=doSVD_cov1(G,M_all,covIsqUSE)
         res_tf2ratio[tf]=F
@@ -287,17 +294,8 @@ def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
 
 ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
 
-@click.command()
-@click.option('-e','--ens_n2qpp1')
+
 def run(ens_n2qpp1):
-    outfile=f'{basepath_output}{cd}_{ens_n2qpp1}.h5'
-    outfile_flag=outfile+'_flag'
-    if os.path.isfile(outfile) and (not os.path.isfile(outfile_flag)):
-        print('flag_skip: ' + ens_n2qpp1)
-        return
-    with open(outfile_flag,'w') as f:
-        pass
-    
     ens,n2qpp1=ens_n2qpp1.split('_')
     n2qpp1=tuple([int(ele) for ele in n2qpp1.split(',')])
     n2q,n2p,n2p1=n2qpp1
@@ -310,23 +308,29 @@ def run(ens_n2qpp1):
     
     j2mom2tf2ratio=extractRatio(ens,moms)
     
-    with h5py.File(outfile,'w') as f:
-        for j in js:
-            for case in cases:
-                case_str='_'.join(case)
-                extra=None
-                if case[0] in ['all']:
-                    Zqq={'j+;conn':'Zqq^s','j-;conn':'Zqq'}[j]
-                    rescale=ens2RCs_me[ens][f'{Zqq}(mu!=nu)']/ens2RCs_me[ens][f'{Zqq}(mu=nu)']
-                    extra=rescale
-                tf2ratio=get_tf2ratio_SVD(ens,j2mom2tf2ratio[j],case,extra=extra)
-                if tf2ratio is None:
-                    continue                
-                for tf in tf2ratio.keys():
-                    for i,ff in enumerate(['A20','B20','C20']):
-                        f.create_dataset(f'{case_str}/{ff}_{j}_{tf}',data=tf2ratio[tf][:,:,i])
-            
-    os.remove(outfile_flag)
-    print('flag_done: ' + ens_n2qpp1)
-
-run()
+    assert(len(cases)==1)
+    case=cases[0]
+    
+    j2tf2Mall={}
+    for j in js:
+        extra=None
+        if case[0] in ['all']:
+            Zqq={'j+;conn':'Zqq^s','j-;conn':'Zqq'}[j]
+            rescale=ens2RCs_me[ens][f'{Zqq}(mu!=nu)']/ens2RCs_me[ens][f'{Zqq}(mu=nu)']
+            extra=rescale
+        tf2Mall=get_tf2ratio_SVD(ens,j2mom2tf2ratio[j],case,extra=extra)
+        j2tf2Mall[j]=tf2Mall
+    
+    return j2tf2Mall
+    
+    # for j in js:
+    #     for case in cases:
+    #         case_str='_'.join(case)
+    #         extra=None
+    #         if case[0] in ['all']:
+    #             Zqq={'j+;conn':'Zqq^s','j-;conn':'Zqq'}[j]
+    #             rescale=ens2RCs_me[ens][f'{Zqq}(mu!=nu)']/ens2RCs_me[ens][f'{Zqq}(mu=nu)']
+    #             extra=rescale
+    #         tf2ratio=get_tf2ratio_SVD(ens,j2mom2tf2ratio[j],case,extra=extra)
+    #         if tf2ratio is None:
+    #             continue                

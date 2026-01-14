@@ -1,5 +1,5 @@
 '''
-cat data_aux/dat_ignore/analysis_B20_run | xargs -I @ -P 10 python3 -u analysis_B20.py -t @ > log/analysis_B20.out & 
+cat data_aux/dat_ignore/analysis_B20_conn_run | xargs -I @ -P 10 python3 -u analysis_B20_conn.py -t @ > log/analysis_B20_conn.out & 
 '''
 import util as yu
 from util import *
@@ -8,19 +8,6 @@ import click
 
 yu.setpath('analysis_B20')
 
-enss_all=['b','c','d']
-
-ffs_all=['A20','B20','C20']
-js_conn=['j+;conn','j-;conn']
-
-max_mom2_pc,max_mom2_pf=25,0 
-n2qpp1s_conn=yum.get_n2qpp1s(max_mom2_pc,max_mom2_pf,noZeroQ=True)
-
-ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
-ens2msq2pars_jk=yu.load_pkl(f'pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
-
-
-#====================
 def encodeTask(task):
     n2qpp1,ff,j=task
     n2q,n2p,n2p1=n2qpp1
@@ -31,8 +18,16 @@ def decodeTask(task):
     n2qpp1=tuple([int(ele) for ele in n2qpp1.split(',')])
     return (n2qpp1,ff,j)
 
-# c1s=['all','unequal','equal']; c2s=['err']
-c1s=['all']; c2s=['err']
+enss_all=['b','c','d']
+
+ens2msq2pars_jk=yu.load_pkl(f'pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
+
+#====================
+overwrite=False
+
+c1s=['all','unequal','equal']; c2s=['err']
+cases_todo=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s)]
+
 @click.command()
 @click.option('-t','--task')
 def run(task):
@@ -48,6 +43,8 @@ def run(task):
         tfs_conn=set()
         with h5py.File(path) as f:
             for case in f.keys():
+                if case not in cases_todo:
+                    continue
                 if case not in case2tf2ratio.keys():
                     case2tf2ratio[case]={}
                 for key in f[case].keys():
@@ -57,11 +54,8 @@ def run(task):
                     case2tf2ratio[case][tf]=f[case][key][:]
         tfs_conn=list(tfs_conn); tfs_conn.sort()
                     
-        cases_do=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s) if len(case2tf2ratio[f'{c1}_{c2}'])!=0]
+        cases_do=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s) if f'{c1}_{c2}' in case2tf2ratio and len(case2tf2ratio[f'{c1}_{c2}'])!=0]
         eqs=[{'all':'=','unequal':'!=','equal':'='}[case.split('_')[0]] for case in cases_do]
-        Z={'j+;conn':'Zqq^s','j-;conn':'Zqq'}[j]
-        yunits=[ens2RCs_me[ens][f'{Z}(mu{eq}nu)'] for eq in eqs]
-        # yunits=[1 for eq in eqs]
         
         def createDic(ind,case):
             # print(ens,case)
@@ -84,13 +78,13 @@ def run(task):
             pars_jk_meff2st=[ens2msq2pars_jk[ens][n2p1],ens2msq2pars_jk[ens][n2p]]
             
             tf2ratio=case2tf2ratio[case]
-            fits_band=yu.doFits_3pt_band(tf2ratio,tcmins_1st,corrQ=False,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_band')
+            fits_band=yu.doFits_3pt_band(tf2ratio,tcmins_1st,corrQ=False,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_band',overwrite=overwrite)
             fit_band_WA=yu.doWA_band(fits_band,tf_min=gett(0.9),tcmin=gett(0.2)*2,corrQ=False)
-            fits_const=yu.doFits_3pt('const',tf2ratio,tfmins_1st,tcmins_1st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_const')
+            fits_const=yu.doFits_3pt('const',tf2ratio,tfmins_1st,tcmins_1st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_const',overwrite=overwrite)
             fit_const_MA=yu.doMA_3pt(fits_const,tfmin_min=gett(0.9),tcmin_min=gett(0.2)*2)
-            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=2,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum')
+            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=2,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
             fit_sum_MA=yu.doMA_3pt(fits_sum,tcmin_min=gett(0.2)*2)
-            fits_2st=yu.doFits_3pt(fittype,tf2ratio,tfmins_2st,tcmins_2st,pars_jk_meff2st=pars_jk_meff2st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_2st')
+            fits_2st=yu.doFits_3pt(fittype,tf2ratio,tfmins_2st,tcmins_2st,pars_jk_meff2st=pars_jk_meff2st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_2st',overwrite=overwrite)
             fit_2st_MA=yu.doMA_3pt(fits_2st,tcmin_min=gett(0.2)*2)
             
             res[(case,'bandfit_WA',ens)]=fit_band_WA[0][:,0]
@@ -103,7 +97,7 @@ def run(task):
                 'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA],
                 'rainbow:[tfmin,tfmax,tcmin,dt]':[None,None,2,None],
                 'fit_2st_rainbow_midpoint:[fittype,pars_jk_meff2st]':[fittype,pars_jk_meff2st],
-                'xyunit':[yu.ens2a[ens],yunits[ind]]
+                'xunit':yu.ens2a[ens],
             }
             return dic
         list_dic=[createDic(ind,case) for ind,case in enumerate(cases_do)]

@@ -13,11 +13,97 @@ inds_trace=[i for i,ins in enumerate(inserts) if ins[0]==ins[1]]
 xyzt2xyz0=lambda x: x if x!='t' else '0'
 t=[insert for insert in inserts]; inserts_key=[f'=der:g{xyzt2xyz0(insert[1])}D{xyzt2xyz0(insert[0])}:sym=' for insert in t]
 
-elements=[(sx,sy,sz,xyz) for sx in [1,-1] for sy in [1,-1] for sz in [1,-1] for xyz in permutations([0, 1, 2], 3)] # Permute first Flip next
-def rotate_mom(e,mom):
-    sx,sy,sz,xyz=e; ix,iy,iz=xyz; iix,iiy,iiz=tuple([ix,iy,iz].index(i) for i in range(3))
-    return [sx*mom[iix],sy*mom[iiy],sz*mom[iiz],sx*mom[iix+3],sy*mom[iiy+3],sz*mom[iiz+3]]
+#!============== mom opearations ==============#
+if True:
+    def removeDuplicates_moms(moms):
+        return [list(mom) for mom in {tuple(mom) for mom in moms}]
+    
+    def moms2dic(moms):
+        dic={}
+        for i,mom in enumerate(moms):
+            dic[tuple(mom)]=i
+        return dic
+    def moms2list(moms):
+        return [list(mom) for mom in moms]
+    def mom2str(mom):
+        return ','.join([str(ele) for ele in mom])
+    def str2mom(momstr):
+        return [int(ele) for ele in momstr.split(',')]
+    
+    def mom2msq(mom):
+        assert(len(mom)==3)
+        return mom[0]**2+mom[1]**2+mom[2]**2
+    def getSortkey_mom(mom): # @mom2standard
+        msq=mom2msq(mom)
+        return (msq,-mom[2],-mom[1],-mom[0])
+    def mom2standard(mom): # @getSortkey_mom
+        return sorted([abs(mom[0]),abs(mom[1]),abs(mom[2])]) 
+    
+    elements_rot48=[(sx,sy,sz,xyz) for sx in [1,-1] for sy in [1,-1] for sz in [1,-1] for xyz in [(0,1,2),(0,2,1),(1,0,2),(1,2,0),(2,0,1),(2,1,0)]]
+    def rotate_mom(e,mom):
+        if len(mom)!=3:
+            return rotate_mom(e,mom[:3])+rotate_mom(e,mom[3:])
+        sx,sy,sz,xyz=e; ix,iy,iz=xyz; iix,iiy,iiz=tuple([ix,iy,iz].index(i) for i in range(3))
+        return [sx*mom[iix],sy*mom[iiy],sz*mom[iiz]]
+    def mom2moms(mom):
+        return [list(mom) for mom in {tuple(rotate_mom(e,mom)) for e in elements_rot48}] 
+    
+    #==== for mom3pt=[p1,q] ====#
+    def mom2n2qpp1(mom):
+        p1x,p1y,p1z,qx,qy,qz=mom
+        px,py,pz=p1x+qx,p1y+qy,p1z+qz
+        
+        q2=qx**2+qy**2+qz**2
+        p2=px**2+py**2+pz**2
+        p12=p1x**2+p1y**2+p1z**2
+        return (q2,p2,p12)
+    def mom2n2qpp1_sym(mom):
+        (q2,p2,p12)=mom2n2qpp1(mom)
+        return (q2,p2,p12) if p2>=p12 else (q2,p12,p2)
+        
+    def mom_exchangeSourceSink(mom):
+        p1x,p1y,p1z,qx,qy,qz=mom
+        px,py,pz=p1x+qx,p1y+qy,p1z+qz
+        return [px,py,pz,-qx,-qy,-qz]
+    
+    def getSortkey_mom3pt_internal(mom):
+        return (-mom[2+3],-mom[1+3],-mom[0+3],-mom[2],-mom[1],-mom[0])
+    def mom3pt2standard_internal(mom):
+        return min(mom2moms(mom),key=getSortkey_mom3pt_internal)
+    def getSortkey_mom3pt(mom):
+        p1x,p1y,p1z,qx,qy,qz=mom
+        px,py,pz=p1x+qx,p1y+qy,p1z+qz
+        
+        q2=qx**2+qy**2+qz**2
+        p2=px**2+py**2+pz**2
+        p12=p1x**2+p1y**2+p1z**2
+        
+        if p2>p12:
+            exchangeQ=0
+            return (q2,-p2,p12,exchangeQ,getSortkey_mom3pt_internal(mom))
+        momE=mom_exchangeSourceSink(mom)
+        if p2<p12:
+            exchangeQ=1
+            return (q2,-p12,p2,exchangeQ,getSortkey_mom3pt_internal(momE))
+        
+        mom_std=mom3pt2standard_internal(mom)
+        momE_std=mom3pt2standard_internal(momE)
+        if getSortkey_mom3pt_internal(mom_std)<=getSortkey_mom3pt_internal(momE_std):
+            exchangeQ=0
+            return (q2,-p2,p12,exchangeQ,getSortkey_mom3pt_internal(mom))
+        else:
+            exchangeQ=1
+            return (q2,-p12,p2,exchangeQ,getSortkey_mom3pt_internal(momE))
+    def mom3pt2standard(mom):
+        moms=mom2moms(mom)
+        return min(moms,key=getSortkey_mom3pt)
+    def mom3pt2standard_sym(mom):
+        moms=mom2moms(mom)+mom2moms(mom_exchangeSourceSink(mom))
+        return min(moms,key=getSortkey_mom3pt)
 
+
+
+elements=[(sx,sy,sz,xyz) for sx in [1,-1] for sy in [1,-1] for sz in [1,-1] for xyz in permutations([0, 1, 2], 3)] # Permute first Flip next
 def rotate_vec3(e,vec3): #xyzt=0123
     if vec3 in ['t']:
         return (1,vec3)
@@ -33,18 +119,8 @@ def rotate_proj(e,proj):
 def rotate_insert(e,insert):
     s1,i1=rotate_vec3(e,insert[0]); s2,i2=rotate_vec3(e,insert[1])
     return (s1*s2,i1+i2 if i1+i2 in inserts else i2+i1)
-
-def mom2moms(mom):
-    moms=list(set([tuple(rotate_mom(e,mom)) for e in elements])) 
-    moms.sort()
-    moms=np.array(moms)
-    return moms
-def mom2standard(mom):
-    moms=list(set([tuple(rotate_mom(e,mom)) for e in elements])) 
-    return list(max(moms, key=lambda x: x[::-1]))
-
 def mom2name(mom):
-    assert(np.all(mom==mom2standard(mom)))
+    assert(np.all(mom==mom3pt2standard(mom)))
     return ','.join([str(ele) for ele in mom])
 
 id=np.eye(4)
@@ -62,22 +138,49 @@ P0n=(id-gamma_4)/4; Pxn=1j*gamma_5@gamma_1@P0n; Pyn=1j*gamma_5@gamma_2@P0n; Pzn=
 dirac2proj=np.array([[complex(ele) for row in proj.T for ele in row] for proj in [P0,Px,Py,Pz]])[:,[0,1,4,5]]
 dirac2proj_bw=np.array([[complex(ele) for row in proj.T for ele in row] for proj in [P0n,Pxn,Pyn,Pzn]])[:,[10,11,14,15]]
 
+def get_moms(max_mom2_pc,max_mom2_pf):
+    range_xyz=range(0,int(np.sqrt(max_mom2_pc))+2)
+    moms_pc=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pc]
 
-#=============== Input ==================#
-max_mom2=4
-range_xyz=range(-int(np.sqrt(max_mom2))-1,int(np.sqrt(max_mom2))+2)
-moms=[[x,y,z,0,0,0] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2]       
-moms=list(set([tuple(mom2standard(mom)) for mom in moms]))
-moms=[list(mom[:]) for mom in moms]; moms.sort()
-moms_target=moms
+    range_xyz=range(-int(np.sqrt(max_mom2_pf))-1,int(np.sqrt(max_mom2_pf))+2)
+    moms_pf=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pf]
+    
+    moms=[pf+pc for pf in moms_pf for pc in moms_pc]
+    moms=[list(ele) for ele in set([tuple(mom3pt2standard(mom)) for mom in moms])]
+    moms=sorted(moms,key=getSortkey_mom3pt)
+    return moms
 
-jqs=['j+','js','jc'] # disc
-stouts=range(40+1) # gluon
+
+# -------------------------
+# Input
+# -------------------------
+
+input='p1=0'
 
 ens='cD211.054.96'
+
+if input=='q=0':
+    moms_target=get_moms(0,4)
+    jqs=['j+','js','jc'] # disc
+    stouts=range(40+1) # gluon
+
+if input=='p1=0':
+    moms_target=get_moms(16,0)
+    jqs=['j+','js','jc'] # disc
+    stouts=[5,7,10,13,15,20] # gluon
+
+    
 lat_L={'cB211.072.64':64,'cC211.060.80':80,'cD211.054.96':96,'cE211.044.112':112}[ens]
 tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
-#========================================#
+
+flags={
+    'g5H':True
+}
+
+# -------------------------
+# Input end
+# -------------------------
+
 
 def extract2pt(paths,mom):
     moms=mom2moms(mom)
@@ -133,7 +236,14 @@ def extractLoop(basepath,mom):
             t=t - np.eye(4)[:,:,None,None]*np.trace(t,axis1=0,axis2=1)[None,None,:,:]/4
             t=np.transpose([t[txyz.index(m),txyz.index(n)] for m,n in inserts],[1,2,0])
             
-            j2data[f'{j};disc']=t.copy()
+            if flags['g5H']:
+                dic={}
+                for i,m in enumerate(moms):
+                    dic[tuple(m[3:])]=i
+                moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
+                t = (t + np.conj(t[:,moms_map,:]))/2
+            
+            j2data[f'{j};disc']=t
 
     path=f'{basepath}/jg.h5'
     with h5py.File(path) as f:
@@ -148,7 +258,7 @@ def extractLoop(basepath,mom):
             
             t=f[f'data/{j}'][:]
             t=t[:,inds_moms]
-            j2data[j]=t.copy()
+            j2data[j]=t
             
     return j2data
 
@@ -247,7 +357,7 @@ def run(cfg):
     path_avgmore=f'/p/project1/ngff/li47/code/scratch/run/05_moments_run5/{ens}/data_avgmore/{cfg}/'; os.makedirs(path_avgmore,exist_ok=True)
     
     for mom in moms_target:
-        assert(np.all(mom==mom2standard(mom)))
+        assert(np.all(mom==mom3pt2standard(mom)))
         
         outfile_avgsrc=f'{path_avgsrc}/disc_{mom2name(mom)}.h5'
         outfile_avgmore=f'{path_avgmore}/disc_{mom2name(mom)}.h5'

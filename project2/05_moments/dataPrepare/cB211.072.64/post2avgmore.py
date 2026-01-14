@@ -138,25 +138,49 @@ P0n=(id-gamma_4)/4; Pxn=1j*gamma_5@gamma_1@P0n; Pyn=1j*gamma_5@gamma_2@P0n; Pzn=
 dirac2proj=np.array([[complex(ele) for row in proj.T for ele in row] for proj in [P0,Px,Py,Pz]])[:,[0,1,4,5]]
 dirac2proj_bw=np.array([[complex(ele) for row in proj.T for ele in row] for proj in [P0n,Pxn,Pyn,Pzn]])[:,[10,11,14,15]]
 
+def get_moms(max_mom2_pc,max_mom2_pf):
+    range_xyz=range(0,int(np.sqrt(max_mom2_pc))+2)
+    moms_pc=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pc]
 
-#=============== Input ==================#
-max_mom2=4
-range_xyz=range(-int(np.sqrt(max_mom2))-1,int(np.sqrt(max_mom2))+2)
-moms=[[x,y,z,0,0,0] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2]       
-moms=list(set([tuple(mom3pt2standard(mom)) for mom in moms]))
-moms=[list(mom[:]) for mom in moms]; moms.sort()
-moms_target=moms
+    range_xyz=range(-int(np.sqrt(max_mom2_pf))-1,int(np.sqrt(max_mom2_pf))+2)
+    moms_pf=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pf]
+    
+    moms=[pf+pc for pf in moms_pf for pc in moms_pc]
+    moms=[list(ele) for ele in set([tuple(mom3pt2standard(mom)) for mom in moms])]
+    moms=sorted(moms,key=getSortkey_mom3pt)
+    return moms
 
-jqs=['j+','js','jc'] # disc
-stouts=range(40+1) # gluon
 
-moms_target=[[0,0,0,0,1,1]]
-jqs=[]; stouts=[20]
+# -------------------------
+# Input
+# -------------------------
+
+input='p1=0'
 
 ens='cB211.072.64'
+
+if input=='q=0':
+    moms_target=get_moms(0,4)
+    jqs=['j+','js','jc'] # disc
+    stouts=range(40+1) # gluon
+
+if input=='p1=0':
+    moms_target=get_moms(16,0)
+    jqs=['j+','js','jc'] # disc
+    stouts=[5,7,10,13,15,20] # gluon
+
+    
 lat_L={'cB211.072.64':64,'cC211.060.80':80,'cD211.054.96':96,'cE211.044.112':112}[ens]
 tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
-#========================================#
+
+flags={
+    'g5H':True
+}
+
+# -------------------------
+# Input end
+# -------------------------
+
 
 def extract2pt(paths,mom):
     moms=mom2moms(mom)
@@ -212,7 +236,14 @@ def extractLoop(basepath,mom):
             t=t - np.eye(4)[:,:,None,None]*np.trace(t,axis1=0,axis2=1)[None,None,:,:]/4
             t=np.transpose([t[txyz.index(m),txyz.index(n)] for m,n in inserts],[1,2,0])
             
-            j2data[f'{j};disc']=t.copy()
+            if flags['g5H']:
+                dic={}
+                for i,m in enumerate(moms):
+                    dic[tuple(m[3:])]=i
+                moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
+                t = (t + np.conj(t[:,moms_map,:]))/2
+            
+            j2data[f'{j};disc']=t
 
     path=f'{basepath}/jg.h5'
     with h5py.File(path) as f:
@@ -227,7 +258,7 @@ def extractLoop(basepath,mom):
             
             t=f[f'data/{j}'][:]
             t=t[:,inds_moms]
-            j2data[j]=t.copy()
+            j2data[j]=t
             
     return j2data
 

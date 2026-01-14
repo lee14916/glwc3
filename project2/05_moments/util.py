@@ -84,8 +84,16 @@ if True:
     def removeDuplicates(l):
         return list(set(l))
     
-    def formatList(l,fmt):
-        return [format(ele,fmt) for ele in l]
+    def formatList(l,fmt,toStringQ=True):
+        l=[format(ele,fmt) for ele in l]
+        if toStringQ:
+            l=f"[{','.join(l)}]"
+        return l
+    def formatMatrix(m,fmt,toStringQ=True):
+        m=[[format(ele,fmt) for ele in row] for row in m]
+        if toStringQ:
+            m='\n'.join([(' '.join(row)) for row in m])
+        return m
     
     def any2filename(t):
         if type(t)==str:
@@ -121,10 +129,16 @@ if True:
             return None
         res=load_pkl(f'{path_pkl_internal}{any2filename(file)}.pkl')
         return res
-    def save_pkl_reg(label,res):
-        save_pkl(f'{path_pkl}{any2filename(label)}.pkl',res)
-    def save_txt_reg(label,txt):
-        save_txt(f'{path_pkl}{any2filename(label)}.txt',txt)
+    def save_pkl_reg(label,res,mkdirQ=False):
+        file=f'{path_pkl}{any2filename(label)}.pkl'
+        if mkdirQ:
+            os.makedirs(os.path.dirname(file), exist_ok=True)
+        save_pkl(file,res)
+    def save_txt_reg(label,txt,mkdirQ=False):
+        file=f'{path_pkl}{any2filename(label)}.txt'
+        if mkdirQ:
+            os.makedirs(os.path.dirname(file), exist_ok=True)
+        save_txt(file,txt)
     def load_pkl_reg(label):
         return load_pkl(f'{path_pkl}{label}.pkl')
     def clear_pkl_internal(file):
@@ -137,6 +151,35 @@ if True:
     def removeError(dat):
         t=np.mean(dat,axis=0)
         return dat*0 + t[None,...]
+            
+    def print_hdf5_structure(file):
+        with h5py.File(file, "r") as f:
+            def show(tf):                
+                keys=list(tf.keys()); keys.sort()
+                keys_dataset=[]; keys_group=[]
+                for key in keys:
+                    if isinstance(tf[key], h5py.Dataset):
+                        keys_dataset.append(key)
+                    else:
+                        keys_group.append(key)
+
+                show_group=f'{len(keys_group)} groups, {keys_group[:4]}; ' if len(keys_group)!=0 else ''
+                show_dataset=f'{len(keys_dataset)} datasets, {keys_dataset[:4]}; ' if len(keys_dataset)!=0 else ''
+                print(f'{tf.name}: {show_group}{show_dataset}')
+                
+                keys_dataset=keys_dataset[:1] if len(keys_dataset)>4 else keys_dataset
+                for key in keys_dataset:
+                    show_key=f'; {tf[key][:]}' if ( (tf[key].ndim==1 and len(tf[key])<20) or (tf[key].ndim==0) ) else ''
+                    if key in ['notes','inserts']:
+                        print(f'{key}={decodeList(tf[key][:])}')
+                    else:
+                        print(f'{key}: {tf[key].shape}{show_key}')
+
+                keys_group=keys_group[:1] if len(keys_group)>4 else keys_group
+                for key in keys_group:
+                    show(tf[key])
+
+            show(f)
 
 #!============== Parallelization ==============#
 if True:
@@ -194,6 +237,18 @@ if True:
         return [list(mom) for mom in {tuple(rotate_mom(e,mom)) for e in elements_rot48}] 
     
     #==== for mom3pt=[p1,q] ====#
+    def get_moms(max_mom2_pc,max_mom2_pf):
+        range_xyz=range(0,int(np.sqrt(max_mom2_pc))+2)
+        moms_pc=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pc]
+
+        range_xyz=range(-int(np.sqrt(max_mom2_pf))-1,int(np.sqrt(max_mom2_pf))+2)
+        moms_pf=[[x,y,z] for x in range_xyz for y in range_xyz for z in range_xyz if x**2+y**2+z**2<=max_mom2_pf]
+        
+        moms=[pf+pc for pf in moms_pf for pc in moms_pc]
+        moms=[list(ele) for ele in set([tuple(mom3pt2standard(mom)) for mom in moms])]
+        moms=sorted(moms,key=getSortkey_mom3pt)
+        return moms
+
     def n2qpp12str(n2qpp1):
         return ','.join([str(ele) for ele in n2qpp1])
     def str2n2qpp1(n2qpp1_str):
@@ -273,10 +328,12 @@ if True:
         A=AT.T
         y_cov=A@cov@AT
         return (np.array(y_mean),np.sqrt(np.diag(y_cov)),y_cov)
-    def getCDR(cov):
+    def cov2correlation(cov):
         errs=np.sqrt(np.diag(cov))
         rho=cov/np.outer(errs, errs)
-        
+        return rho
+    def getCDR(cov):
+        rho=cov2correlation(cov)
         evals=np.linalg.eigvalsh(rho)
         eval_max=np.max(evals); eval_min=np.min(evals)
         kappa=eval_max/eval_min
@@ -306,12 +363,16 @@ if True:
         dat_mean=np.mean(dat_jk,axis=0)
         dat_err=np.sqrt(np.var(dat_jk,axis=0,ddof=0)*(n-1))
         return (dat_mean,dat_err)
-    def jackme_un2str(dat_jk):
+    def jackme_un2str(dat_jk,toStringQ=True,**kargs):
         mean,err=jackme(dat_jk)
         if len(dat_jk.shape)==1:
-            return un2str(mean,err)
+            return un2str(mean,err,**kargs)
         elif len(dat_jk.shape)==2:
-            return [un2str(m,e) for m,e in zip(mean,err)]
+            t=[un2str(m,e,**kargs) for m,e in zip(mean,err)]
+            if toStringQ:
+                return f"[{', '.join(t)}]"
+            else:
+                return t
         1/0
     def jackmec(dat_jk):
         n=len(dat_jk)
@@ -457,7 +518,7 @@ if True:
         return modelAvg(temp)
 
     # uncertainty to string: taken from https://stackoverflow.com/questions/6671053/python-pretty-print-errorbars
-    def un2str(x, xe, precision=2, forceResult = None):
+    def un2str(x, xe, precision=2, forceResult = 1):
         if type(x) in [list,np.ndarray]:
             return [un2str(m,e,precision=precision,forceResult=forceResult) for m,e in zip(x,xe)]
         
@@ -1387,11 +1448,8 @@ if True:
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
         WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA] \\
         rainbow:[tfmin,tfmax,tcmin,dt] \\
-        fit_band:[tfmin,tfmax,tcmin_min,tcmin_max] \\
-        fit_band_WA \\
-        fit_#:[tfmin_min,tfmin_max,tcmin_min,tcmin_max] \\
-        fit_#_MA \\
-        fit_2st_rainbow_midpoint:[fittype,pars_jk_meff2st]
+        fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc] \\
+        fit_#:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc] \\
         '''
         if type(list_dic)==dict:
             list_dic=[list_dic]
@@ -1490,10 +1548,9 @@ if True:
             if fits_band is not None:
                 tfs=removeDuplicates([fit[0][0] for fit in fits_band])
                 tcmins=removeDuplicates(convert_tcmins([fit[0][1] for fit in fits_band]))
-                (tfmin,tfmax,tcmin_min,tcmin_max)=setParameter([min(tfs),max(tfs),min(tcmins),max(tcmins)],'fit_band:[tfmin,tfmax,tcmin_min,tcmin_max]')
-                [dt]=setParameter([1],'fit_band:[dt]')
-                tfs_band=[tf for tf in tfs if tfmin<=tf<=tfmax and tf%dt==0]
-                tcmins_band=[tcmin for tcmin in tcmins if tcmin_min<=tcmin<=tcmin_max]
+                (tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc)=setParameter([min(tfs),max(tfs),min(tcmins),max(tcmins),1,1],'fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc]')
+                tfs_band=[tf for tf in tfs if tfmin<=tf<=tfmax and tf%dtf==0]
+                tcmins_band=[tcmin for tcmin in tcmins if tcmin_min<=tcmin<=tcmin_max and tcmin%dtc==0]
             else:
                 tfs_band=[]
                 
@@ -1501,9 +1558,9 @@ if True:
                 if fits is not None:
                     tfmins=removeDuplicates([fit[0][0] for fit in fits])
                     tcmins=removeDuplicates(convert_tcmins([fit[0][1] for fit in fits]))
-                    (tfmin_min,tfmin_max,tcmin_min,tcmin_max)=setParameter([min(tfmins),max(tfmins),min(tcmins),max(tcmins)],f'{name}:[tfmin_min,tfmin_max,tcmin_min,tcmin_max]')
-                    tfmins=[tfmin for tfmin in tfmins if tfmin_min<=tfmin<=tfmin_max]
-                    tcmins=[tcmin for tcmin in tcmins if tcmin_min<=tcmin<=tcmin_max]
+                    (tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc)=setParameter([min(tfmins),max(tfmins),min(tcmins),max(tcmins),1,1],f'{name}:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]')
+                    tfmins=[tfmin for tfmin in tfmins if tfmin_min<=tfmin<=tfmin_max and tfmin%dtf==0]
+                    tcmins=[tcmin for tcmin in tcmins if tcmin_min<=tcmin<=tcmin_max and tcmin%dtc==0]
                     tfmins.sort(); tcmins.sort()
                     return tfmins,tcmins
                 return None,None

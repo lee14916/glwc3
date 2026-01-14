@@ -1,5 +1,5 @@
 '''
-cat data_aux/ens_n2qpp1_run | xargs -I @ -P 10 python3 -u doSVD_Kyriakos.py -e @ > log/doSVD_Kyriakos.out & 
+cat data_aux/dat_ignore/doSVD_run | xargs -I @ -P 10 python3 -u doSVD_Kyriakos.py -e @ > log/doSVD_Kyriakos.out & 
 '''
 import util as yu
 from util import *
@@ -18,7 +18,7 @@ basepath_3pt_conn=basepath_2pt_conn
 basepath_3pt_disc=f'/p/project1/ngff/li47/code/projectData/05_moments/'
 basepath_3pt={'conn':basepath_3pt_conn,'disc':basepath_3pt_disc}[cd]
 
-basepath_output=f'{basepath_3pt}doSVD/'
+basepath_output=f'{basepath_3pt}doSVD_Kyriakos/'
 
 ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
 ens2RCs_me=yu.load_pkl('data_aux/RCs.pkl')
@@ -27,7 +27,11 @@ js_conn=['j+;conn','j-;conn']
 js_disc=['jg;stout20']
 js={'conn':js_conn,'disc':js_disc}[cd]
 
-cases=[('Kyriakos','err')]
+cases=[('Kyriakos','0err'),('Kyriakos','err1c'),('all','err')]
+
+ratiotype=['sqrt','Efit'][0]
+if ratiotype=='Efit':
+    ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
 
 #============================= input end
 
@@ -161,12 +165,18 @@ def extractRatio(ens,moms):
                     c2pta=tf2c2pta[tf]; c2ptb=tf2c2ptb[tf]
                 tcs_tfby2=(np.arange(tf+1)-tf/2)[None,:,None,None]
                 
-                # ratio=c3pt / np.sqrt(c2pta[:,tf:tf+1,None,None]*c2ptb[:,tf:tf+1,None,None]) / np.sqrt(np.exp(+E0a*tcs_tfby2)*np.exp(-E0b*tcs_tfby2))
-                ratio=c3pt/np.sqrt(
-                    c2pta[:,tf:tf+1]*c2ptb[:,tf:tf+1]*\
-                    c2pta[:,:tf+1][:,::-1]/c2pta[:,:tf+1]*\
-                    c2ptb[:,:tf+1]/c2ptb[:,:tf+1][:,::-1]
-                )[:,:,None,None]
+                if ratiotype in ['Efit']:
+                    tcs_tfby2=(np.arange(tf+1)-tf/2)[None,:,None,None]
+                    ratio=c3pt / np.sqrt(c2pta[:,tf:tf+1,None,None]*c2ptb[:,tf:tf+1,None,None]) / np.sqrt(np.exp(+E0a*tcs_tfby2)*np.exp(-E0b*tcs_tfby2))
+                elif ratiotype in ['sqrt']:
+                    ratio=c3pt/np.sqrt(
+                        c2pta[:,tf:tf+1]*c2ptb[:,tf:tf+1]*\
+                        c2pta[:,:tf+1][:,::-1]/c2pta[:,:tf+1]*\
+                        c2ptb[:,:tf+1]/c2ptb[:,:tf+1][:,::-1]
+                    )[:,:,None,None]
+                else:
+                    1/0
+                    
                 j2mom2tf2ratio[j][mom][tf]=ratio
     
     return j2mom2tf2ratio
@@ -264,6 +274,9 @@ def get_tf2ratio_SVD(ens,mom2tf2ratio,case,extra=None):
             F=doSVD_err1(G,M_all,errUSE)
         elif case_SVD in ['cov1c']:
             F=doSVD_cov1(G,M_all,covIsqUSE)
+        elif case_SVD in ['0err']:
+            err=np.array([yu.jackme(M_all[:,tc])[-1] for tc in range(tf+1)]); errI=err*0+1
+            F=doSVD_err(G,M_all,errI)
         res_tf2ratio[tf]=F
     
     return res_tf2ratio
