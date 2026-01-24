@@ -99,7 +99,7 @@ if True:
 
     def bareRC2phy_avgx_pre(key2bare,ens2RCs,ens2RCs_pre,mn_conn='mu=nu',mn_disc='mu!=nu',mn_g='mu!=nu'):
         keys=list(key2bare)
-        enss=yu.removeDuplicates([ens for ens,j in keys]); enss=['b']
+        enss=yu.removeDuplicates([ens for ens,j in keys])
         stouts=yu.removeDuplicates([int(j.split('stout')[-1]) for ens,j in keys if 'stout' in j])
         
         key2phy={}
@@ -111,20 +111,35 @@ if True:
                 
             for stout in stouts:
                 key2phy[(ens,f'jq;conn;stout{stout}')]=ens2RCs[ens][f'Zqq^s({mn_conn})']*key2bare[(ens,'jq;conn')]
-                key2phy[(ens,f'jq;disc;stout{stout}')]=ens2RCs_pre[ens][f'Zqq^s^{stout}({mn_disc})']*key2bare[(ens,'jq;disc')]
+                key2phy[(ens,f'jq;disc;stout{stout}')]=ens2RCs_pre[ens][f'Zqq^s^{stout}({mn_disc})']*key2bare[(ens,'jq;disc')] if ens in ens2RCs_pre else ens2RCs[ens][f'Zqq^s({mn_disc})']*key2bare[(ens,'jq;disc')] 
                 key2phy[(ens,f'jq;0mix;stout{stout}')]=key2phy[(ens,f'jq;conn;stout{stout}')]+key2phy[(ens,f'jq;disc;stout{stout}')]
                 
-                key2phy[(ens,f'jq;mix;stout{stout}')]=ens2RCs_pre[ens][f'Zqg^{stout}({mn_g})']*key2bare[(ens,f'jg;stout{stout}')]
+                key2phy[(ens,f'jq;mix;stout{stout}')]=ens2RCs_pre[ens][f'Zqg^{stout}({mn_g})']*key2bare[(ens,f'jg;stout{stout}')] if ens in ens2RCs_pre else ens2RCs[ens][f'Zqg({mn_g})']*key2bare[(ens,f'jg;stout{stout}')] 
                 key2phy[(ens,f'jq;stout{stout}')]=key2phy[(ens,f'jq;0mix;stout{stout}')]+key2phy[(ens,f'jq;mix;stout{stout}')]
                 
-                key2phy[(ens,f'jg;0mix;stout{stout}')]=ens2RCs_pre[ens][f'Zgg^{stout}({mn_g})']*key2bare[(ens,f'jg;stout{stout}')]
-                key2phy[(ens,f'jg;mix;stout{stout}')]=ens2RCs[ens][f'Zgq({mn_conn})']*key2bare[(ens,'jq;conn')]+ens2RCs_pre[ens][f'Zgq^{stout}({mn_disc})']*key2bare[(ens,'jq;disc')]
+                key2phy[(ens,f'jg;0mix;stout{stout}')]=ens2RCs_pre[ens][f'Zgg^{stout}({mn_g})']*key2bare[(ens,f'jg;stout{stout}')] if ens in ens2RCs_pre else ens2RCs[ens][f'Zgg^{stout}({mn_g})']*key2bare[(ens,f'jg;stout{stout}')]
+                key2phy[(ens,f'jg;mix;stout{stout}')]=ens2RCs[ens][f'Zgq({mn_conn})']*key2bare[(ens,'jq;conn')] + ( ens2RCs_pre[ens][f'Zgq^{stout}({mn_disc})']*key2bare[(ens,'jq;disc')]  if ens in ens2RCs_pre else ens2RCs[ens][f'Zgq({mn_disc})']*key2bare[(ens,'jq;disc')])
                 key2phy[(ens,f'jg;stout{stout}')]=key2phy[(ens,f'jg;mix;stout{stout}')]+key2phy[(ens,f'jg;0mix;stout{stout}')]
                 
                 key2phy[(ens,f'jtot;stout{stout}')]=key2phy[(ens,f'jq;stout{stout}')]+key2phy[(ens,f'jg;stout{stout}')]
                 
                 for fla in fla2iso.keys():
                     key2phy[(ens,f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(ens,f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(ens,f'j{iso}')])  for factor,iso in fla2iso[fla]],axis=0)        
+
+        for j in ['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]:
+            ens2dat={ens:key2phy[(ens,j)] for ens in enss}
+            fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt)
+            for fit in fits:
+                fitlabel,pars_jk,chi2_jk,Ndof=fit
+                key2phy[(f'a=#_{fitlabel}',j)]=pars_jk
+            pars_jk,probs_jk=yu.jackMA(fits)
+            key2phy[('a=#_MA',j)]=pars_jk
+        
+        for stout in stouts:
+            for fitlabel in ['const','linear','MA']:
+                for fla in fla2iso.keys():
+                    key2phy[(f'a=#_{fitlabel}',f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(f'a=#_{fitlabel}',f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(f'a=#_{fitlabel}',f'j{iso}')]) for factor,iso in fla2iso[fla]],axis=0)
+                key2phy[(f'a=#_{fitlabel}',f'jtot;stout{stout}')]=key2phy[(f'a=#_{fitlabel}',f'jq;stout{stout}')]+key2phy[(f'a=#_{fitlabel}',f'jg;stout{stout}')]
         
         return key2phy
     
@@ -206,6 +221,11 @@ if True:
             key2phy=dic['key2phy']
             key2phy_pre=setParameter(None,'key2phy_pre')
             
+            if key2phy_pre is not None:
+                keys=list(key2phy_pre)
+                enss_pre=yu.removeDuplicates([ens for ens,j in keys if 'a=#' not in ens])
+            enss_pre=enss_pre
+            
             keys=list(key2phy)
             enss=yu.removeDuplicates([ens for ens,j in keys if 'a=#' not in ens])
             
@@ -218,7 +238,6 @@ if True:
             j2label={'jq':'q','jg':'g','jtot':'N','ju':'u','jd':'d','js':'s','jc':'c'}
             j2fmt={'jq':'d','jg':'s','jtot':'o','ju':'^','jd':'v','js':'<','jc':'>'}
             
-            
             ax=axs[0,icol]
             js=['jq','jtot','jg']
             for ij,j in enumerate(js):
@@ -226,10 +245,10 @@ if True:
                 mean,err=yu.jackme(get('a=#_MA',j))
                 label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
                 for iens,ens in enumerate(enss):
-                    plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-5; plt_y,plt_yerr=yu.jackme(get(ens,j))
+                    plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
                     
-                    if key2phy_pre is None or ens not in ['b']:
+                    if key2phy_pre is None or ens not in enss_pre:
                         continue
                     plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
@@ -247,9 +266,9 @@ if True:
                 mean,err=yu.jackme(get('a=#_MA',j))
                 label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
                 for iens,ens in enumerate(enss):
-                    plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-5; plt_y,plt_yerr=yu.jackme(get(ens,j))
+                    plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
-                    if key2phy_pre is None or ens not in ['b']:
+                    if key2phy_pre is None or ens not in enss_pre:
                         continue
                     plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')

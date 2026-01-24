@@ -7,6 +7,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from math import floor, log10
 from scipy.optimize import leastsq, fsolve
 from scipy.linalg import cholesky
+from scipy.stats import chi2 as chi2_dist
 from IPython.display import display,HTML
 from itertools import product
 from collections import defaultdict
@@ -83,13 +84,18 @@ if True:
         return [ele.decode() for ele in l]
     def removeDuplicates(l):
         return list(set(l))
+    def list2dic(l):
+        dic={}
+        for i,ele in enumerate(l):
+            dic[ele]=i
+        return dic
     
-    def formatList(l,fmt,toStringQ=True):
+    def formatList(l,fmt='>8.4g',toStringQ=True):
         l=[format(ele,fmt) for ele in l]
         if toStringQ:
             l=f"[{','.join(l)}]"
         return l
-    def formatMatrix(m,fmt,toStringQ=True):
+    def formatMatrix(m,fmt='>8.4g',toStringQ=True):
         m=[[format(ele,fmt) for ele in row] for row in m]
         if toStringQ:
             m='\n'.join([(' '.join(row)) for row in m])
@@ -400,7 +406,7 @@ if True:
         dat_jk=A[None,:]*dat_jk+B[None,:]
         return dat_jk
     
-    def jackknife2(in_dat,in_func=lambda dat:np.mean(np.real(dat),axis=0),minNcfg:int=600,d:int=0,outputFlatten=False,sl_key=None,sl_saveQ=False):
+    def jackknife2(in_dat,in_func=lambda dat:np.mean(np.real(dat),axis=0),minNcfg:int=600,d:int=0):
         '''
         - in_dat: any-dimensional list of ndarrays. Each ndarray in the list has 0-axis for cfgs
         - in_func: dat -> estimator
@@ -473,6 +479,26 @@ if True:
             
         ret=(mean,err,cov)
         return ret
+    def jackknife2_ErrErr(dat,func_mean_err=lambda mean,err:err):
+        def func(dat):
+            Ncfg,Ntime=dat.shape
+            mean=np.mean(dat,axis=0)
+            err=np.sqrt(np.var(dat,axis=0,ddof=1)/Ncfg)    
+            return func_mean_err(mean,err)
+        return jackknife2(dat,func)
+    def get_autocorrelation(dat,normalizeQ=True):
+        Ncfg, Ntime = dat.shape
+        dat = dat - dat.mean(axis=0, keepdims=True)
+        C = np.empty((Ncfg, Ntime))
+        for tau in range(Ncfg):
+            C[tau] = np.mean(dat[:Ncfg - tau] * dat[tau:], axis=0)
+        if normalizeQ:
+            C /= C[0]
+        return np.array(C)
+    def jackknife2_autocorrelation(dat,normalizeQ=True):
+        Ncfg=len(dat)
+        mean,err,_=jackknife2(dat,lambda dat:get_autocorrelation(dat,normalizeQ)[:Ncfg-1])
+        return np.array(mean),np.array(err)
 
     def superjackknife(dats_jk):
         Nens=len(dats_jk)
@@ -510,7 +536,7 @@ if True:
         return (pars_mean_MA,pars_err_MA,probs)
     def jackMA2(fits): # doing model average after jackknife
         temp=[]
-        for pars_jk,chi2_jk,Ndof in fits:
+        for fit_label,pars_jk,chi2_jk,Ndof in fits:
             pars_mean,pars_err=jackme(pars_jk)
             chi2_mean,chi2_err=jackme(chi2_jk)
             temp.append((pars_mean,pars_err,chi2_mean[0],Ndof))
@@ -571,6 +597,10 @@ if True:
             return result2
         else:
             return result1
+        
+    def chi2Ndof2pval(chi2, Ndof):
+        pval = 1 - chi2_dist.cdf(chi2, Ndof)
+        return pval
 
 #!============== auto-correlation ==============#
 if False:
@@ -592,7 +622,7 @@ if False:
         mean,delta,tint,d_tint = mdtds.T
         mean=func(np.mean(dat,axis=0))
         return mean,delta,tint,d_tint
-        
+
 #!============== fit (basic) ==============#
 if True:
     def jackfit(fitfunc,y_jk,pars0,mask=None,parsExtra_jk=None,priors=[],getFilterInfoQ=False,**kargs):
@@ -970,7 +1000,8 @@ if True:
     @decorator_fits
     def doFits_3pt(fittype,tf2ratio_para,tfmins,tcmins,tfmin2tcmins=None,pars_jk_meff2st=None,pars0=None,downSampling=[1,1],symmetrizeQ=False,unicutQ=False,corrQ=True,fastQ=False,verbose=0):
         '''
-        fittype in ['const','sum','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare']
+        fittype in ['const','sum','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare'] \\
+        fit = [(tfmin,tcmin),pars_jk,chi2_jk,Ndof]
         '''
         assert(fittype in ['const','sum','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare'])
         
@@ -1011,12 +1042,11 @@ if True:
             if tfmin2tcmins is not None:
                 tcmins=tfmin2tcmins[tfmin]
             for tcmin in tcmins:
+                if ((tfmin<tcmin*2) if symQ else (tfmin<tcmin[0]+tcmin[1])):
+                    continue
                 if verbose>=2:
                     print(f'[verbose2] tfmin={tfmin}, tcmin={tcmin};')
-                if fittype in ['sum']:
-                    if ((tfmin<tcmin*2) if symQ else (tfmin<tcmin[0]+tcmin[1])):
-                        continue
-                    
+                if fittype in ['sum']:                    
                     downSampling=1 if not isinstance(downSampling,int) else downSampling
                     tfs_fit=np.array([tf for tf in tfs if tfmin<=tf and tf%downSampling==tfmin%downSampling])
                     if len(tfs_fit)==0:
@@ -1343,7 +1373,7 @@ if True:
                 ax2.errorbar(plt_x,plt_y,plt_yerr,fmt='s',color=color,mfc='white' if showQ else None)
                 ylim=ax2.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
                 ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
-                if probThreshold is not None and prob>probThreshold:
+                if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax2.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
             
             if Nst==1:
@@ -1383,14 +1413,14 @@ if True:
                 ax2.errorbar(plt_x,plt_y,plt_yerr,fmt='o',color=color,mfc='white' if showQ else None)
                 ylim=ax2.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
                 ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
-                if probThreshold is not None and prob>probThreshold:
+                if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax2.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
                 
                 plt_x=fitmin*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
                 ax3.errorbar(plt_x,plt_y,plt_yerr,fmt='o',color=color,mfc='white' if showQ else None)
                 ylim=ax3.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
                 ax3.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
-                if probThreshold is not None and prob>probThreshold:
+                if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax3.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
                     
             if Nst==2:
@@ -1428,14 +1458,14 @@ if True:
                 ax2.errorbar(plt_x,plt_y,plt_yerr,fmt='d',color=color,mfc='white' if showQ else None)
                 ylim=ax2.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
                 ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
-                if probThreshold is not None and prob>probThreshold:
+                if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax2.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
                 
                 plt_x=fitmin*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
                 ax3.errorbar(plt_x,plt_y,plt_yerr,fmt='d',color=color,mfc='white' if showQ else None)
                 ylim=ax3.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
                 ax3.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center') 
-                if probThreshold is not None and prob>probThreshold:
+                if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax3.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
         
         ax2.legend(fontsize=16)
@@ -1443,7 +1473,23 @@ if True:
         return fig,axd,result           
 #!============== plot (3pt) ==============#
 if True:
-    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=True):
+    def plot_rainbow(ax,tf2ratio,tfmin=None,tfmax=None,tcmin=1,xunit=1,yunit=1,shift=0,mid_tfshift=0,colors=colors16,mfc=None,ax_mid=None):
+        tfs=list(tf2ratio.keys())
+        tfmin = min(tfs) if tfmin is None else tfmin
+        tfmax = max(tfs) if tfmax is None else tfmax
+        tfs=[tf for tf in tfs if tfmin<=tf<=tfmax]
+        for itf,tf in enumerate(tfs):
+            mean,err=jackme(tf2ratio[tf])
+            tcs=np.arange(tcmin,tf-tcmin+1)
+            plt_x=(tcs-tf/2+0.05*(itf-len(tfs)/2)+shift*0.1)*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
+            itf_color=tfs.index(tf)
+            ax.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
+            
+            if ax_mid is not None:
+                plt_x=(tf+mid_tfshift+shift*0.1)*xunit; plt_y=mean[tf//2]*yunit; plt_yerr=err[tf//2]*yunit
+                ax_mid.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
+    
+    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=True,figAxs=None,**kwargs):
         '''
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
         WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA] \\
@@ -1455,7 +1501,10 @@ if True:
             list_dic=[list_dic]
         width_ratios=[3 if show in ['rainbow'] else 2 for show in shows]
         Nrow=len(list_dic); Ncol=len(shows)
-        fig, axs = getFigAxs(Nrow,Ncol,Lrow=Lrow,Lcol=Lcol,sharex='col',sharey=sharey, gridspec_kw={'width_ratios': width_ratios})
+        if figAxs is None:
+            fig, axs = getFigAxs(Nrow,Ncol,Lrow=Lrow,Lcol=Lcol,sharex='col',sharey=sharey, gridspec_kw={'width_ratios': width_ratios},**kwargs)
+        else:
+            fig, axs = figAxs
         if colHeaders is not None:
             show2Header={'rainbow':r'ratio','midpoint':r'mid point','fit_band':r'const fit to each $t_s$',
                     'fit_const':r'const fit', 'fit_2st':r'2st fit', 'fit_sum':r'summation method',
@@ -1481,6 +1530,8 @@ if True:
         tfs_mids_phy=[]; symQs=[]
         for irow in range(Nrow):
             dic=list_dic[irow]
+            if len(dic)==0:
+                continue
             def setParameter(default,key):
                 if type(default) is not list:
                     return dic[key] if key in dic else default                
@@ -1512,12 +1563,14 @@ if True:
             tcmin_rainbow=tcmin
             tfs_mid=setParameter(tfs_rainbow,'tfs_mid')
             tfs_mids_phy+=[(min(tfs_mid)-1)*xunit,(max(tfs_mid)+1)*xunit]
-        if 'midpoint' in shows:
+        if 'midpoint' in shows and len(tfs_mids_phy)!=0:
             ax=axs[-1,shows.index('midpoint')]
             ax.set_xlim([min(tfs_mids_phy),max(tfs_mids_phy)])
                 
         for irow in range(Nrow):
             dic=list_dic[irow]
+            if len(dic)==0:
+                continue
             def setParameter(default,key):
                 if type(default) is not list:
                     return dic[key] if key in dic else default                
@@ -1570,7 +1623,11 @@ if True:
 
             tfs_color=removeDuplicates(tfs_rainbow+tfs_band+tfs_mid)
             
+            [mfc_global]=setParameter(['not set'],'mfc:[global]')
+            mfc_global=mfc_global if mfc_global!='None' else None
+            
             show='rainbow'
+            mfc=mfc_global if mfc_global!='not set' else None
             if show in shows:
                 ax=axs[irow,shows.index(show)]                
                 for itf,tf in enumerate(tfs_rainbow):
@@ -1578,9 +1635,10 @@ if True:
                     tcs=np.arange(tcmin_rainbow,tf-tcmin_rainbow+1)
                     plt_x=(tcs-tf/2+0.05*(itf-len(tfs_rainbow)/2))*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
                     itf_color=tfs_color.index(tf)
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16])
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
                     
             show='midpoint'
+            mfc=mfc_global if mfc_global!='not set' else None
             if show in shows:
                 ax=axs[irow,shows.index(show)]   
                 for itf,tf in enumerate(tfs_mid):
@@ -1589,7 +1647,7 @@ if True:
                     mean,err=jackme(tf2ratio[tf][:,tf//2])
                     plt_x=tf*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     itf_color=tfs_color.index(tf)
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16])
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
                     
             show='fit_band'
             if show in shows and fits_band is not None:
@@ -1619,6 +1677,8 @@ if True:
                     mfc=None
                     if fit_band_WA is not None and (tf,tcmin) in fitlabels:
                         mfc='white'
+                    if mfc_global!='not set':
+                        mfc=mfc_global
                     mean,err=jackme(pars_jk[:,0])
                     plt_x=(tf+itcmin*0.1)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf%16],fmt=fmts16[itf%16],mfc=mfc)
@@ -1653,6 +1713,8 @@ if True:
                         mfc=None
                         if fit_MA is not None and (tfmin,tcmin) in fitlabels:
                             mfc='white'
+                        if mfc_global!='not set':
+                            mfc=mfc_global
                         mean,err=jackme(pars_jk[:,0])
                         plt_x=(tfmin+itcmin*0.1)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                         ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_fit[itcmin%8],fmt=fmts8[itcmin%8],mfc=mfc)
@@ -1710,7 +1772,7 @@ if True:
                                   
         return fig,axs
 
-    def makePlot_3pt_rainbow(list_tf2ratio,tfmin=None,tfmax=None,tcmin=None,dt=None,xunit=1,yunit=1):
+    def makePlot_3pt_rainbow(list_tf2ratio,tfmin=None,tfmax=None,tcmin=None,dt=None,xunit=1,yunit=1,**kwargs):
         if type(list_tf2ratio)==dict:
             list_tf2ratio=[list_tf2ratio]
         list_dic=[{
@@ -1718,7 +1780,18 @@ if True:
             'rainbow:[tfmin,tfmax,tcmin,dt]':[tfmin,tfmax,tcmin,dt],
             'xunit':xunit, 'yunit':yunit,
         } for tf2ratio in list_tf2ratio]
-        return makePlot_3pt(list_dic,shows=['rainbow','midpoint'])
+        return makePlot_3pt(list_dic,shows=['rainbow','midpoint'],**kwargs)
+    
+    def makePlot_3pt_rainbow_compare(tf2ratio,tf2ratio2,xunit=1,yunit=1,tfmin=None,tfmax=None,tcmin=None,tcmin2=1,dt=1,shift2=0,mid_tfshift2=0,**kwargs):
+        list_dic=[{
+            'tf2ratio':tf2ratio,
+            'rainbow:[tfmin,tfmax,tcmin,dt]':[tfmin,tfmax,tcmin,dt],
+            'xunit':xunit, 'yunit':yunit,
+        }]
+        fig,axs=makePlot_3pt(list_dic,shows=['rainbow','midpoint'],**kwargs)
+        plot_rainbow(axs[0,0],tf2ratio2,xunit=xunit,yunit=yunit,mfc='white',tcmin=tcmin2,shift=shift2,mid_tfshift=mid_tfshift2,ax_mid=axs[0,1])
+        return fig,axs 
+        
 #!============== GEVP ==============#
 if True:
     def GEVP(Ct,t0List,tList=None,tvList=None):
@@ -1787,7 +1860,7 @@ if True:
     ens2a={'a24':0.0908,'a':0.0938,'b':0.07957,'c':0.06821,'d':0.05692,'e':0.04892} # fm
     ens2NL={'a24':24,'a':48,'b':64,'c':80,'d':96,'e':112}
     ens2NT={'a24':24*2,'a':48*2,'b':64*2,'c':80*2,'d':96*2,'e':112*2}
-    ens2amul={'b':0.00072,'c':0.00060,'d':0.00054,'e':0.00044}
+    ens2amul={'a24':0.0053,'a':0.0009,'b':0.00072,'c':0.00060,'d':0.00054,'e':0.00044}
     
     ens2amul_iso={'b':0.0006669,'c':0.0005864,'d':0.0004934,'e': 0.0004306}
     ens2amul_iso_err={'b':0.0000028,'c':0.0000034,'d':0.0000024,'e': 0.0000023}
