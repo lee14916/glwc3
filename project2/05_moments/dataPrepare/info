@@ -34,7 +34,7 @@ total~432-64~368
 cE (516 confs)
 c2pt 
 /p/arch1/hch02/iona1/E112/twop/ 100 srcs
-/p/arch1/hch02/iona1/E112/nucl_threep/ 127 srcs
+/p/arch1/hch02/iona1/E112/nucl_threep/ 127 srcs    // incomplete: c1320=95; c1344=102; c1360=101; c1368=126; c1384=53; c1408=100; c1440=107  
 /p/scratch/jureap125/iona1/E112/twop_84src/${cfg}/ 84 srcs
 /p/scratch/jureap125/iona1/E112/ baryons_16src and baryons_12src 
 

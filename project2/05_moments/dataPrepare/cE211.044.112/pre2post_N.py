@@ -35,7 +35,7 @@ def run(cfg):
     file='N.h5_Nrun1_100'
     outfile=f'{outpath}{file}'
     outfile_flag=outfile+'_flag'
-    if (not os.path.isfile(outfile)) or os.path.isfile(outfile_flag):
+    if (not os.path.isfile(outfile)) or os.path.isfile(outfile_flag) or True:
         with open(outfile_flag,'w') as f:
             pass
         with h5py.File(outfile, 'w') as fw, h5py.File(f'{outpathFullmom}{file}','w') as fw2:
@@ -46,6 +46,8 @@ def run(cfg):
             srcs=[]; datDic={'N1_N1':0,'N2_N2':0}
             for file in files:
                 infile=f'{inpath}{file}'
+                if not file.endswith('.h5'):
+                    continue
                 with h5py.File(infile) as f:
                     srcs_old=list(f.keys())
                     assert(len(srcs_old)==1)

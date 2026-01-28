@@ -536,7 +536,7 @@ if True:
         return (pars_mean_MA,pars_err_MA,probs)
     def jackMA2(fits): # doing model average after jackknife
         temp=[]
-        for pars_jk,chi2_jk,Ndof in fits:
+        for fit_label,pars_jk,chi2_jk,Ndof in fits:
             pars_mean,pars_err=jackme(pars_jk)
             chi2_mean,chi2_err=jackme(chi2_jk)
             temp.append((pars_mean,pars_err,chi2_mean[0],Ndof))
@@ -751,6 +751,10 @@ if True:
                     save_txt_internal(label,text)
             return res
         return wrapper
+
+    @decorator_fits    
+    def getFits():
+        return None
     
     @decorator_fits
     def doFits_const(y_jk,xmins,xmaxs,corrQ=True,**kargs):
@@ -873,14 +877,21 @@ if True:
         return [(cutBase+(cutExtra+cutDiff)//2,cutBase+(cutExtra-cutDiff)//2) for cutExtra in cutExtras for cutDiff in cutDiffs if (cutExtra+cutDiff)%2==0 and cutExtra>=abs(cutDiff)]
 
     @decorator_fits
-    def doFits_3pt_band(tf2ratio,tcmins,tf2tcmins=None,downSampling=1,unicutQ=False,corrQ=True,verbose=0):
+    def doFits_3pt_band(tf2ratio_para,tcmins,tf2tcmins=None,tfmax=None,symmetrizeQ=False,downSampling=1,unicutQ=False,corrQ=True,verbose=0):
+        symQ = isinstance(tcmins[0], int)
+        tf2ratio=tf2ratio_para.copy()
+        if symmetrizeQ:
+            assert(symQ)
+            symmetrizeRatio(tf2ratio)
+        
         if tf2tcmins is not None:
             tfs=sorted(tf2tcmins)
             tcmins=tf2tcmins[tfs[0]] 
         else:
             tfs=sorted(tf2ratio)
-            
-        symQ = isinstance(tcmins[0], int)
+        if tfmax is not None:
+            tfs=[tf for tf in tfs if tf<=tfmax]    
+        
         fits=[]
         for tf in tfs: 
             ratio=tf2ratio[tf]
@@ -890,6 +901,8 @@ if True:
                 if verbose>0:
                     print(f'[verbose1] tf={tf}, tcmin={tcmin};')
                 tcs_fit=np.arange(tcmin,tf-tcmin+1,downSampling) if symQ else np.arange(tcmin[0],tf-tcmin[1]+1,downSampling)
+                if symmetrizeQ:
+                    tcs_fit=np.arange(tcmin,tf//2+1,downSampling)
                 if len(tcs_fit)==0:
                     continue
                 y_jk=ratio[:,tcs_fit]
@@ -944,10 +957,14 @@ if True:
             print('[filterFits_3ptasy_unicut] no fits left.')
         return fits_new
         
-    def doMA_3pt(fits,tfmin_min=None,tfmin_max=None,tcmin_min=None,tcmin_max=None,probThreshold=None,chi2RThreshold=None):
+    def doMA_3pt(fits,tfmin_min=None,tfmin_max=None,tcmin_min=None,tcmin_max=None,fitlabels=None,probThreshold=None,chi2RThreshold=None):
         '''
         return: pars_jk,probs_jk,fits
         '''
+        if fitlabels is not None:
+            if type(fitlabels)!=list:
+                fitlabels=[fitlabels]
+            fits=[fit for fit in fits if fit[0] in fitlabels]
         symQ = isinstance(fits[0][0][1], int)
         convert_tcmin = (lambda tcmin:tcmin) if symQ else (lambda tcmin:tcmin[0]+tcmin[1])
         convert_tcmins = (lambda tcmins:tcmins) if symQ else (lambda tcmins:[tcmina+tcminb for tcmina,tcminb in tcmins])
@@ -1042,12 +1059,11 @@ if True:
             if tfmin2tcmins is not None:
                 tcmins=tfmin2tcmins[tfmin]
             for tcmin in tcmins:
+                if ((tfmin<tcmin*2) if symQ else (tfmin<tcmin[0]+tcmin[1])):
+                    continue
                 if verbose>=2:
                     print(f'[verbose2] tfmin={tfmin}, tcmin={tcmin};')
-                if fittype in ['sum']:
-                    if ((tfmin<tcmin*2) if symQ else (tfmin<tcmin[0]+tcmin[1])):
-                        continue
-                    
+                if fittype in ['sum']:                    
                     downSampling=1 if not isinstance(downSampling,int) else downSampling
                     tfs_fit=np.array([tf for tf in tfs if tfmin<=tf and tf%downSampling==tfmin%downSampling])
                     if len(tfs_fit)==0:
@@ -1492,11 +1508,15 @@ if True:
     
     def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=True,figAxs=None,**kwargs):
         '''
+        show in ['rainbow','midpoint','fit_#','fit_#_prob'] \\
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
         WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA] \\
         rainbow:[tfmin,tfmax,tcmin,dt] \\
         fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc] \\
         fit_#:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc] \\
+        
+        mfc:[global] \\
+        shift:[rainbow,midpoint,fit] \\
         '''
         if type(list_dic)==dict:
             list_dic=[list_dic]
@@ -1549,7 +1569,10 @@ if True:
             xunit=setParameter(xunit,'xunit'); yunit=setParameter(yunit,'yunit')
             (tf2ratio,fits_band,fits_const,fits_sum,fits_2st)=setParameter([None,None,None,None,None],'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]')
             tf2ratio=setParameter(tf2ratio,'tf2ratio')
-            tfs_all=list(tf2ratio.keys()); tfs_all.sort()
+            if tf2ratio is None:
+                tfs_all=[]
+            else:
+                tfs_all=list(tf2ratio.keys()); tfs_all.sort()
             # determine symQ
             symQ=False
             for fits in [fits_band,fits_const,fits_sum,fits_2st]:
@@ -1563,7 +1586,8 @@ if True:
             tfs_rainbow=[tf for tf in tfs_all if tfmin<=tf<=tfmax and tf%dt==0 and tf>=tcmin*2]
             tcmin_rainbow=tcmin
             tfs_mid=setParameter(tfs_rainbow,'tfs_mid')
-            tfs_mids_phy+=[(min(tfs_mid)-1)*xunit,(max(tfs_mid)+1)*xunit]
+            if len(tfs_mid)>0:
+                tfs_mids_phy+=[(min(tfs_mid)-1)*xunit,(max(tfs_mid)+1)*xunit]
         if 'midpoint' in shows and len(tfs_mids_phy)!=0:
             ax=axs[-1,shows.index('midpoint')]
             ax.set_xlim([min(tfs_mids_phy),max(tfs_mids_phy)])
@@ -1589,7 +1613,10 @@ if True:
             (tf2ratio,fits_band,fits_const,fits_sum,fits_2st)=setParameter([None,None,None,None,None],'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]')
             tf2ratio=setParameter(tf2ratio,'tf2ratio')
             (fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA)=setParameter([None,None,None,None],'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]')
-            tfs_all=list(tf2ratio.keys()); tfs_all.sort()
+            if tf2ratio is None:
+                tfs_all=[]
+            else:
+                tfs_all=list(tf2ratio.keys()); tfs_all.sort()
             symQ=symQs[irow]
             convert_tcmin = (lambda tcmin:tcmin) if symQ else (lambda tcmin:tcmin[0]+tcmin[1])
             convert_tcmins = (lambda tcmins:tcmins) if symQ else (lambda tcmins:[tcmina+tcminb for tcmina,tcminb in tcmins])
@@ -1626,6 +1653,7 @@ if True:
             
             [mfc_global]=setParameter(['not set'],'mfc:[global]')
             mfc_global=mfc_global if mfc_global!='None' else None
+            [shift_rainbow,shift_midpoint,shift_fit]=setParameter([0,0,0],'shift:[rainbow,midpoint,fit]')
             
             show='rainbow'
             mfc=mfc_global if mfc_global!='not set' else None
@@ -1634,7 +1662,7 @@ if True:
                 for itf,tf in enumerate(tfs_rainbow):
                     mean,err=jackme(tf2ratio[tf])
                     tcs=np.arange(tcmin_rainbow,tf-tcmin_rainbow+1)
-                    plt_x=(tcs-tf/2+0.05*(itf-len(tfs_rainbow)/2))*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
+                    plt_x=(tcs-tf/2+0.05*(itf-len(tfs_rainbow)/2)+shift_rainbow)*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
                     itf_color=tfs_color.index(tf)
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
                     
@@ -1646,7 +1674,7 @@ if True:
                     if tf%2!=0:
                         continue
                     mean,err=jackme(tf2ratio[tf][:,tf//2])
-                    plt_x=tf*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                    plt_x=(tf+shift_midpoint)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     itf_color=tfs_color.index(tf)
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
                     
@@ -1681,7 +1709,7 @@ if True:
                     if mfc_global!='not set':
                         mfc=mfc_global
                     mean,err=jackme(pars_jk[:,0])
-                    plt_x=(tf+itcmin*0.1)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                    plt_x=(tf+itcmin*0.1+shift_fit)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf%16],fmt=fmts16[itf%16],mfc=mfc)
                     
             def plot_fits(show,fits,tfmins,tcmins,fit_MA):
@@ -1717,7 +1745,7 @@ if True:
                         if mfc_global!='not set':
                             mfc=mfc_global
                         mean,err=jackme(pars_jk[:,0])
-                        plt_x=(tfmin+itcmin*0.1)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
+                        plt_x=(tfmin+itcmin*0.1+shift_fit)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                         ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_fit[itcmin%8],fmt=fmts8[itcmin%8],mfc=mfc)
                         
                         if show_prob in shows and (tfmin,tcmin) in fitlabels:
