@@ -165,15 +165,15 @@ if True:
                 key2phy[key]=key2phy_old[key]
         return key2phy                
 
-    def makePlot_a2dependence_avgx(list_dic,case='avgx'):
+    def makePlot_a2dependence_avgx(list_dic,case='avgx',ce='MA'):
         Ncol=len(list_dic)
         fig, axs = yu.getFigAxs(2,Ncol,Lrow=4,Lcol=6,sharex=True,sharey='row')
         caselabel={'avgx':r'\langle \mathrm{x} \rangle', 'B20':r'B20', 'J':r'J'}[case]
         
         if case == 'avgx':
             ax=axs[0,0]
-            ax.set_ylim([0.2,1.4])
-            ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
+            ax.set_ylim([0,1.4])
+            ax.set_yticks([0.2,0.4,0.6,0.8,1.0,1.2])
             ax=axs[1,0]
             ax.set_ylim([-0.1,0.5])
             for icol in range(Ncol):
@@ -242,7 +242,7 @@ if True:
             js=['jq','jtot','jg']
             for ij,j in enumerate(js):
                 color=j2color[j]
-                mean,err=yu.jackme(get('a=#_MA',j))
+                mean,err=yu.jackme(get(f'a=#_{ce}',j))
                 label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
                 for iens,ens in enumerate(enss):
                     plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
@@ -253,17 +253,22 @@ if True:
                     plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
                         
-                mean,err=yu.jackme(get('a=#_MA',j))
+                mean,err=yu.jackme(get(f'a=#_{ce}',j))
                 x=lat_a2s_plt; ymin=mean-err; ymax=mean+err
                 ax.plot(x,mean,color=color,linestyle='--',marker='')
                 ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
+                
+                if key2phy_pre is not None:
+                    plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+                
             ax.legend(fontsize=10,ncol=2)
 
             ax=axs[1,icol]
             js=['ju','jd','js','jc']
             for ij,j in enumerate(js):
                 color=j2color[j]
-                mean,err=yu.jackme(get('a=#_MA',j))
+                mean,err=yu.jackme(get(f'a=#_{ce}',j))
                 label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
                 for iens,ens in enumerate(enss):
                     plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
@@ -273,10 +278,15 @@ if True:
                     plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
 
-                mean,err=yu.jackme(get('a=#_MA',j))
+                mean,err=yu.jackme(get(f'a=#_{ce}',j))
                 x=lat_a2s_plt; ymin=mean-err; ymax=mean+err
                 ax.plot(x,mean,color=color,linestyle='--',marker='')
                 ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
+                
+                if key2phy_pre is not None:
+                    plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+                    
             ax.legend(fontsize=10,ncol=2)
         
         return fig,axs
