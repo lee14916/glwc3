@@ -165,7 +165,7 @@ if True:
                 key2phy[key]=key2phy_old[key]
         return key2phy                
 
-    def makePlot_a2dependence_avgx(list_dic,case='avgx',ce='MA'):
+    def makePlot_a2dependence_avgx(list_dic,case='avgx',ce='MA',noNumberQ=False,noCEonPreQ=False):
         Ncol=len(list_dic)
         fig, axs = yu.getFigAxs(2,Ncol,Lrow=4,Lcol=6,sharex=True,sharey='row')
         caselabel={'avgx':r'\langle \mathrm{x} \rangle', 'B20':r'B20', 'J':r'J'}[case]
@@ -244,6 +244,8 @@ if True:
                 color=j2color[j]
                 mean,err=yu.jackme(get(f'a=#_{ce}',j))
                 label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
+                if noNumberQ:
+                    label=rf'${caselabel}_{{{j2label[j]}}}$'
                 for iens,ens in enumerate(enss):
                     plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
@@ -258,7 +260,7 @@ if True:
                 ax.plot(x,mean,color=color,linestyle='--',marker='')
                 ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
                 
-                if key2phy_pre is not None:
+                if not noCEonPreQ and key2phy_pre is not None:
                     plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
                 
@@ -270,6 +272,8 @@ if True:
                 color=j2color[j]
                 mean,err=yu.jackme(get(f'a=#_{ce}',j))
                 label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
+                if noNumberQ:
+                    label=rf'${caselabel}_{{{j2label[j]}}}$'
                 for iens,ens in enumerate(enss):
                     plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
@@ -283,7 +287,7 @@ if True:
                 ax.plot(x,mean,color=color,linestyle='--',marker='')
                 ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
                 
-                if key2phy_pre is not None:
+                if not noCEonPreQ and key2phy_pre is not None:
                     plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
                     ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
                     

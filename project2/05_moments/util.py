@@ -67,9 +67,10 @@ if True:
         return t
     
     def symmetrizeRatio(tf2ratio):
+        tf2ratio_new={}
         for tf in tf2ratio.keys():
-            tf2ratio[tf]=(tf2ratio[tf]+tf2ratio[tf][:,::-1])/2
-        return tf2ratio
+            tf2ratio_new[tf]=(tf2ratio[tf]+tf2ratio[tf][:,::-1])/2
+        return tf2ratio_new
 
     def fsolve2(func,x0):
         with warnings.catch_warnings():

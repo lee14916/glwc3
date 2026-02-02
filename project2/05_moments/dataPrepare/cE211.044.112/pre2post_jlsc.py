@@ -17,7 +17,7 @@ cfg2old=lambda cfg: cfg[1:]+'_r'+{'a':'0','b':'1','c':'2','d':'3'}[cfg[0]]
 cfg2new=lambda cfg: {'0':'a','1':'b','2':'c','3':'d'}[cfg[-1]] + cfg[:4]
 
 # pf1 pf2 pc pi1 pi2
-Nmax={'cB211.072.64':23,'cC211.060.80':26,'cD211.054.96':26,'cE211.044.112':27}[ens]
+Nmax={'cB211.072.64':23,'cC211.060.80':26,'cD211.054.96':26,'cE211.044.112':26}[ens]
 Nmax_sq=int(np.floor(np.sqrt(Nmax))); t_range=range(-Nmax_sq,Nmax_sq+1)
 base_momList=[[x,y,z] for x in t_range for y in t_range for z in t_range if np.linalg.norm([x,y,z])**2<=Nmax]
 base_momList.sort()
@@ -63,58 +63,150 @@ def run(cfg):
             
             inpath=f'{basePath}data_pre/jl/{cfg_old}/'
             files=os.listdir(inpath)
-            
-            # archived
-            # inpath=f'{basePath}data_pre/js/{cfg_old}/'
-            # files=os.listdir(inpath)
-            # if 'js.h5_S1_std' in files and 'js.h5_S1_gen' in files and 'js.h5_S2_std' in files and 'js.h5_S2_gen' in files:
-            #     for case in ['local','d0','d1','d2','d3']:
-            #         case2={'local':'local','d0':'dir_00','d1':'dir_01','d2':'dir_02','d3':'dir_03'}[case]
-            #         case3={'local':'local','d0':'dir0','d1':'dir1','d2':'dir2','d3':'dir3'}[case]
-                    
-            #         N_S=2
-            #         Ndivide=512
-            #         t_std=t_gen=0
-            #         for i in range(1,N_S+1):
-            #             with h5py.File(inpath+'/js.h5_S'+str(i)+'_std') as fs, h5py.File(inpath+'/js.h5_S'+str(i)+'_gen') as fg:
-            #                 ky_cfg='Conf'+cfg_old
-            #                 if 'Ns0' in fs[ky_cfg].keys():
-            #                     ky_cfg+='/Ns0'
-                            
-            #                 if case in ['local']:
-            #                     moms=fs[ky_cfg]['localLoops']['mvec']
-            #                 else:
-            #                     moms=fs[ky_cfg]['oneD'][case3]['mvec']
-            #                 momDic={}
-            #                 for i,mom in enumerate(moms):
-            #                     momDic[tuple(mom)]=i
-            #                 momMap=[momDic[tuple(mom)] for mom in target_momList]
-                            
-            #                 if case in ['local']:
-            #                     t_std += fs[ky_cfg]['localLoops']['loop'][:]/Ndivide
-            #                     t_gen += fg[ky_cfg]['localLoops']['loop'][:]/Ndivide
-            #                 else:
-            #                     t_std += fs[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
-            #                     t_gen += fg[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
-                            
-            #         t_std=t_std[:,:,:,momMap]; t_gen=t_gen[:,:,:,momMap]
-            #         t_std=t_std[...,0]+1j*t_std[...,1]; t_gen=t_gen[...,0]+1j*t_gen[...,1]
-            #         t_std=np.transpose(t_std,[0,3,1,2]); t_gen=np.transpose(t_gen,[0,3,1,2])
-            #         t_std=t_std/N_S; t_gen=t_gen/N_S
-            #         # print(t_std.shape,t_gen.shape)
-                    
-            #         t_std=t_std*(-8*1j*MUS*KAPPA**2)
-            #         t_gen=t_gen*(-4*KAPPA)
+            if 'stoch_part_std_src0.h5' in files and 'stoch_part_gen_defl.h5' in files:
+                for case in ['local','d0','d1','d2','d3']:
+                    case2={'local':'local','d0':'dir_00','d1':'dir_01','d2':'dir_02','d3':'dir_03'}[case]
+                    case3={'local':'local','d0':'dir0','d1':'dir1','d2':'dir2','d3':'dir3'}[case]
 
-            #         t_p=np.einsum('gab,tmab->tmg',gmArray_p_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_p_gen,t_gen)
-            #         t_m=np.einsum('gab,tmab->tmg',gmArray_m_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_m_gen,t_gen)
+                    N_S=1
+                    Ndivide=512
+                    t_std=t_gen=0
+                    for i in range(1,N_S+1):
+                        with h5py.File(f'{inpath}stoch_part_std_src0.h5') as fs, h5py.File(f'{inpath}stoch_part_gen_defl.h5') as fg:
+                            ky_cfg='Conf'+cfg_old
+                            
+                            if 'Ns0' in fs[ky_cfg].keys():
+                                ky_cfg+='/Ns0'
+                            
+                            if case in ['local']:
+                                moms=fs[ky_cfg]['localLoops']['mvec']
+                            else:
+                                moms=fs[ky_cfg]['oneD'][case3]['mvec']
+                            momDic={}
+                            for i,mom in enumerate(moms):
+                                momDic[tuple(mom)]=i
+                            momMap=[momDic[tuple(mom)] for mom in target_momList]
+                            
+                            if case in ['local']:
+                                t_std += fs[ky_cfg]['localLoops']['loop'][:]/Ndivide
+                                t_gen += fg[ky_cfg]['localLoops']['loop'][:]/Ndivide
+                            else:
+                                t_std += fs[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
+                                t_gen += fg[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
+                            
+                    t_std=t_std[:,:,:,momMap]; t_gen=t_gen[:,:,:,momMap]
+                    t_std=t_std[...,0]+1j*t_std[...,1]; t_gen=t_gen[...,0]+1j*t_gen[...,1]
+                    t_std=np.transpose(t_std,[0,3,1,2]); t_gen=np.transpose(t_gen,[0,3,1,2])
+                    t_std=t_std/N_S; t_gen=t_gen/N_S
+                    # print(t_std.shape,t_gen.shape)
                     
-            #         label='' if case in ['local'] else ';'+case
-            #         fw.create_dataset('data/js'+label,data=t_p/2)
+                    t_std=t_std*(-8*1j*MUS*KAPPA**2)
+                    t_gen=t_gen*(-4*KAPPA)
+
+                    t_p=np.einsum('gab,tmab->tmg',gmArray_p_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_p_gen,t_gen)
+                    t_m=np.einsum('gab,tmab->tmg',gmArray_m_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_m_gen,t_gen)
                     
+                    label='' if case in ['local'] else ';'+case
+                    fw.create_dataset('data/j+'+label,data=t_p)
+                    fw.create_dataset('data/j-'+label,data=t_m)
+            
+            inpath=f'{basePath}data_pre/js/{cfg_old}/'
+            files=os.listdir(inpath)
+            if 'js.h5_S1_std' in files and 'js.h5_S1_gen' in files and 'js.h5_S2_std' in files and 'js.h5_S2_gen' in files:
+                for case in ['local','d0','d1','d2','d3']:
+                    case2={'local':'local','d0':'dir_00','d1':'dir_01','d2':'dir_02','d3':'dir_03'}[case]
+                    case3={'local':'local','d0':'dir0','d1':'dir1','d2':'dir2','d3':'dir3'}[case]
                     
+                    N_S=2
+                    Ndivide=512
+                    t_std=t_gen=0
+                    for i in range(1,N_S+1):
+                        with h5py.File(inpath+'/js.h5_S'+str(i)+'_std') as fs, h5py.File(inpath+'/js.h5_S'+str(i)+'_gen') as fg:
+                            ky_cfg='Conf'+cfg_old
+                            if 'Ns0' in fs[ky_cfg].keys():
+                                ky_cfg+='/Ns0'
+                            
+                            if case in ['local']:
+                                moms=fs[ky_cfg]['localLoops']['mvec']
+                            else:
+                                moms=fs[ky_cfg]['oneD'][case3]['mvec']
+                            momDic={}
+                            for i,mom in enumerate(moms):
+                                momDic[tuple(mom)]=i
+                            momMap=[momDic[tuple(mom)] for mom in target_momList]
+                            
+                            if case in ['local']:
+                                t_std += fs[ky_cfg]['localLoops']['loop'][:]/Ndivide
+                                t_gen += fg[ky_cfg]['localLoops']['loop'][:]/Ndivide
+                            else:
+                                t_std += fs[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
+                                t_gen += fg[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
+                            
+                    t_std=t_std[:,:,:,momMap]; t_gen=t_gen[:,:,:,momMap]
+                    t_std=t_std[...,0]+1j*t_std[...,1]; t_gen=t_gen[...,0]+1j*t_gen[...,1]
+                    t_std=np.transpose(t_std,[0,3,1,2]); t_gen=np.transpose(t_gen,[0,3,1,2])
+                    t_std=t_std/N_S; t_gen=t_gen/N_S
+                    # print(t_std.shape,t_gen.shape)
                     
-        # os.remove(outfile_flag)
+                    t_std=t_std*(-8*1j*MUS*KAPPA**2)
+                    t_gen=t_gen*(-4*KAPPA)
+
+                    t_p=np.einsum('gab,tmab->tmg',gmArray_p_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_p_gen,t_gen)
+                    t_m=np.einsum('gab,tmab->tmg',gmArray_m_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_m_gen,t_gen)
+                    
+                    label='' if case in ['local'] else ';'+case
+                    fw.create_dataset('data/js'+label,data=t_p/2)
+                    
+            inpath=f'{basePath}data_pre/jc/{cfg_old}/'
+            files=os.listdir(inpath)
+            if ('stoch_part_std.h5' in files and 'stoch_part_gen.h5' in files) or ('stoch_part_std_src0.h5' in files and 'stoch_part_gen_src0.h5' in files):
+                for case in ['local','d0','d1','d2','d3']:
+                    case2={'local':'local','d0':'dir_00','d1':'dir_01','d2':'dir_02','d3':'dir_03'}[case]
+                    case3={'local':'local','d0':'dir0','d1':'dir1','d2':'dir2','d3':'dir3'}[case]
+                    
+                    N_S=1
+                    Ndivide=512
+                    t_std=t_gen=0
+                    for i in range(1,N_S+1):
+                        file_s='stoch_part_std.h5' if 'stoch_part_std.h5' in files else 'stoch_part_std_src0.h5'
+                        file_g='stoch_part_gen.h5' if 'stoch_part_gen.h5' in files else 'stoch_part_gen_src0.h5'
+                        with h5py.File(inpath+file_s) as fs, h5py.File(inpath+file_g) as fg:
+                            ky_cfg='Conf'+cfg_old
+                            if 'Ns0' in fs[ky_cfg].keys():
+                                ky_cfg+='/Ns0'
+                            
+                            if case in ['local']:
+                                moms=fs[ky_cfg]['localLoops']['mvec']
+                            else:
+                                moms=fs[ky_cfg]['oneD'][case3]['mvec']
+                            momDic={}
+                            for i,mom in enumerate(moms):
+                                momDic[tuple(mom)]=i
+                            momMap=[momDic[tuple(mom)] for mom in target_momList]
+                            
+                            if case in ['local']:
+                                t_std += fs[ky_cfg]['localLoops']['loop'][:]/Ndivide
+                                t_gen += fg[ky_cfg]['localLoops']['loop'][:]/Ndivide
+                            else:
+                                t_std += fs[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
+                                t_gen += fg[ky_cfg]['oneD'][case3]['loop'][:]/Ndivide
+                            
+                    t_std=t_std[:,:,:,momMap]; t_gen=t_gen[:,:,:,momMap]
+                    t_std=t_std[...,0]+1j*t_std[...,1]; t_gen=t_gen[...,0]+1j*t_gen[...,1]
+                    t_std=np.transpose(t_std,[0,3,1,2]); t_gen=np.transpose(t_gen,[0,3,1,2])
+                    t_std=t_std/N_S; t_gen=t_gen/N_S
+                    # print(t_std.shape,t_gen.shape)
+                    
+                    t_std=t_std*(-8*1j*MUS*KAPPA**2)
+                    t_gen=t_gen*(-4*KAPPA)
+
+                    t_p=np.einsum('gab,tmab->tmg',gmArray_p_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_p_gen,t_gen)
+                    t_m=np.einsum('gab,tmab->tmg',gmArray_m_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_m_gen,t_gen)
+                    
+                    label='' if case in ['local'] else ';'+case
+                    fw.create_dataset('data/jc'+label,data=t_p/2)
+                    
+        os.remove(outfile_flag)
         
     print('flag_cfg_done: '+cfg)
         
