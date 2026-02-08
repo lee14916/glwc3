@@ -67,9 +67,10 @@ if True:
         return t
     
     def symmetrizeRatio(tf2ratio):
+        tf2ratio_new={}
         for tf in tf2ratio.keys():
-            tf2ratio[tf]=(tf2ratio[tf]+tf2ratio[tf][:,::-1])/2
-        return tf2ratio
+            tf2ratio_new[tf]=(tf2ratio[tf]+tf2ratio[tf][:,::-1])/2
+        return tf2ratio_new
 
     def fsolve2(func,x0):
         with warnings.catch_warnings():
@@ -717,7 +718,7 @@ if True:
         pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,[np.mean(y_jk),0],mask=None if corrQ else 'uncorrelated',**kargs)
         return pars_jk,chi2_jk,Ndof
     
-    def fits2text(fits):
+    def fits2text(fits,toStringQ=False):
         text=[]
         pars_jk,probs_jk=jackMA(fits)
         Npar=pars_jk.shape[1]
@@ -735,7 +736,16 @@ if True:
                 text.append(f'fitlabel={fitlabel}, pars={[un2str(mean,err) for mean,err in zip(means,errs)]}, prob={int(probs_mean[i]*100)}%, chi2/Ndof={int(mean_chi2[0]*10)/10}/{Ndof}={int(mean_chi2[0]/Ndof*10)/10};')
             else:
                 text.append(f'fitlabel={fitlabel}, pars={[un2str(mean,err) for mean,err in zip(means,errs)]}, prob={int(probs_mean[i]*100)}%, Ndof=0;')
+        if toStringQ:
+            text='\n'.join(text)
         return text
+    def printFits(fits):
+        print(fits2text(fits,toStringQ=True))
+        
+    def findFit(fits,fitlabel):
+        for fit in fits:
+            if fit[0]==fitlabel:
+                return fit
     
     def decorator_fits(func):
         @functools.wraps(func)
@@ -747,14 +757,13 @@ if True:
             res = func(*args, **kwargs)
             if label is not None:
                 if save_pkl_internal(label,res):
-                    text=fits2text(res)
+                    text=fits2text(res,toStringQ=False)
                     save_txt_internal(label,text)
             return res
         return wrapper
 
-    @decorator_fits    
-    def getFits():
-        return None
+    def getFits(label):
+        return load_pkl_internal(label)
     
     @decorator_fits
     def doFits_const(y_jk,xmins,xmaxs,corrQ=True,**kargs):
@@ -841,7 +850,7 @@ if True:
                     text=[]
                     for i,fits in enumerate(res):
                         text.append(f'{i+1} state fit')
-                        text+=fits2text(fits)
+                        text+=fits2text(fits,toStringQ=False)
                         text.append('\n')
                     save_txt_internal(label,text)
             return res
@@ -1199,7 +1208,7 @@ if True:
         axline={'h':ax.axhline,'v':ax.axvline}[hv]
         axline(val,color=color,ls=ls,marker=marker,label=label)
 
-    def finalizePlot(file=None,closeQ=None):
+    def finalizePlot(file=None,closeQ=None,mkdirQ=False):
         if closeQ is None:
             closeQ=False if file is None else True
         plt.tight_layout()
@@ -1207,7 +1216,10 @@ if True:
             if path_fig_internal is None:
                 print('path_fig_internal is None')
                 return
-            plt.savefig(f'{path_fig_internal}{any2filename(file)}.pdf',bbox_inches="tight")
+            file=f'{path_fig_internal}{any2filename(file)}.pdf'
+            if mkdirQ:
+                os.makedirs(os.path.dirname(file), exist_ok=True)
+            plt.savefig(file,bbox_inches="tight")
         if closeQ:
             plt.close()
     
