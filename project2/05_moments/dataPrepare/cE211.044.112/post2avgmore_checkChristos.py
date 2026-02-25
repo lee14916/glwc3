@@ -1,5 +1,5 @@
 '''
-cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u post2avgmore.py -c @ > log/post2avgmore.out & 
+cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u post2avgmore_checkChristos.py -c @ > log/post2avgmore_checkChristos.out & 
 '''
 import h5py,os,re,click
 import numpy as np
@@ -12,15 +12,6 @@ inds_trace=[i for i,ins in enumerate(inserts) if ins[0]==ins[1]]
 
 xyzt2xyz0=lambda x: x if x!='t' else '0'
 t=[insert for insert in inserts]; inserts_key=[f'=der:g{xyzt2xyz0(insert[1])}D{xyzt2xyz0(insert[0])}:sym=' for insert in t]
-
-inserts_local=['id','gx','gy','gz','gt','g5','g5gx','g5gy','g5gz','g5gt','sgmyz','sgmzx','sgmxy','sgmtx','sgmty','sgmtz']
-inserts_1DT=[]
-
-Psgn={'id':1,'gx':-1,'gy':-1,'gz':-1,'gt':1,'g5':-1,'g5gx':1,'g5gy':1,'g5gz':1,'g5gt':-1,'sgmxy':1,'sgmyz':1,'sgmzx':1,'sgmtx':-1,'sgmty':-1,'sgmtz':-1}
-PTsgn={'id':1,'gx':-1,'gy':-1,'gz':-1,'gt':-1,'g5':1,'g5gx':-1,'g5gy':-1,'g5gz':-1,'g5gt':-1,'sgmxy':1,'sgmyz':1,'sgmzx':1,'sgmtx':1,'sgmty':1,'sgmtz':1} # PT transformation acting on insertion
-gtCj={'id':1,'gx':-1,'gy':-1,'gz':-1,'gt':1,'g5':-1,'g5gx':-1,'g5gy':-1,'g5gz':-1,'g5gt':1,'sgmxy':-1,'sgmyz':-1,'sgmzx':-1,'sgmtx':1,'sgmty':1,'sgmtz':1}
-g5Cj={'id':1,'gx':-1,'gy':-1,'gz':-1,'gt':-1,'g5':1,'g5gx':1,'g5gy':1,'g5gz':1,'g5gt':1,'sgmxy':-1,'sgmyz':-1,'sgmzx':-1,'sgmtx':-1,'sgmty':-1,'sgmtz':-1}
-
 
 #!============== mom opearations ==============#
 if True:
@@ -166,37 +157,32 @@ def get_moms(max_mom2_pc,max_mom2_pf):
 
 input='q=0'
 
-ens='cB211.072.64'
-
-case='1DA'
-assert(case in ['local','1DV','1DA'])
-folder=f'05_moments_run5_{case}'
+ens='cE211.044.112'
 
 if input=='q=0':
-    moms_target=get_moms(0,4)
+    moms_target=get_moms(0,0)
     jqs=['j+','js','jc'] # disc
     stouts=range(40+1) # gluon
-    
+
 if input=='p1=0':
     moms_target=get_moms(16,0)
     jqs=['j+','js','jc'] # disc
-    stouts=range(40+1) # gluon
+    stouts=[5,7,10,13,15,20] # gluon
 
+    
+lat_L={'cB211.072.64':64,'cC211.060.80':80,'cD211.054.96':96,'cE211.044.112':112}[ens]
 tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
 
 flags={
-    'g5H':True
+    'g5H':False
 }
 
 # -------------------------
 # Input end
 # -------------------------
 
-lat_L={'cB211.072.64':64,'cC211.060.80':80,'cD211.054.96':96,'cE211.044.112':112}[ens]
-
 
 def extract2pt(paths,mom):
-    assert('j-' not in jqs) # otherwise we need N1-N2
     moms=mom2moms(mom)
     srcs_all=[]
     data=[]; data_bw=[]
@@ -232,11 +218,7 @@ def extractLoop(basepath,mom):
     
     txyz=['t','x','y','z']
     Dmus=['d3','d0','d1','d2']
-    gnus={
-        'local':['id','gx','gy','gz','gt','g5','g5gx','g5gy','g5gz','g5gt','sgmyz','sgmzx','sgmxy','sgmtx','sgmty','sgmtz'],
-        '1DV':['gt','gx','gy','gz'],
-        '1DA':['g5gt','g5gx','g5gy','g5gz']
-    }[case]
+    gnus=['gt','gx','gy','gz']
     
     path=f'{basepath}/j.h5'
     with h5py.File(path) as f:
@@ -247,55 +229,34 @@ def extractLoop(basepath,mom):
             for i,m in enumerate(moms_old):
                 dic[tuple(m)]=i
             inds_moms=[dic[tuple(m[3:])] for m in moms]
+
+            t=f[f'data/{j}'][:]
+            t=t[:,inds_moms]
             
-            if case in ['local']:
-                t=np.array([f[f'data/{j}'][:,:,gms.index(gnu)] for gnu in gnus])
-                
-                if flags['g5H']:
-                    dic={}
-                    for i,m in enumerate(moms):
-                        dic[tuple(m[3:])]=i
-                    moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
-                    sgns=np.array([g5Cj[gnu] for gnu in gnus])
-                    t_transformed=np.conj(t[:,moms_map,:]) * sgns[None,None,:]
-                    t = (t + t_transformed)/2
-                    
-            elif case in ['1DV','1DA']:
-                t=np.array([[f[f'data/{j};{Dmu}'][:,:,gms.index(gnu)] for Dmu in Dmus] for gnu in gnus])
-                
-                t=t[:,:,:,inds_moms]
-                t=(t+np.transpose(t,[1,0,2,3]))/2
-                t=t - np.eye(4)[:,:,None,None]*np.trace(t,axis1=0,axis2=1)[None,None,:,:]/4
-                t=np.transpose([t[txyz.index(m),txyz.index(n)] for m,n in inserts],[1,2,0])
-                
-                if flags['g5H']:
-                    dic={}
-                    for i,m in enumerate(moms):
-                        dic[tuple(m[3:])]=i
-                    moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
-                    t_transformed=np.conj(t[:,moms_map,:]) * {'1DV':1,'1DA':-1}[case]
-                    t = (t + t_transformed)/2
-                    
-            else:
-                1/0
+            if flags['g5H']:
+                1/0 # needs adaptation with signs
+                dic={}
+                for i,m in enumerate(moms):
+                    dic[tuple(m[3:])]=i
+                moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
+                t = (t + np.conj(t[:,moms_map,:]))/2
             
             j2data[f'{j};disc']=t
+
+    # path=f'{basepath}/jg.h5'
+    # with h5py.File(path) as f:
+    #     gms=[gm.decode() for gm in f['inserts'][:]]
+    #     moms_old=f['moms'][:]
+    #     dic={}
+    #     for i,m in enumerate(moms_old):
+    #         dic[tuple(m)]=i
+    #     inds_moms=[dic[tuple(m[3:])] for m in moms]
+    #     for stout in stouts:
+    #         j=f'jg;stout{stout}'
             
-    if case in ['1DV']:
-        path=f'{basepath}/jg.h5'
-        with h5py.File(path) as f:
-            gms=[gm.decode() for gm in f['inserts'][:]]
-            moms_old=f['moms'][:]
-            dic={}
-            for i,m in enumerate(moms_old):
-                dic[tuple(m)]=i
-            inds_moms=[dic[tuple(m[3:])] for m in moms]
-            for stout in stouts:
-                j=f'jg;stout{stout}'
-                
-                t=f[f'data/{j}'][:]
-                t=t[:,inds_moms]
-                j2data[j]=t
+    #         t=f[f'data/{j}'][:]
+    #         t=t[:,inds_moms]
+    #         j2data[j]=t
             
     return j2data
 
@@ -314,14 +275,8 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,j2datLoop,mom):
     for i,m in enumerate(moms):
         dic[tuple(m)]=i
     inds_negmom=[dic[tuple(-np.array(m))] for m in moms]
-    signs=(-1)*np.array([1,-1,-1,-1])[None,None,:,None]
-    
     sgns_PT_proj=(-1)*np.array([1,-1,-1,-1])[None,None,:,None]
-    sgns_PT_insert={
-        'local':np.array([1,-1,-1,-1,-1, 1,-1,-1,-1,-1, 1,1,1,1,1,1])[None,None,None,:],
-        '1DV':1,
-        '1DA':1
-    }[case]
+    sgns_PT_insert=np.array([1,-1,-1,-1,-1, 1,-1,-1,-1,-1, 1,1,1,1,1,1])[None,None,None,:]
     
     phases=np.array([[get_phase(src,m[3:]) for m in moms] for src in srcs_all])[:,None,:,None]
     sts=[src2ints(src)[-1] for src in srcs_all]
@@ -347,7 +302,7 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,j2datLoop,mom):
             tbw=tbw*sgns_PT_insert
             t=(t+tbw)/2
             
-            jtf2dat3pt[f'{j}_{tf}']=t.copy()
+            jtf2dat3pt[f'{j}_{tf}']=t
 
     return jtf2dat3pt
     
@@ -356,7 +311,6 @@ def avgmore(jtf2dat3pt,mom):
     dic={}
     for i,m in enumerate(moms):
         dic[tuple(m)]=i
-        
 
     e2ind_mom={}; e2inds_proj={}; e2signs_proj={}; e2inds_insert={}; e2signs_insert={}
     for e in elements:
@@ -371,14 +325,9 @@ def avgmore(jtf2dat3pt,mom):
         e2signs_proj[e]=np.array([1,sx*det,sy*det,sz*det])
         e2inds_proj[e]=[0,ix+1,iy+1,iz+1]
         
-        if case in ['local']:
-            1/0
-        elif case in ['1DV','1DA']:
-            e2signs_insert[e]=np.array([signs[xyzt.index(insert[0])]*signs[xyzt.index(insert[1])] for insert in inserts]) * {'1DV':1,'1DA':det}[case]
-            e2inds_insert[e]=[xyzt2[insert[0]]+xyzt2[insert[1]] for insert in inserts]
-            e2inds_insert[e]=[inserts.index(ele) if ele in inserts else inserts.index(ele[1]+ele[0]) for ele in e2inds_insert[e]]
-        else:
-            1/0
+        e2signs_insert[e]=np.array([signs[xyzt.index(insert[0])]*signs[xyzt.index(insert[1])] for insert in inserts])
+        e2inds_insert[e]=[xyzt2[insert[0]]+xyzt2[insert[1]] for insert in inserts]
+        e2inds_insert[e]=[inserts.index(ele) if ele in inserts else inserts.index(ele[1]+ele[0]) for ele in e2inds_insert[e]]
     
     jtf2dat3pt_new={}
     for key in jtf2dat3pt.keys():
@@ -400,18 +349,18 @@ def avgmore(jtf2dat3pt,mom):
 @click.command()
 @click.option('-c','--cfg')
 def run(cfg):
-    basepath=f'/p/project1/ngff/li47/code/projectData/02_discNJN_1D/{ens}/data_post_hold/{cfg}/'
+    basepath=f'/p/project1/ngff/li47/code/projectData/05_moments/{ens}/data_post/{cfg}/'
     files=os.listdir(basepath)
     paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5')]
     
-    path_avgsrc=f'/p/project1/ngff/li47/code/scratch/run/{folder}/{ens}/data_avgsrc/{cfg}/'; os.makedirs(path_avgsrc,exist_ok=True)
-    path_avgmore=f'/p/project1/ngff/li47/code/scratch/run/{folder}/{ens}/data_avgmore/{cfg}/'; os.makedirs(path_avgmore,exist_ok=True)
+    path_avgsrc=f'/p/project1/ngff/li47/code/scratch/run/05_moments_run5/{ens}/data_avgsrc/{cfg}/'; os.makedirs(path_avgsrc,exist_ok=True)
+    path_avgmore=f'/p/project1/ngff/li47/code/scratch/run/05_moments_run5/{ens}/data_avgmore/{cfg}/'; os.makedirs(path_avgmore,exist_ok=True)
     
     for mom in moms_target:
         assert(np.all(mom==mom3pt2standard(mom)))
         
-        outfile_avgsrc=f'{path_avgsrc}/disc_{mom2name(mom)}.h5'
-        outfile_avgmore=f'{path_avgmore}/disc_{mom2name(mom)}.h5'
+        outfile_avgsrc=f'{path_avgsrc}/disc_{mom2name(mom)}_checkChristos.h5'
+        outfile_avgmore=f'{path_avgmore}/disc_{mom2name(mom)}_checkChristos.h5'
         
         outfile=outfile_avgmore
         outfile_flag=outfile+'_flag'
@@ -427,19 +376,19 @@ def run(cfg):
         
         with h5py.File(outfile_avgsrc,'w') as f:
             f.create_dataset('notes',data=['time,mom,proj,insert','mom=[sink,ins]; sink+ins=src','proj=[P0,Px,Py,Pz]'])
-            f.create_dataset('inserts',data=inserts if case in ['1DV','1DA'] else None)
+            f.create_dataset('inserts',data=inserts)
             f.create_dataset('moms',data=mom2moms(mom))
             for jtf in jtf2dat3pt.keys():
                 f.create_dataset(f'data/{jtf}',data=jtf2dat3pt[jtf])
                 
-        jtf2dat3pt=avgmore(jtf2dat3pt,mom)
+        # jtf2dat3pt=avgmore(jtf2dat3pt,mom)
                 
-        with h5py.File(outfile_avgmore,'w') as f:
-            f.create_dataset('notes',data=['time,mom,proj,insert','mom=[sink,ins]; sink+ins=src','proj=[P0,Px,Py,Pz]'])
-            f.create_dataset('inserts',data=inserts if case in ['1DV','1DA'] else None)
-            f.create_dataset('moms',data=[mom])
-            for jtf in jtf2dat3pt.keys():
-                f.create_dataset(f'data/{jtf}',data=jtf2dat3pt[jtf])
+        # with h5py.File(outfile_avgmore,'w') as f:
+        #     f.create_dataset('notes',data=['time,mom,proj,insert','mom=[sink,ins]; sink+ins=src','proj=[P0,Px,Py,Pz]'])
+        #     f.create_dataset('inserts',data=inserts)
+        #     f.create_dataset('moms',data=[mom])
+        #     for jtf in jtf2dat3pt.keys():
+        #         f.create_dataset(f'data/{jtf}',data=jtf2dat3pt[jtf])
                 
         os.remove(outfile_flag)
     

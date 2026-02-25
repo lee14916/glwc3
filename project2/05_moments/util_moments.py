@@ -62,7 +62,8 @@ if True:
                 key2phy[(ens,f'{j};conn')]=ens2RCs[ens][f'Zqq({mn_conn})']*key2bare[(ens,f'{j};conn')]
                 key2phy[(ens,f'{j};disc')]=ens2RCs[ens][f'Zqq({mn_disc})']*key2bare[(ens,f'{j};disc')]
                 key2phy[(ens,f'{j}')]=key2phy[(ens,f'{j};conn')]+key2phy[(ens,f'{j};disc')]
-                
+            
+            key2phy[(ens,f'jq;conn')]=ens2RCs[ens][f'Zqq^s({mn_conn})']*key2bare[(ens,'jq;conn')]
             for stout in stouts:
                 key2phy[(ens,f'jq;conn;stout{stout}')]=ens2RCs[ens][f'Zqq^s({mn_conn})']*key2bare[(ens,'jq;conn')]
                 key2phy[(ens,f'jq;disc;stout{stout}')]=ens2RCs[ens][f'Zqq^s({mn_disc})']*key2bare[(ens,'jq;disc')]
@@ -80,7 +81,9 @@ if True:
                 for fla in fla2iso.keys():
                     key2phy[(ens,f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(ens,f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(ens,f'j{iso}')])  for factor,iso in fla2iso[fla]],axis=0)
         
-        for j in ['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]:
+        js=['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]
+        js_conn=['jv1;conn','jv2;conn','jv3;conn','jq;conn']
+        for j in js+js_conn:
             ens2dat={ens:key2phy[(ens,j)] for ens in enss}
             fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt)
             for fit in fits:
@@ -88,13 +91,19 @@ if True:
                 key2phy[(f'a=#_{fitlabel}',j)]=pars_jk
             pars_jk,probs_jk=yu.jackMA(fits)
             key2phy[('a=#_MA',j)]=pars_jk
-        
+            
         for stout in stouts:
             for fitlabel in ['const','linear','MA']:
                 for fla in fla2iso.keys():
                     key2phy[(f'a=#_{fitlabel}',f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(f'a=#_{fitlabel}',f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(f'a=#_{fitlabel}',f'j{iso}')]) for factor,iso in fla2iso[fla]],axis=0)
                 key2phy[(f'a=#_{fitlabel}',f'jtot;stout{stout}')]=key2phy[(f'a=#_{fitlabel}',f'jq;stout{stout}')]+key2phy[(f'a=#_{fitlabel}',f'jg;stout{stout}')]
         
+        # conn
+        for fitlabel in ['const','linear','MA']:
+            for fla in fla2iso.keys():
+                key2phy[(f'a=#_{fitlabel}',f'j{fla};conn')]=np.sum([factor*key2phy[(f'a=#_{fitlabel}',f'j{iso};conn')] for factor,iso in fla2iso[fla]],axis=0)
+            key2phy[(f'a=#_{fitlabel}',f'jtot;conn')]=key2phy[(f'a=#_{fitlabel}',f'jq;conn')]
+    
         return key2phy
 
     def bareRC2phy_avgx_pre(key2bare,ens2RCs,ens2RCs_pre,mn_conn='mu=nu',mn_disc='mu!=nu',mn_g='mu!=nu'):
@@ -108,7 +117,8 @@ if True:
                 key2phy[(ens,f'{j};conn')]=ens2RCs[ens][f'Zqq({mn_conn})']*key2bare[(ens,f'{j};conn')]
                 key2phy[(ens,f'{j};disc')]=ens2RCs[ens][f'Zqq({mn_disc})']*key2bare[(ens,f'{j};disc')]
                 key2phy[(ens,f'{j}')]=key2phy[(ens,f'{j};conn')]+key2phy[(ens,f'{j};disc')]
-                
+            
+            key2phy[(ens,f'jq;conn')]=ens2RCs[ens][f'Zqq^s({mn_conn})']*key2bare[(ens,'jq;conn')]
             for stout in stouts:
                 key2phy[(ens,f'jq;conn;stout{stout}')]=ens2RCs[ens][f'Zqq^s({mn_conn})']*key2bare[(ens,'jq;conn')]
                 key2phy[(ens,f'jq;disc;stout{stout}')]=ens2RCs_pre[ens][f'Zqq^s^{stout}({mn_disc})']*key2bare[(ens,'jq;disc')] if ens in ens2RCs_pre else ens2RCs[ens][f'Zqq^s({mn_disc})']*key2bare[(ens,'jq;disc')] 
@@ -126,7 +136,9 @@ if True:
                 for fla in fla2iso.keys():
                     key2phy[(ens,f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(ens,f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(ens,f'j{iso}')])  for factor,iso in fla2iso[fla]],axis=0)        
 
-        for j in ['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]:
+        js=['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]
+        js_conn=['jv1;conn','jv2;conn','jv3;conn','jq;conn']
+        for j in js+js_conn:
             ens2dat={ens:key2phy[(ens,j)] for ens in enss}
             fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt)
             for fit in fits:
@@ -140,7 +152,13 @@ if True:
                 for fla in fla2iso.keys():
                     key2phy[(f'a=#_{fitlabel}',f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(f'a=#_{fitlabel}',f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(f'a=#_{fitlabel}',f'j{iso}')]) for factor,iso in fla2iso[fla]],axis=0)
                 key2phy[(f'a=#_{fitlabel}',f'jtot;stout{stout}')]=key2phy[(f'a=#_{fitlabel}',f'jq;stout{stout}')]+key2phy[(f'a=#_{fitlabel}',f'jg;stout{stout}')]
-        
+
+        # conn
+        for fitlabel in ['const','linear','MA']:
+            for fla in fla2iso.keys():
+                key2phy[(f'a=#_{fitlabel}',f'j{fla};conn')]=np.sum([factor*key2phy[(f'a=#_{fitlabel}',f'j{iso};conn')] for factor,iso in fla2iso[fla]],axis=0)
+            key2phy[(f'a=#_{fitlabel}',f'jtot;conn')]=key2phy[(f'a=#_{fitlabel}',f'jq;conn')]
+    
         return key2phy
     
 #!============== Plot ==============#
@@ -165,53 +183,82 @@ if True:
                 key2phy[key]=key2phy_old[key]
         return key2phy                
 
-    def makePlot_a2dependence_avgx(list_dic,case='avgx',ce='MA',noNumberQ=False,noCEonPreQ=False):
+    def makePlot_a2dependence_avgx(list_dic,case='avgx',ce='MA',noNumberQ=False,noCEonPreQ=False,plotwhich='both'):
         Ncol=len(list_dic)
-        fig, axs = yu.getFigAxs(2,Ncol,Lrow=4,Lcol=6,sharex=True,sharey='row')
-        caselabel={'avgx':r'\langle \mathrm{x} \rangle', 'B20':r'B20', 'J':r'J'}[case]
+        fig, axs = yu.getFigAxs(2 if plotwhich=='both' else 1,Ncol,Lrow=4,Lcol=6,sharex=True,sharey='row')
+        caselabel={'avgx':r'\langle \mathrm{x} \rangle', 'B20':r'B', 'J':r'J'}[case]
+        extralabel={'avgx':'','B20':'20;','J':''}[case]
         
         if case == 'avgx':
-            ax=axs[0,0]
-            ax.set_ylim([0,1.4])
-            ax.set_yticks([0.2,0.4,0.6,0.8,1.0,1.2])
-            ax=axs[1,0]
-            ax.set_ylim([-0.1,0.5])
-            for icol in range(Ncol):
-                axs[0,icol].axhline(1,color='black',ls='--',marker='')
-                axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
-                axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
-        if case == 'B20':
-            ax=axs[0,0]
-            ax.set_ylim([-0.5,0.5])
-            # ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
-            ax=axs[1,0]
-            ax.set_ylim([-0.5,0.5])
-            for icol in range(Ncol):
-                axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
-                axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
-        if case =='J':
-            ax=axs[0,0]
-            ax.set_ylim([0.,0.8])
-            # ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
-            ax=axs[1,0]
-            ax.set_ylim([-0.1,0.5])
-            for icol in range(Ncol):
-                axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
-                axs[0,icol].axhline(0.5,color='black',ls='--',marker='')
-                axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
-                axs[1,icol].axhline(0.5,color='black',ls='--',marker='')
+            if plotwhich in ['both']:
+                ax=axs[0,0]
+                ax.set_ylim([0,1.4])
+                ax.set_yticks([0.2,0.4,0.6,0.8,1.0,1.2])
+                ax=axs[1,0]
+                ax.set_ylim([-0.1,0.5])
+                for icol in range(Ncol):
+                    axs[0,icol].axhline(1,color='black',ls='--',marker='')
+                    axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
+                    axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
+            elif plotwhich in ['qg']:
+                ax=axs[0,0]
+                ax.set_ylim([0,1.4])
+                ax.set_yticks([0.2,0.4,0.6,0.8,1.0,1.2])
+                for icol in range(Ncol):
+                    axs[0,icol].axhline(1,color='black',ls='--',marker='')
+                    axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
+            elif plotwhich in ['q']:
+                ax=axs[0,0]
+                ax.set_ylim([-0.1,0.5])
+                for icol in range(Ncol):
+                    axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
                 
-        
-        ax=axs[0,0]
-        ax.set_xlim([0,lat_a2s_plt[-1]])
-        ax.set_xticks([0,0.003,0.006])
-        ax.set_ylabel(rf'${caselabel}_{{q,g}}$')
+        if case == 'B20':
+            if plotwhich in ['both']:
+                ax=axs[0,0]
+                ax.set_ylim([-0.5,0.5])
+                # ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
+                ax=axs[1,0]
+                ax.set_ylim([-0.5,0.5])
+                for icol in range(Ncol):
+                    axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
+                    axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
+        if case =='J':
+            if plotwhich in ['both']:
+                ax=axs[0,0]
+                ax.set_ylim([0.,0.8])
+                # ax.set_yticks([0.4,0.6,0.8,1.0,1.2])
+                ax=axs[1,0]
+                ax.set_ylim([-0.1,0.5])
+                for icol in range(Ncol):
+                    axs[0,icol].axhline(0,color='black',ls='dotted',marker='')
+                    axs[0,icol].axhline(0.5,color='black',ls='--',marker='')
+                    axs[1,icol].axhline(0,color='black',ls='dotted',marker='')
+                    axs[1,icol].axhline(0.5,color='black',ls='--',marker='')
+                
+        if plotwhich in ['both']:
+            ax=axs[0,0]
+            ax.set_xlim([0,lat_a2s_plt[-1]])
+            ax.set_xticks([0,0.003,0.006])
+            ax.set_ylabel(rf'${caselabel}_{{{extralabel}q,g}}$')
 
-        ax=axs[1,0]
-        ax.set_ylabel(rf'${caselabel}_{{q}}$')
-        
-        for icol in range(Ncol):
-            axs[1,icol].set_xlabel(r'$a^2$ [fm$^2$]')
+            ax=axs[1,0]
+            ax.set_ylabel(rf'${caselabel}_{{{extralabel}q}}$')
+            
+            for icol in range(Ncol):
+                axs[1,icol].set_xlabel(r'$a^2$ [fm$^2$]')
+        elif plotwhich in ['qg','q','qv1','qv']:
+            ax=axs[0,0]
+            ax.set_xlim([0,lat_a2s_plt[-1]])
+            ax.set_xticks([0,0.003,0.006])
+            if plotwhich in ['qg']:
+                ax.set_ylabel(rf'${caselabel}_{{q,g}}$')
+            elif plotwhich in ['qv1']:
+                ax.set_ylabel(rf'${caselabel}_{{u-d}}$')
+            else: 
+                ax.set_ylabel(rf'${caselabel}_{{q}}$')
+            for icol in range(Ncol):
+                axs[0,icol].set_xlabel(r'$a^2$ [fm$^2$]')
          
         for icol in range(Ncol):
             dic=list_dic[icol]
@@ -224,7 +271,6 @@ if True:
             if key2phy_pre is not None:
                 keys=list(key2phy_pre)
                 enss_pre=yu.removeDuplicates([ens for ens,j in keys if 'a=#' not in ens])
-            enss_pre=enss_pre
             
             keys=list(key2phy)
             enss=yu.removeDuplicates([ens for ens,j in keys if 'a=#' not in ens])
@@ -234,67 +280,189 @@ if True:
             def get_pre(ens,j):
                 return key2phy_pre[(ens,j)]
             
-            j2color={'jq':'purple','jg':'cyan','jtot':'grey','ju':'r','jd':'g','js':'b','jc':'orange'}
-            j2label={'jq':'q','jg':'g','jtot':'N','ju':'u','jd':'d','js':'s','jc':'c'}
-            j2fmt={'jq':'d','jg':'s','jtot':'o','ju':'^','jd':'v','js':'<','jc':'>'}
+            j2color={'jq':'purple','jg':'cyan','jtot':'grey','ju':'r','jd':'g','js':'b','jc':'orange',\
+                'jv1':'r','jv2':'g','jv3':'b'}
+            j2label={'jq':'q','jg':'g','jtot':'N','ju':'u','jd':'d','js':'s','jc':'c',\
+                'jv1':'u-d','jv2':'u+d-2s','jv3':'u+d+s-3c'}
+            j2fmt={'jq':'d','jg':'s','jtot':'o','ju':'^','jd':'v','js':'<','jc':'>',\
+                'jv1':'s','jv2':'d','jv3':'o'}
             
-            ax=axs[0,icol]
-            js=['jq','jtot','jg']
-            for ij,j in enumerate(js):
-                color=j2color[j]
-                mean,err=yu.jackme(get(f'a=#_{ce}',j))
-                label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
-                if noNumberQ:
-                    label=rf'${caselabel}_{{{j2label[j]}}}$'
-                for iens,ens in enumerate(enss):
-                    plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
-                    
-                    if key2phy_pre is None or ens not in enss_pre:
-                        continue
-                    plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+            if plotwhich in ['both','qg']:
+                ax=axs[0,icol]
+                js=['jq','jtot','jg']
+                for ij,j in enumerate(js):
+                    color=j2color[j]
+                    mean,err=yu.jackme(get(f'a=#_{ce}',j))
+                    label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
+                    if noNumberQ:
+                        label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}$'
+                    for iens,ens in enumerate(enss):
+                        plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
                         
-                mean,err=yu.jackme(get(f'a=#_{ce}',j))
-                x=lat_a2s_plt; ymin=mean-err; ymax=mean+err
-                ax.plot(x,mean,color=color,linestyle='--',marker='')
-                ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
-                
-                if not noCEonPreQ and key2phy_pre is not None:
-                    plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
-                
-            ax.legend(fontsize=10,ncol=2)
-
-            ax=axs[1,icol]
-            js=['ju','jd','js','jc']
-            for ij,j in enumerate(js):
-                color=j2color[j]
-                mean,err=yu.jackme(get(f'a=#_{ce}',j))
-                label=rf'${caselabel}_{{{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
-                if noNumberQ:
-                    label=rf'${caselabel}_{{{j2label[j]}}}$'
-                for iens,ens in enumerate(enss):
-                    plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
-                    if key2phy_pre is None or ens not in enss_pre:
-                        continue
-                    plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
-
-                mean,err=yu.jackme(get(f'a=#_{ce}',j))
-                x=lat_a2s_plt; ymin=mean-err; ymax=mean+err
-                ax.plot(x,mean,color=color,linestyle='--',marker='')
-                ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
-                
-                if not noCEonPreQ and key2phy_pre is not None:
-                    plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+                        if key2phy_pre is None or ens not in enss_pre:
+                            continue
+                        plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+                            
+                    mean,err=yu.jackme(get(f'a=#_{ce}',j))
+                    x=lat_a2s_plt; ymin=mean-err; ymax=mean+err
+                    ax.plot(x,mean,color=color,linestyle='--',marker='')
+                    ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
                     
-            ax.legend(fontsize=10,ncol=2)
-        
+                    if not noCEonPreQ and key2phy_pre is not None:
+                        plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+                    
+                ax.legend(fontsize=10,ncol=2)
+
+            if plotwhich in ['both','q']:
+                ax=axs[1,icol] if plotwhich in ['both'] else axs[0,icol]
+                js=['ju','jd','js','jc']
+                for ij,j in enumerate(js):
+                    color=j2color[j]
+                    mean,err=yu.jackme(get(f'a=#_{ce}',j))
+                    label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
+                    if noNumberQ:
+                        label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}$'
+                    for iens,ens in enumerate(enss):
+                        plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
+                        if key2phy_pre is None or ens not in enss_pre:
+                            continue
+                        plt_x=yu.ens2a[ens]**2+0.0001; plt_y,plt_yerr=yu.jackme(get_pre(ens,j))
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+
+                    mean,err=yu.jackme(get(f'a=#_{ce}',j))
+                    x=lat_a2s_plt; ymin=mean-err; ymax=mean+err
+                    ax.plot(x,mean,color=color,linestyle='--',marker='')
+                    ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
+                    
+                    if not noCEonPreQ and key2phy_pre is not None:
+                        plt_x=0.0004; plt_y,plt_yerr=yu.jackme(get_pre(f'a=#_{ce}',j)[:,0])
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],mfc='white')
+                        
+                ax.legend(fontsize=10,ncol=2)
+
+            if plotwhich in ['qv','qv1']:
+                js=['jv1','jv2','jv3']
+                if plotwhich=='qv1':
+                    js=js[:1]
+                for j in js:
+                    color=j2color[j]; fmt=j2fmt[j]
+                    mean,err=yu.jackme(key2phy[(f'a=#_{ce}',j)])
+                    x=lat_a2s_plt; ymin=mean-err; ymax=mean+err
+                    ax.plot(x,mean,color=color,linestyle='--',marker='')
+                    ax.fill_between(x, ymin, ymax, color=color, alpha=0.1)
+                    label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}=$'+yu.un2str(mean[0],err[0],forceResult=1)
+                    if noNumberQ:
+                        label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}$'
+                    for iens,ens in enumerate(enss):
+                        plt_x=yu.ens2a[ens]**2; plt_y,plt_yerr=yu.jackme(key2phy[(ens,j)])
+                        ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=fmt,label=label if iens==0 else None)
+                ax.legend(fontsize=10)
+                        
         return fig,axs
-    
+
+
+    def makePlot_percentBar(key2phy,case='avgx',noNumbersOnBar=False):
+        caselabel={'avgx':r'\langle \mathrm{x} \rangle', 'B20':r'B', 'J':r'J', \
+                   'DeltaSigmaBy2':r'\frac{1}{2}\Delta\Sigma', 'L':r'L'}[case]
+        extralabel={'B20':'20;'}[case] if case in ['B20'] else ''
+        fig, axs = yu.getFigAxs(1,1,Lrow=6,Lcol=8)
+        
+        valRef=1 if case in ['avgx'] else 0.5
+        
+        if case in ['avgx','J','DeltaSigmaBy2','L']:
+            ax=axs[0,0]
+            ax.axhline(valRef,color='black',ls='--',marker='')
+        if case in ['DeltaSigmaBy2','L']:
+            ax.axhline(0,color='black',ls='--',marker='')
+        
+        if case in ['DeltaSigmaBy2','L']:
+            labelpad={'DeltaSigmaBy2':-21,'L':-17}[case]
+        else:
+            labelpad=None
+        if case in ['DeltaSigmaBy2']:
+            ax.set_ylabel(rf'${caselabel}_{{{extralabel}q}}$',labelpad=labelpad)
+        else:
+            ax.set_ylabel(rf'${caselabel}_{{{extralabel}q,g}}$',labelpad=labelpad)
+        
+        ax.set_ylim({'avgx':[0,1.1],'J':[0,0.55],'DeltaSigmaBy2':[-0.3,0.55],'L':[-0.3,0.55]}[case])
+        
+        if case in ['avgx','J']:
+            js = ['ju','jd','js','jc','jq','jg','jtot']
+            # labels = [r'$u^+$', r'$d^+$', r'$s^+$', r'$c^+$', r'$\sum_{q^+ = u,d,s,c}$', r'$g$', 'Total']
+            labels = [r'$u$', r'$d$', r'$s$', r'$c$', r'$q$', r'$g$', 'Total']
+            colors = np.array(['r','g','b','orange','purple','cyan','grey'])
+            
+            inds_conn=[0,1,4,6]
+            js_conn=[js[ind] for ind in inds_conn]
+
+            x = np.arange(len(labels))
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels)
+            ax.set_xlim([x[0]-3/4,x[-1]+3/4])
+                        
+            factor=valRef
+            mes_conn=[yu.jackme(key2phy[('a=#_MA',f'{j};conn')][:,0]) for j in js_conn]
+            ax.bar(x[inds_conn], [ele[0] for ele in mes_conn], capsize=5, color=colors[inds_conn], alpha=0.8, width=0.3, edgecolor='grey')
+
+            mes=[yu.jackme(key2phy[('a=#_MA',f'{j}')][:,0]) for j in js]
+            bars=ax.bar(x, [ele[0] for ele in mes], yerr=[ele[1] for ele in mes], capsize=5, color=colors, alpha=0.2, width=0.5, edgecolor='grey')
+            func=lambda res:'{:.1f}({:.1f})%'.format(res[0]*100/factor,res[1]*100/factor)
+            percentages=[func(ele) for ele in mes]
+            
+            if not noNumbersOnBar:
+                for i, (bar, pct) in enumerate(zip(bars, percentages)):
+                    height = bar.get_height()
+                    height = 0.01 if height < 0.2 else height - 0.1
+                    if bar.get_height()<-0.01:
+                        height = bar.get_height() + 0.1
+                    ax.text(bar.get_x() - 0.1, height, pct,
+                            ha='center', va='bottom' if bar.get_height()>-0.01 else 'top', fontsize=10, rotation=90)
+                    
+        if case in ['DeltaSigmaBy2','L']:
+            js = ['ju','jd','js','jc','jq']
+            # labels = [r'$u^+$', r'$d^+$', r'$s^+$', r'$c^+$', r'$\sum_{q^+ = u,d,s,c}$', r'$g$', 'Total']
+            labels = [r'$u$', r'$d$', r'$s$', r'$c$', 'Total']
+            colors = np.array(['r','g','b','orange','grey'])
+            
+            inds_conn=[0,1,4]
+            js_conn=[js[ind] for ind in inds_conn]
+
+            x = np.arange(len(labels))
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels)
+            ax.set_xlim([x[0]-3/4,x[-1]+3/4])
+                        
+            factor=valRef
+            mes_conn=[yu.jackme(key2phy[('a=#_MA',f'{j};conn')][:,0]) for j in js_conn]
+            ax.bar(x[inds_conn], [ele[0] for ele in mes_conn], capsize=5, color=colors[inds_conn], alpha=0.8, width=0.3, edgecolor='grey')
+
+            mes=[yu.jackme(key2phy[('a=#_MA',f'{j}')][:,0]) for j in js]
+            bars=ax.bar(x, [ele[0] for ele in mes], yerr=[ele[1] for ele in mes], capsize=5, color=colors, alpha=0.2, width=0.5, edgecolor='grey')
+            func=lambda res:'{:.1f}({:.1f})%'.format(res[0]*100/factor,res[1]*100/factor)
+            percentages=[func(ele) for ele in mes]
+            
+            if not noNumbersOnBar:
+                for i, (bar, pct) in enumerate(zip(bars, percentages)):
+                    height = bar.get_height()
+                    
+                    if case in ['DeltaSigmaBy2']:
+                        height = 0.01 if height < 0.1 else height - 0.1
+                        if bar.get_height()<0.01:
+                            height *= -1
+                        ax.text(bar.get_x() - 0.1, height, pct,
+                                ha='center', va='bottom' if bar.get_height()>0.01 else 'top', fontsize=10, rotation=90)
+                    if case in ['L']:        
+                        height = 0.01 if height < 0.2 else height - 0.1
+                        if bar.get_height()<-0.01:
+                            height = bar.get_height() + 0.1
+                        ax.text(bar.get_x() - 0.1, height, pct,
+                                ha='center', va='bottom' if bar.get_height()>-0.01 else 'top', fontsize=10, rotation=90)
+        return fig,axs
+
 #!============== mom transformations ==============#
 if True:
     def mom2Q2(mom,ens,mN=None):

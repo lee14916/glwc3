@@ -54,7 +54,7 @@ def run(cfg):
     os.makedirs(outpath,exist_ok=True)
     outfile=f'{outpath}j.h5'
     outfile_flag=outfile+'_flag'
-    if (not os.path.isfile(outfile)) or os.path.isfile(outfile_flag):
+    if (not os.path.isfile(outfile)) or os.path.isfile(outfile_flag) or True:
         with open(outfile_flag,'w') as f:
             pass
         with h5py.File(outfile, 'w') as fw:
@@ -100,7 +100,7 @@ def run(cfg):
                     t_std=t_std/N_S; t_gen=t_gen/N_S
                     # print(t_std.shape,t_gen.shape)
                     
-                    t_std=t_std*(-8*1j*MUS*KAPPA**2)
+                    t_std=t_std*(-8*1j*MUL*KAPPA**2)
                     t_gen=t_gen*(-4*KAPPA)
 
                     t_p=np.einsum('gab,tmab->tmg',gmArray_p_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_p_gen,t_gen)
@@ -197,7 +197,7 @@ def run(cfg):
                     t_std=t_std/N_S; t_gen=t_gen/N_S
                     # print(t_std.shape,t_gen.shape)
                     
-                    t_std=t_std*(-8*1j*MUS*KAPPA**2)
+                    t_std=t_std*(-8*1j*MUC*KAPPA**2)
                     t_gen=t_gen*(-4*KAPPA)
 
                     t_p=np.einsum('gab,tmab->tmg',gmArray_p_std,t_std)+np.einsum('gab,tmab->tmg',gmArray_p_gen,t_gen)

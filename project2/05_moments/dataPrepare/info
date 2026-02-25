@@ -8,6 +8,12 @@ cB
 /p/arch1/hch02/hch02k/cB2.072.64_Nf211/twop...: Nsrc~200
 total~349
 
+# 1D
+/p/arch1/ecy00/ecy002/hadstruct/Corr/cB211.072.64/ave/hdf5/h5out/
+/p/arch1/ecy00/ecy002/hadstruct/Corr/cB211.072.64/thrp/oneD_for_yan/run2/
+/p/arch1/ecy00/ecy002/hadstruct/Corr/cB211.072.64/thrp/oneD_for_yan/run3/
+
+
 cC
 /p/arch1/hch02/hch02b/cC211.60.80/${cfg}/twop_nucl_srcs650.h5: Nsrc~650 ('mvec' is in other files at the same directory) (length of moms may not be the same within a same file. At least both 2109 and 3071 are found in the first cfg) 
 total~650

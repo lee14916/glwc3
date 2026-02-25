@@ -159,7 +159,7 @@ if True:
         t=np.mean(dat,axis=0)
         return dat*0 + t[None,...]
             
-    def print_hdf5_structure(file):
+    def print_hdf5_structure(file,N=4):
         with h5py.File(file, "r") as f:
             def show(tf):                
                 keys=list(tf.keys()); keys.sort()
@@ -170,19 +170,19 @@ if True:
                     else:
                         keys_group.append(key)
 
-                show_group=f'{len(keys_group)} groups, {keys_group[:4]}; ' if len(keys_group)!=0 else ''
-                show_dataset=f'{len(keys_dataset)} datasets, {keys_dataset[:4]}; ' if len(keys_dataset)!=0 else ''
+                show_group=f'{len(keys_group)} groups, {keys_group[:N]}; ' if len(keys_group)!=0 else ''
+                show_dataset=f'{len(keys_dataset)} datasets, {keys_dataset[:N]}; ' if len(keys_dataset)!=0 else ''
                 print(f'{tf.name}: {show_group}{show_dataset}')
                 
-                keys_dataset=keys_dataset[:1] if len(keys_dataset)>4 else keys_dataset
+                keys_dataset=keys_dataset[:1] if len(keys_dataset)>N else keys_dataset
                 for key in keys_dataset:
-                    show_key=f'; {tf[key][:]}' if ( (tf[key].ndim==1 and len(tf[key])<20) or (tf[key].ndim==0) ) else ''
+                    show_key=f'; {tf[key][()]}' if ( (tf[key].ndim==1 and len(tf[key])<20) or (tf[key].ndim==0) ) else ''
                     if key in ['notes','inserts']:
                         print(f'{key}={decodeList(tf[key][:])}')
                     else:
                         print(f'{key}: {tf[key].shape}{show_key}')
 
-                keys_group=keys_group[:1] if len(keys_group)>4 else keys_group
+                keys_group=keys_group[:1] if len(keys_group)>N else keys_group
                 for key in keys_group:
                     show(tf[key])
 
@@ -633,57 +633,85 @@ if True:
         '''
         with warnings.catch_warnings(record=True) as list_warnings:
             warnings.simplefilter("always")
-
-            y_mean,_,y_cov=jackmec(y_jk)
-            Ndata=len(y_mean); Npar=len(pars0); Ndof=Ndata-Npar
-            if mask is not None:
-                if mask == 'uncorrelated':
-                    y_cov=np.diag(np.diag(y_cov))
-                else:
-                    y_cov=y_cov*mask
-                
-            cho_L_Inv = np.linalg.inv(cholesky(y_cov, lower=True)) # y_cov^{-1}=cho_L_Inv^T@cho_L_Inv
-            if parsExtra_jk is None:
-                if len(priors)==0:
-                    fitfunc_wrapper=lambda pars: cho_L_Inv@(fitfunc(pars)-y_mean)
-                else:
-                    fitfunc_wrapper=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(pars)-y_mean),[(pars[ind]-mean)/width for ind,mean,width in priors]])
-            else:
-                parsExtra_mean=list(np.mean(parsExtra_jk,axis=0))
-                if len(priors)==0:
-                    fitfunc_wrapper=lambda pars: cho_L_Inv@(fitfunc(list(pars)+parsExtra_mean)-y_mean)
-                else:
-                    fitfunc_wrapper=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(list(pars)+parsExtra_mean)-y_mean),[(pars[ind]-mean)/width for ind,mean,width in priors]])
-            pars_mean,pars_cov=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)[:2]
-            if getFilterInfoQ:
-                chi2=np.sum(fitfunc_wrapper(pars_mean)**2)
-                return np.array([pars_mean]),np.array([chi2]),Ndof,'getFilterInfo=True'
-
-            if flag_fast == "FastFit": # Generate pseudo jackknife resamples from the single fit rather than doing lots of fits
-                n=len(y_jk)
-                pars_jk=jackknife_pseudo(pars_mean,pars_cov,n)
-            else:    
-                def func(yp):
-                    if parsExtra_jk is None:
-                        if len(priors)==0:
-                            fitfunc_wrapper2=lambda pars: cho_L_Inv@(fitfunc(pars)-yp)
-                        else:
-                            fitfunc_wrapper2=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(pars)-yp),[(pars[ind]-mean)/width for ind,mean,width in priors]])
-                    else:
-                        y,p=yp
-                        if len(priors)==0:
-                            fitfunc_wrapper2=lambda pars: cho_L_Inv@(fitfunc(list(pars)+list(p))-y)
-                        else:
-                            fitfunc_wrapper2=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(list(pars)+list(p))-y),[(pars[ind]-mean)/width for ind,mean,width in priors]])
-                    pars=leastsq(fitfunc_wrapper2,pars_mean,**kargs)[0]
-                    return pars
-                if parsExtra_jk is not None:
-                    y_jk=zip(y_jk,parsExtra_jk)
-                    
-                pars_jk=jackmap(func,y_jk)
-                
-            chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
             
+            if not callable(y_jk):
+                Njk,Ndata=y_jk.shape; Npar=len(pars0); Ndof=Ndata-Npar
+                y_mean,_,y_cov=jackmec(y_jk)
+                if mask is not None:
+                    if mask == 'uncorrelated':
+                        y_cov=np.diag(np.diag(y_cov))
+                    else:
+                        y_cov=y_cov*mask
+                cho_L_Inv = np.linalg.inv(cholesky(y_cov, lower=True)) # y_cov^{-1}=cho_L_Inv^T@cho_L_Inv
+                if parsExtra_jk is None:
+                    if len(priors)==0:
+                        fitfunc_wrapper=lambda pars: cho_L_Inv@(fitfunc(pars)-y_mean)
+                    else:
+                        fitfunc_wrapper=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(pars)-y_mean),[(pars[ind]-mean)/width for ind,mean,width in priors]])
+                else:
+                    parsExtra_mean=list(np.mean(parsExtra_jk,axis=0))
+                    if len(priors)==0:
+                        fitfunc_wrapper=lambda pars: cho_L_Inv@(fitfunc(list(pars)+parsExtra_mean)-y_mean)
+                    else:
+                        fitfunc_wrapper=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(list(pars)+parsExtra_mean)-y_mean),[(pars[ind]-mean)/width for ind,mean,width in priors]])
+                pars_mean,pars_cov=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)[:2]
+                if getFilterInfoQ:
+                    chi2=np.sum(fitfunc_wrapper(pars_mean)**2)
+                    return np.array([pars_mean]),np.array([chi2]),Ndof,'getFilterInfo=True'
+                if flag_fast == "FastFit": # Generate pseudo jackknife resamples from the single fit rather than doing lots of fits
+                    pars_jk=jackknife_pseudo(pars_mean,pars_cov,Njk)
+                else:    
+                    def func(yp):
+                        if parsExtra_jk is None:
+                            if len(priors)==0:
+                                fitfunc_wrapper2=lambda pars: cho_L_Inv@(fitfunc(pars)-yp)
+                            else:
+                                fitfunc_wrapper2=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(pars)-yp),[(pars[ind]-mean)/width for ind,mean,width in priors]])
+                        else:
+                            y,p=yp
+                            if len(priors)==0:
+                                fitfunc_wrapper2=lambda pars: cho_L_Inv@(fitfunc(list(pars)+list(p))-y)
+                            else:
+                                fitfunc_wrapper2=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(list(pars)+list(p))-y),[(pars[ind]-mean)/width for ind,mean,width in priors]])
+                        pars=leastsq(fitfunc_wrapper2,pars_mean,**kargs)[0]
+                        return pars
+                    if parsExtra_jk is not None:
+                        y_jk=zip(y_jk,parsExtra_jk)
+                    pars_jk=jackmap(func,y_jk)
+                chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
+            else:
+                Njk,Ndata=y_jk(pars0[-1]).shape; Npar=len(pars0); Ndof=Ndata-Npar
+                def fitfunc_wrapper(pars):
+                    t_yjk=y_jk(pars[-1])
+                    y_mean,_,y_cov=jackmec(t_yjk)
+                    if mask is not None:
+                        if mask == 'uncorrelated':
+                            y_cov=np.diag(np.diag(y_cov))
+                        else:
+                            y_cov=y_cov*mask
+                    cho_L_Inv = np.linalg.inv(cholesky(y_cov, lower=True))
+                    return cho_L_Inv@(fitfunc(pars[:-1])-y_mean)
+                pars_mean,pars_cov=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)[:2]
+                if getFilterInfoQ:
+                    chi2=np.sum(fitfunc_wrapper(pars_mean)**2)
+                    return np.array([pars_mean]),np.array([chi2]),Ndof,'getFilterInfo=True'
+                if flag_fast == "FastFit": # Generate pseudo jackknife resamples from the single fit rather than doing lots of fits
+                    pars_jk=jackknife_pseudo(pars_mean,pars_cov,Njk)
+                else:
+                    def func(i):
+                        def fitfunc_wrapper2(pars):
+                            t_yjk=y_jk(pars[-1])
+                            _,_,y_cov=jackmec(t_yjk)
+                            if mask is not None:
+                                if mask == 'uncorrelated':
+                                    y_cov=np.diag(np.diag(y_cov))
+                                else:
+                                    y_cov=y_cov*mask
+                            cho_L_Inv = np.linalg.inv(cholesky(y_cov, lower=True))
+                            return cho_L_Inv@(fitfunc(pars[:-1])-t_yjk[i])
+                    pars_jk=jackmap(func,range(Njk))
+                chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
+                
             Nwarning = len(list_warnings)
             for w in list_warnings:
                 warnings.showwarning(message=w.message,category=w.category,filename=w.filename,lineno=w.lineno,file=w.file,line=w.line)
@@ -887,19 +915,19 @@ if True:
 
     @decorator_fits
     def doFits_3pt_band(tf2ratio_para,tcmins,tf2tcmins=None,tfmax=None,symmetrizeQ=False,downSampling=1,unicutQ=False,corrQ=True,verbose=0):
+        if tf2tcmins is not None:
+            tfs=sorted(tf2tcmins)
+            tcmins=tf2tcmins[tfs[0]] 
+        else:
+            tfs=sorted(tf2ratio_para)
+        if tfmax is not None:
+            tfs=[tf for tf in tfs if tf<=tfmax]    
+            
         symQ = isinstance(tcmins[0], int)
         tf2ratio=tf2ratio_para.copy()
         if symmetrizeQ:
             assert(symQ)
             symmetrizeRatio(tf2ratio)
-        
-        if tf2tcmins is not None:
-            tfs=sorted(tf2tcmins)
-            tcmins=tf2tcmins[tfs[0]] 
-        else:
-            tfs=sorted(tf2ratio)
-        if tfmax is not None:
-            tfs=[tf for tf in tfs if tf<=tfmax]    
         
         fits=[]
         for tf in tfs: 
@@ -1018,11 +1046,87 @@ if True:
     func_ratioEFITshare_2st=lambda tf,tc,g,ra01,ra10,ra11, dE1_2pta,rc1_2pta, dE1_2ptb,rc1_2ptb:func_ratioEFIT_2st(tf,tc,g,dE1_2pta,dE1_2ptb,ra01,ra10,ra11, dE1_2pta,rc1_2pta, dE1_2ptb,rc1_2ptb)
     
     fittype2func={
+        '2st2step_SYM':func_ratioSYM_2st,
         '2st2step_SYMshare':func_ratioSYMshare_2st,
         '2st2step_SQRTshare':func_ratioSQRTshare_2st,
         '2st2step_EFITshare':func_ratioEFITshare_2st
     }
     
+    def doFit_3pt(fittype,tf2ratio,tfmin,tcmin,pars_jk_meff2st=None,pars_fixed=None,pars0=None,corrQ=True,downSampling=[1,1],fastFlag=False,symmetrizeQ=False):
+        '''
+        fittype in ['const','sum','2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare' \\
+        return pars_jk,chi2_jk,Ndof,Nwarning
+        '''
+        symQ = isinstance(tcmin, int)
+        tfs=list(tf2ratio.keys()); tfs.sort()
+        
+        if pars0 is None:
+            ratio=np.mean(tf2ratio[tfmin],axis=0)
+            g=ratio[tfmin//2]
+            ra01= 1 if g<ratio[tcmin] else -1
+            ra10= 1 if g<ratio[tfmin-tcmin] else -1
+            ra11=0.1
+            dE1 = np.mean(pars_jk_meff2st[:,1])
+            pars0={
+                'const':[g], 'sum':[g,0], '2st2step_SYM':[g,dE1,ra01,ra11], '2st2step_SYMshare':[g,ra01,ra11],
+                '2st2step_SQRTshare':[g,ra01,ra10,ra11], '2st2step_EFITshare':[g,ra01,ra10,ra11]
+            }[fittype]
+            
+            if pars_fixed is not None:
+                if isinstance(pars_fixed,tuple):
+                    ind,val=pars_fixed
+                    pars0.pop(ind)
+                
+
+        if fittype in ['sum']:                    
+            downSampling=1 if not isinstance(downSampling,int) else downSampling
+            tfs_fit=np.array([tf for tf in tfs if tfmin<=tf and tf%downSampling==tfmin%downSampling])
+            if len(tfs_fit)==0:
+                return None
+            y_jk=np.transpose([np.sum(tf2ratio[tf][:,tcmin:tf+1-tcmin],axis=1) for tf in tfs_fit]) if symQ else \
+                np.transpose([np.sum(tf2ratio[tf][:,tcmin[0]:tf+1-tcmin[1]],axis=1) for tf in tfs_fit])
+        else:
+            tfs_fit=[tf for tf in tfs if tcmin*2<=tf and tfmin<=tf and tf%downSampling[0]==tfmin%downSampling[0]] if symQ else \
+                [tf for tf in tfs if tcmin[0]+tcmin[1]<=tf and tfmin<=tf and tf%downSampling[0]==tfmin%downSampling[0]]
+            if len(tfs_fit)==0:
+                return None
+            tf2tcs_fit={tf:np.arange(tcmin,tf//2+1,downSampling[1]) if symmetrizeQ else np.arange(tcmin,tf-tcmin+1,downSampling[1])  for tf in tfs_fit} if symQ else \
+                {tf:np.arange(tcmin[0],tf-tcmin[1]+1,downSampling[1])  for tf in tfs_fit} 
+            y_jk=np.concatenate([tf2ratio[tf][:,tf2tcs_fit[tf]] for tf in tfs_fit],axis=1)
+            
+        if fittype in ['const','sum']:
+            pars_jk_meff2st=None
+
+        if fittype in ['const']:
+            Ndata=y_jk.shape[1]
+            def fitfunc(pars):
+                return list(pars)*Ndata
+        elif fittype in ['sum']:
+            def fitfunc(pars):
+                g,c=pars
+                return g*tfs_fit+c
+        elif fittype in ['2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare']:
+            func=fittype2func[fittype]
+            if pars_fixed is None:
+                def fitfunc(pars):
+                    t=np.concatenate([func(tf,tf2tcs_fit[tf],*pars) for tf in tfs_fit])
+                    return t
+            else:
+                if isinstance(pars_fixed,tuple):
+                    ind,val=pars_fixed
+                    def fitfunc(pars):
+                        t=np.concatenate([func(tf,tf2tcs_fit[tf],*pars[:ind],val,*pars[ind:]) for tf in tfs_fit])
+                        return t
+
+            if type(pars_jk_meff2st)==list:
+                pars_jk_meff2st=np.concatenate(pars_jk_meff2st,axis=1)
+            if fittype in ['2st2step_SYM','2st2step_SYMshare'] and pars_jk_meff2st.shape[1]==3:
+                pars_jk_meff2st=pars_jk_meff2st[:,[1,2]]
+            if fittype in ['2st2step_SQRTshare','2st2step_EFITshare'] and pars_jk_meff2st.shape[1]==6:
+                pars_jk_meff2st=pars_jk_meff2st[:,[1,2,4,5]]
+        pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,pars0,parsExtra_jk=pars_jk_meff2st,mask=None if corrQ else 'uncorrelated',getFilterInfoQ=fastFlag)
+        return pars_jk,chi2_jk,Ndof,Nwarning
+
     @decorator_fits
     def doFits_3pt(fittype,tf2ratio_para,tfmins,tcmins,tfmin2tcmins=None,pars_jk_meff2st=None,pars0=None,downSampling=[1,1],symmetrizeQ=False,unicutQ=False,corrQ=True,fastQ=False,verbose=0):
         '''
@@ -1072,46 +1176,12 @@ if True:
                     continue
                 if verbose>=2:
                     print(f'[verbose2] tfmin={tfmin}, tcmin={tcmin};')
-                if fittype in ['sum']:                    
-                    downSampling=1 if not isinstance(downSampling,int) else downSampling
-                    tfs_fit=np.array([tf for tf in tfs if tfmin<=tf and tf%downSampling==tfmin%downSampling])
-                    if len(tfs_fit)==0:
-                        continue
-                    y_jk=np.transpose([np.sum(tf2ratio[tf][:,tcmin:tf+1-tcmin],axis=1) for tf in tfs_fit]) if symQ else \
-                        np.transpose([np.sum(tf2ratio[tf][:,tcmin[0]:tf+1-tcmin[1]],axis=1) for tf in tfs_fit])
+                    
+                res=doFit_3pt(fittype,tf2ratio,tfmin,tcmin,pars_jk_meff2st=pars_jk_meff2st,pars0=pars0,corrQ=corrQ,downSampling=downSampling,fastFlag=fastFlag,symmetrizeQ=symmetrizeQ)
+                if res is None:
+                    continue
+                pars_jk,chi2_jk,Ndof,Nwarning=res
 
-                    m,e,c=jackmec(y_jk)
-                else:
-                    tfs_fit=[tf for tf in tfs if tcmin*2<=tf and tfmin<=tf and tf%downSampling[0]==tfmin%downSampling[0]] if symQ else \
-                        [tf for tf in tfs if tcmin[0]+tcmin[1]<=tf and tfmin<=tf and tf%downSampling[0]==tfmin%downSampling[0]]
-                    if len(tfs_fit)==0:
-                        continue
-                    tf2tcs_fit={tf:np.arange(tcmin,tf//2+1,downSampling[1]) if symmetrizeQ else np.arange(tcmin,tf-tcmin+1,downSampling[1])  for tf in tfs_fit} if symQ else \
-                        {tf:np.arange(tcmin[0],tf-tcmin[1]+1,downSampling[1])  for tf in tfs_fit} 
-                    y_jk=np.concatenate([tf2ratio[tf][:,tf2tcs_fit[tf]] for tf in tfs_fit],axis=1)
-
-                if fittype in ['const']:
-                    Ndata=y_jk.shape[1]
-                    def fitfunc(pars):
-                        return list(pars)*Ndata
-                elif fittype in ['sum']:
-                    def fitfunc(pars):
-                        g,c=pars
-                        return g*tfs_fit+c
-                elif fittype in ['2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare']:
-                    func=fittype2func[fittype]
-                    def fitfunc(pars):
-                        t=np.concatenate([func(tf,tf2tcs_fit[tf],*pars) for tf in tfs_fit])
-                        return t
-
-                if type(pars_jk_meff2st)==list:
-                    pars_jk_meff2st=np.concatenate(pars_jk_meff2st,axis=1)
-                if fittype in ['2st2step_SYMshare'] and pars_jk_meff2st.shape[1]==3:
-                    pars_jk_meff2st=pars_jk_meff2st[:,[1,2]]
-                if fittype in ['2st2step_SQRTshare','2st2step_EFITshare'] and pars_jk_meff2st.shape[1]==6:
-                    pars_jk_meff2st=pars_jk_meff2st[:,[1,2,4,5]]
-                
-                pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,pars0,parsExtra_jk=pars_jk_meff2st,mask=None if corrQ else 'uncorrelated',getFilterInfoQ=fastFlag)
                 if isinstance(Nwarning,int) and Nwarning>0:
                     print(f'[Nwarning={Nwarning}] tfmin={tfmin}, tcmin={tcmin};')
                 pars0=np.mean(pars_jk,axis=0)
@@ -1518,7 +1588,7 @@ if True:
                 plt_x=(tf+mid_tfshift+shift*0.1)*xunit; plt_y=mean[tf//2]*yunit; plt_yerr=err[tf//2]*yunit
                 ax_mid.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
     
-    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=True,figAxs=None,**kwargs):
+    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,**kwargs):
         '''
         show in ['rainbow','midpoint','fit_#','fit_#_prob'] \\
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
@@ -1542,7 +1612,7 @@ if True:
             show2Header={'rainbow':r'ratio','midpoint':r'mid point','fit_band':r'const fit to each $t_s$',
                     'fit_const':r'const fit', 'fit_2st':r'2st fit', 'fit_sum':r'summation method',
                     'fit_const_prob':r'Fit Prob. (const)','fit_sum_prob':r'Fit Prob. (sum)','fit_2st_prob':r'Fit Prob. (2st)'}
-            addColHeader(axs,[show2Header[show] for show in shows] if colHeaders=='auto' else colHeaders)
+            addColHeader(axs,[show2Header[show] for show in shows] if colHeaders=='auto' else colHeaders, fontsize = fontsize_colHeaders)
             
         show2xlabel={'rainbow':r'$t_{\rm ins}-t_{s}/2$ [fm]','midpoint':r'$t_{s}^{\rm}$ [fm]','fit_band':r'$t_{s}^{\rm}$ [fm]',
                     'fit_const':r'$t_{s}^{\rm low}$ [fm]', 'fit_2st':r'$t_{s}^{\rm low}$ [fm]', 'fit_sum':r'$t_{s}^{\rm low}$ [fm]',
@@ -1688,8 +1758,7 @@ if True:
                     mean,err=jackme(tf2ratio[tf][:,tf//2])
                     plt_x=(tf+shift_midpoint)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     itf_color=tfs_color.index(tf)
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
-                    
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc) 
             show='fit_band'
             if show in shows and fits_band is not None:
                 ax=axs[irow,shows.index(show)]   
@@ -1702,12 +1771,12 @@ if True:
                     if indicativeErrorBandQ:
                         temp_tfs=[tf for (tf,tcmin),*_ in fits_WA]
                         plt_x=[min(temp_tfs)*xunit,max(temp_tfs)*xunit];
-                        ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
+                        ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
                         ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.1)
                     else:
-                        ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
-                    ax.legend()
-                    
+                        ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
+                    if not noLegendQ:
+                        ax.legend()
                 tcmins=removeDuplicates(convert_tcmins([fit[0][1] for fit in fits])); tcmins.sort()
                 for fit in fits:
                     (tf,tcmin),pars_jk,chi2_jk,Ndof=fit
@@ -1738,11 +1807,12 @@ if True:
                         if indicativeErrorBandQ:
                             temp_tfmins=[tfmin for (tfmin,_),*_ in fits_MA]
                             plt_x=[min(temp_tfmins)*xunit,max(temp_tfmins)*xunit]
-                            ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
+                            ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
                             ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.1)
                         else:
-                            ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
-                        ax.legend()
+                            ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
+                        if not noLegendQ:
+                            ax.legend()
                         if show_prob in shows:
                             axp=axs[irow,shows.index(show_prob)]
                             axp.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2)
