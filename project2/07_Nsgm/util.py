@@ -159,7 +159,7 @@ if True:
         t=np.mean(dat,axis=0)
         return dat*0 + t[None,...]
             
-    def print_hdf5_structure(file):
+    def print_hdf5_structure(file,N=4):
         with h5py.File(file, "r") as f:
             def show(tf):                
                 keys=list(tf.keys()); keys.sort()
@@ -170,19 +170,19 @@ if True:
                     else:
                         keys_group.append(key)
 
-                show_group=f'{len(keys_group)} groups, {keys_group[:4]}; ' if len(keys_group)!=0 else ''
-                show_dataset=f'{len(keys_dataset)} datasets, {keys_dataset[:4]}; ' if len(keys_dataset)!=0 else ''
+                show_group=f'{len(keys_group)} groups, {keys_group[:N]}; ' if len(keys_group)!=0 else ''
+                show_dataset=f'{len(keys_dataset)} datasets, {keys_dataset[:N]}; ' if len(keys_dataset)!=0 else ''
                 print(f'{tf.name}: {show_group}{show_dataset}')
                 
-                keys_dataset=keys_dataset[:1] if len(keys_dataset)>4 else keys_dataset
+                keys_dataset=keys_dataset[:1] if len(keys_dataset)>N else keys_dataset
                 for key in keys_dataset:
-                    show_key=f'; {tf[key][:]}' if ( (tf[key].ndim==1 and len(tf[key])<20) or (tf[key].ndim==0) ) else ''
+                    show_key=f'; {tf[key][()]}' if ( (tf[key].ndim==1 and len(tf[key])<20) or (tf[key].ndim==0) ) else ''
                     if key in ['notes','inserts']:
                         print(f'{key}={decodeList(tf[key][:])}')
                     else:
                         print(f'{key}: {tf[key].shape}{show_key}')
 
-                keys_group=keys_group[:1] if len(keys_group)>4 else keys_group
+                keys_group=keys_group[:1] if len(keys_group)>N else keys_group
                 for key in keys_group:
                     show(tf[key])
 
@@ -709,6 +709,8 @@ if True:
                                     y_cov=y_cov*mask
                             cho_L_Inv = np.linalg.inv(cholesky(y_cov, lower=True))
                             return cho_L_Inv@(fitfunc(pars[:-1])-t_yjk[i])
+                        pars=leastsq(fitfunc_wrapper2,pars_mean,**kargs)[0]
+                        return pars
                     pars_jk=jackmap(func,range(Njk))
                 chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
                 
@@ -915,19 +917,19 @@ if True:
 
     @decorator_fits
     def doFits_3pt_band(tf2ratio_para,tcmins,tf2tcmins=None,tfmax=None,symmetrizeQ=False,downSampling=1,unicutQ=False,corrQ=True,verbose=0):
+        if tf2tcmins is not None:
+            tfs=sorted(tf2tcmins)
+            tcmins=tf2tcmins[tfs[0]] 
+        else:
+            tfs=sorted(tf2ratio_para)
+        if tfmax is not None:
+            tfs=[tf for tf in tfs if tf<=tfmax]    
+            
         symQ = isinstance(tcmins[0], int)
         tf2ratio=tf2ratio_para.copy()
         if symmetrizeQ:
             assert(symQ)
             symmetrizeRatio(tf2ratio)
-        
-        if tf2tcmins is not None:
-            tfs=sorted(tf2tcmins)
-            tcmins=tf2tcmins[tfs[0]] 
-        else:
-            tfs=sorted(tf2ratio)
-        if tfmax is not None:
-            tfs=[tf for tf in tfs if tf<=tfmax]    
         
         fits=[]
         for tf in tfs: 
@@ -1054,7 +1056,7 @@ if True:
     
     def doFit_3pt(fittype,tf2ratio,tfmin,tcmin,pars_jk_meff2st=None,pars_fixed=None,pars0=None,corrQ=True,downSampling=[1,1],fastFlag=False,symmetrizeQ=False):
         '''
-        fittype in ['const','sum','2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare' \\
+        fittype in ['const','sum','2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare'] \\
         return pars_jk,chi2_jk,Ndof,Nwarning
         '''
         symQ = isinstance(tcmin, int)
@@ -1075,8 +1077,7 @@ if True:
             if pars_fixed is not None:
                 if isinstance(pars_fixed,tuple):
                     ind,val=pars_fixed
-                    pars0.pop(ind)
-                
+                    pars0.pop(ind)     
 
         if fittype in ['sum']:                    
             downSampling=1 if not isinstance(downSampling,int) else downSampling
@@ -1125,6 +1126,30 @@ if True:
             if fittype in ['2st2step_SQRTshare','2st2step_EFITshare'] and pars_jk_meff2st.shape[1]==6:
                 pars_jk_meff2st=pars_jk_meff2st[:,[1,2,4,5]]
         pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,pars0,parsExtra_jk=pars_jk_meff2st,mask=None if corrQ else 'uncorrelated',getFilterInfoQ=fastFlag)
+        return pars_jk,chi2_jk,Ndof,Nwarning
+    
+    def doFit_3pt_lbd(lbd2tf2ratio,tfmin,tcmin,pars0=None,corrQ=True,downSampling=[1,1],symmetrizeQ=False):
+        symQ = isinstance(tcmin, int)
+        lbd0 = pars0[-1] if pars0 is not None else 1
+        tf2ratio=lbd2tf2ratio(lbd0)
+        g0 = pars0[0] if pars0 is not None else np.mean(tf2ratio[tfmin][:,tfmin//2])
+        pars0=[g0,lbd0]
+        
+        tfs=list(tf2ratio.keys()); tfs.sort()
+        tfs_fit=[tf for tf in tfs if tcmin*2<=tf and tfmin<=tf and tf%downSampling[0]==tfmin%downSampling[0]] if symQ else \
+            [tf for tf in tfs if tcmin[0]+tcmin[1]<=tf and tfmin<=tf and tf%downSampling[0]==tfmin%downSampling[0]]
+        if len(tfs_fit)==0:
+            return None
+        tf2tcs_fit={tf:np.arange(tcmin,tf//2+1,downSampling[1]) if symmetrizeQ else np.arange(tcmin,tf-tcmin+1,downSampling[1])  for tf in tfs_fit} if symQ else \
+            {tf:np.arange(tcmin[0],tf-tcmin[1]+1,downSampling[1])  for tf in tfs_fit} 
+        Ndata=sum([len(tf2tcs_fit[tf]) for tf in tfs_fit])
+        def fitfunc(pars):
+            return list(pars)*Ndata
+        def lbd2y(lbd):
+            tf2ratio=lbd2tf2ratio(lbd)
+            y_jk=np.concatenate([tf2ratio[tf][:,tf2tcs_fit[tf]] for tf in tfs_fit],axis=1)
+            return y_jk
+        pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,lbd2y,pars0=pars0,mask=None if corrQ else 'uncorrelated')
         return pars_jk,chi2_jk,Ndof,Nwarning
 
     @decorator_fits
@@ -1202,7 +1227,47 @@ if True:
             return doFits_3pt(fittype,tf2ratio_para,tfmins,None,tfmin2tcmins=tfmin2tcmins,pars_jk_meff2st=pars_jk_meff2st,pars0=pars0Initial,downSampling=downSampling,symmetrizeQ=symmetrizeQ,unicutQ=False,corrQ=corrQ,fastQ=fastQ,verbose=verbose)
         
         return fits
+    
+    @decorator_fits 
+    def doFits_3pt_lbd(lbd2tf2ratio,tfmins,tcmins,tfmin2tcmins=None,pars0=None,symmetrizeQ=False,corrQ=True,verbose=0):
+        if tfmin2tcmins is not None:
+            tfmins=list(tfmin2tcmins.keys()); tfmins.sort()
+            tcmins=tfmin2tcmins[tfmins[0]] 
+        symQ = isinstance(tcmins[0], int)
+        lbd0 = pars0[-1] if pars0 is not None else 1
+        tf2ratio=lbd2tf2ratio(lbd0)
+        g0 = pars0[0] if pars0 is not None else np.mean(tf2ratio[tfmins[0]][:,tfmins[0]//2])
+        pars0=[g0,lbd0]
+        
+        tfs=list(tf2ratio.keys()); tfs.sort()
 
+        fits=[]
+        for tfmin in tfmins:
+            if verbose==1:
+                print(f'[verbose1] tfmin={tfmin};')
+            if tfmin2tcmins is not None:
+                tcmins=tfmin2tcmins[tfmin]
+            for tcmin in tcmins:
+                if ( (tfmin<tcmin*2) if symQ else (tfmin<tcmin[0]+tcmin[1]) ):
+                    continue
+                if verbose>=2:
+                    print(f'[verbose2] tfmin={tfmin}, tcmin={tcmin};')
+                
+                res=doFit_3pt_lbd(lbd2tf2ratio,tfmin,tcmin,symmetrizeQ=symmetrizeQ,corrQ=corrQ)
+                if res is None:
+                    continue
+                pars_jk,chi2_jk,Ndof,Nwarning=res
+                
+                if isinstance(Nwarning,int) and Nwarning>0:
+                    print(f'[Nwarning={Nwarning}] tfmin={tfmin}, tcmin={tcmin};')
+                pars0=np.mean(pars_jk,axis=0)
+                if verbose>=3:
+                    print(f'[verbose3] pars={formatList(pars0,".2f")}')
+                fits.append([(tfmin,tcmin),pars_jk,chi2_jk,Ndof])
+        
+        return fits
+                
+                
 #!============== table ==============#
 if True:
     def dfs2html(dfs,titles=None):
@@ -1588,7 +1653,7 @@ if True:
                 plt_x=(tf+mid_tfshift+shift*0.1)*xunit; plt_y=mean[tf//2]*yunit; plt_yerr=err[tf//2]*yunit
                 ax_mid.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
     
-    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=True,figAxs=None,**kwargs):
+    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,**kwargs):
         '''
         show in ['rainbow','midpoint','fit_#','fit_#_prob'] \\
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
@@ -1612,7 +1677,7 @@ if True:
             show2Header={'rainbow':r'ratio','midpoint':r'mid point','fit_band':r'const fit to each $t_s$',
                     'fit_const':r'const fit', 'fit_2st':r'2st fit', 'fit_sum':r'summation method',
                     'fit_const_prob':r'Fit Prob. (const)','fit_sum_prob':r'Fit Prob. (sum)','fit_2st_prob':r'Fit Prob. (2st)'}
-            addColHeader(axs,[show2Header[show] for show in shows] if colHeaders=='auto' else colHeaders)
+            addColHeader(axs,[show2Header[show] for show in shows] if colHeaders=='auto' else colHeaders, fontsize = fontsize_colHeaders)
             
         show2xlabel={'rainbow':r'$t_{\rm ins}-t_{s}/2$ [fm]','midpoint':r'$t_{s}^{\rm}$ [fm]','fit_band':r'$t_{s}^{\rm}$ [fm]',
                     'fit_const':r'$t_{s}^{\rm low}$ [fm]', 'fit_2st':r'$t_{s}^{\rm low}$ [fm]', 'fit_sum':r'$t_{s}^{\rm low}$ [fm]',
@@ -1758,8 +1823,7 @@ if True:
                     mean,err=jackme(tf2ratio[tf][:,tf//2])
                     plt_x=(tf+shift_midpoint)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     itf_color=tfs_color.index(tf)
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
-                    
+                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc) 
             show='fit_band'
             if show in shows and fits_band is not None:
                 ax=axs[irow,shows.index(show)]   
@@ -1772,12 +1836,12 @@ if True:
                     if indicativeErrorBandQ:
                         temp_tfs=[tf for (tf,tcmin),*_ in fits_WA]
                         plt_x=[min(temp_tfs)*xunit,max(temp_tfs)*xunit];
-                        ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
+                        ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
                         ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.1)
                     else:
-                        ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
-                    ax.legend()
-                    
+                        ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
+                    if not noLegendQ:
+                        ax.legend()
                 tcmins=removeDuplicates(convert_tcmins([fit[0][1] for fit in fits])); tcmins.sort()
                 for fit in fits:
                     (tf,tcmin),pars_jk,chi2_jk,Ndof=fit
@@ -1808,11 +1872,12 @@ if True:
                         if indicativeErrorBandQ:
                             temp_tfmins=[tfmin for (tfmin,_),*_ in fits_MA]
                             plt_x=[min(temp_tfmins)*xunit,max(temp_tfmins)*xunit]
-                            ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
+                            ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
                             ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.1)
                         else:
-                            ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=un2str(plt_y,plt_yerr))
-                        ax.legend()
+                            ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
+                        if not noLegendQ:
+                            ax.legend()
                         if show_prob in shows:
                             axp=axs[irow,shows.index(show_prob)]
                             axp.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2)
