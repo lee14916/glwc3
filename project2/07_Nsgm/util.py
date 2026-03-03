@@ -1234,7 +1234,7 @@ if True:
             tfmins=list(tfmin2tcmins.keys()); tfmins.sort()
             tcmins=tfmin2tcmins[tfmins[0]] 
         symQ = isinstance(tcmins[0], int)
-        lbd0 = pars0[-1] if pars0 is not None else 1
+        lbd0 = pars0[-1] if pars0 is not None else 0.2
         tf2ratio=lbd2tf2ratio(lbd0)
         g0 = pars0[0] if pars0 is not None else np.mean(tf2ratio[tfmins[0]][:,tfmins[0]//2])
         pars0=[g0,lbd0]
