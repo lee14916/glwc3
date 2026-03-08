@@ -1,5 +1,5 @@
 '''
-cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u post2avgmore.py -c @ > log/post2avgmore.out & 
+cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u post2avgmore_test.py -c @ > log/post2avgmore.out & 
 '''
 import h5py,os,re,click
 import numpy as np
@@ -143,11 +143,11 @@ def get_moms(max_mom2_pc,max_mom2_pf):
 
 input='q=0'
 
-ens='cE211.044.112'
+ens='cB211.072.64'
 
-case='local'
+case='1DA'
 assert(case in ['local','1DV','1DA'])
-folder=f'05_moments_run5_{case}'
+folder=f'05_moments_run5_{case}_test2'
 inserts={'local':inserts_local,'1DV':inserts_1DV,'1DA':inserts_1DA,'1DT':inserts_1DT}[case]
 
 if input=='q=0':
@@ -162,8 +162,14 @@ if input=='p1=0':
 
 tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
 
+if case=='local' and input=='q=0':
+    moms_target=get_moms(0,0)
+    jqs=['j+','j-','js','jc']
+    tfs={'cB211.072.64':range(2,28+1),'cC211.060.80':range(2,34+1),'cD211.054.96':range(2,40+1),'cE211.044.112':range(2,50+1)}[ens]
+
 flags={
-    'g5H':True
+    'g5H':False,
+    'bwd':True
 }
 
 # -------------------------
@@ -174,10 +180,10 @@ lat_L={'cB211.072.64':64,'cC211.060.80':80,'cD211.054.96':96,'cE211.044.112':112
 
 
 def extract2pt(paths,mom):
-    assert('j-' not in jqs) # otherwise we need N1-N2
     moms=mom2moms(mom)
     srcs_all=[]
     data=[]; data_bw=[]
+    data_m=[]; data_bw_m=[]
     for path in paths:
         with h5py.File(path) as f:
             moms_old=f['moms'][:]
@@ -190,19 +196,25 @@ def extract2pt(paths,mom):
             
             t1=np.array([f['data'][src]['N1_N1'][:]  for src in srcs]); t2=np.array([f['data'][src]['N2_N2'][:] for src in srcs])
             t1=t1[:,:,inds_moms]; t2=t2[:,:,inds_moms]
-            t=(t1+t2)/2
-            data.append(t)
+            data.append((t1+t2)/2)
+            data_m.append((t1-t2)/2)
             
             t1=np.array([f['data_bw'][src]['N1_N1'][:]  for src in srcs]); t2=np.array([f['data_bw'][src]['N2_N2'][:] for src in srcs])
             t1=t1[:,:,inds_moms]; t2=t2[:,:,inds_moms]
-            t=(t1+t2)/2
-            data_bw.append(t)
+            data_bw.append((t1+t2)/2)
+            data_bw_m.append((t1-t2)/2)
             
     data=np.concatenate(data,axis=0)
     data=np.einsum('pd,stmd->stmp',dirac2proj,data)
     data_bw=np.concatenate(data_bw,axis=0)
     data_bw=np.einsum('pd,stmd->stmp',dirac2proj_bw,data_bw)
-    return srcs_all,data,data_bw
+    
+    data_m=np.concatenate(data_m,axis=0)
+    data_m=np.einsum('pd,stmd->stmp',dirac2proj,data_m)
+    data_bw_m=np.concatenate(data_bw_m,axis=0)
+    data_bw_m=np.einsum('pd,stmd->stmp',dirac2proj_bw,data_bw_m)        
+    
+    return srcs_all,data,data_bw,data_m,data_bw_m
 
 def extractLoop(basepath,mom):
     moms=mom2moms(mom)
@@ -238,6 +250,8 @@ def extractLoop(basepath,mom):
                     moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
                     sgns=np.array([g5Cj[gnu] for gnu in gnus])
                     t_transformed=np.conj(t[:,moms_map,:]) * sgns[None,None,:]
+                    if 'j-' in j:
+                        t_transformed *= -1
                     t = (t + t_transformed)/2
                     
             elif case in ['1DV','1DA']:
@@ -254,6 +268,8 @@ def extractLoop(basepath,mom):
                         dic[tuple(m[3:])]=i
                     moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
                     t_transformed=np.conj(t[:,moms_map,:]) * {'1DV':1,'1DA':-1}[case]
+                    if 'j-' in j:
+                        t_transformed *= -1
                     t = (t + t_transformed)/2
                     
             else:
@@ -288,7 +304,7 @@ def get_phase(src,mom):
     (sx,sy,sz,st)=src2ints(src)
     return np.exp(1j*(2*np.pi/lat_L)*(np.array([sx,sy,sz])@mom))
 
-def correlate(srcs_all,dat2pt,dat2pt_bw,j2datLoop,mom):
+def correlate(srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m,j2datLoop,mom):
     moms=mom2moms(mom)
     dic={}
     for i,m in enumerate(moms):
@@ -314,18 +330,19 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,j2datLoop,mom):
         datLoop_bw=np.array([np.roll(datLoop[i],-st-1,axis=0)[::-1] for i,st in enumerate(sts)])[:,:,:,None,:]
         
         for tf in tfs:
-            t2pt=dat2pt[:,tf:tf+1,:,:,None]
+            t2pt=dat2pt[:,tf:tf+1,:,:,None] if 'j-' not in j else dat2pt_m[:,tf:tf+1,:,:,None] 
             tj=datLoop_fw[:,:tf+1]
             t=np.mean(t2pt*tj,axis=0)
             
-            t2pt=dat2pt_bw[:,-tf:-tf+1,:,:,None]
+            t2pt=dat2pt_bw[:,-tf:-tf+1,:,:,None] if 'j-' not in j else dat2pt_bw_m[:,-tf:-tf+1,:,:,None]
             tj=datLoop_bw[:,:tf+1]
             tbw=np.mean(t2pt*tj,axis=0)
             
             tbw=tbw[:,inds_negmom]
             tbw=tbw*sgns_PT_proj
             tbw=tbw*sgns_PT_insert
-            t=(t+tbw)/2
+            if flags['bwd']:
+                t=(t+tbw)/2
             
             jtf2dat3pt[f'{j}_{tf}']=t.copy()
 
@@ -410,7 +427,7 @@ def avgmore(jtf2dat3pt,mom):
 @click.command()
 @click.option('-c','--cfg')
 def run(cfg):
-    basepath=f'/p/project1/ngff/li47/code/projectData/05_moments/{ens}/data_post/{cfg}/'
+    basepath=f'/p/project1/ngff/li47/code/projectData/02_discNJN_1D/{ens}/data_post_hold/{cfg}/'
     files=os.listdir(basepath)
     paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5')]
     
@@ -430,10 +447,10 @@ def run(cfg):
         with open(outfile_flag,'w') as f:
             pass
         
-        srcs_all,dat2pt,dat2pt_bw=extract2pt(paths_2pt,mom)
+        srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m=extract2pt(paths_2pt,mom)
         j2datLoop=extractLoop(basepath,mom)
         
-        jtf2dat3pt=correlate(srcs_all,dat2pt,dat2pt_bw,j2datLoop,mom)
+        jtf2dat3pt=correlate(srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m,j2datLoop,mom)
         
         with h5py.File(outfile_avgsrc,'w') as f:
             f.create_dataset('notes',data=['time,mom,proj,insert','mom=[sink,ins]; sink+ins=src','proj=[P0,Px,Py,Pz]'])

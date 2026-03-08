@@ -40,12 +40,12 @@ __all__ = ['np','os','mpl','plt','h5py','pickle','pd','display','product','defau
 if True:
     flag_fast=False # If True, certain functions will be speeded up using approximations.
     path_fig_internal=None; path_pkl_internal=None; path_fig=None; path_pkl=None
-    def setpath(scriptname):
+    def setpath(pathlabel):
         global path_fig_internal, path_pkl_internal, path_fig, path_pkl
-        path_fig_internal=f'fig/{scriptname}/internal_ignore/'
-        path_pkl_internal=f'pkl/{scriptname}/internal_ignore/'
-        path_fig=f'fig/{scriptname}/reg_ignore/'
-        path_pkl=f'pkl/{scriptname}/reg_ignore/'
+        path_fig_internal=f'fig/{pathlabel}/internal_ignore/'
+        path_pkl_internal=f'pkl/{pathlabel}/internal_ignore/'
+        path_fig=f'fig/{pathlabel}/reg_ignore/'
+        path_pkl=f'pkl/{pathlabel}/reg_ignore/'
         
         for path in [path_fig_internal, path_pkl_internal, path_fig, path_pkl]:
             os.makedirs(path,exist_ok=True)
@@ -146,7 +146,9 @@ if True:
         if mkdirQ:
             os.makedirs(os.path.dirname(file), exist_ok=True)
         save_txt(file,txt)
-    def load_pkl_reg(label):
+    def load_pkl_reg(label,pathlabel=None):
+        if pathlabel is not None:
+            return load_pkl(f'pkl/{pathlabel}/reg_ignore/{label}.pkl')
         return load_pkl(f'{path_pkl}{label}.pkl')
     def clear_pkl_internal(file):
         if os.path.isfile(f'{path_pkl_internal}{any2filename(file)}.pkl'):
@@ -1032,6 +1034,8 @@ if True:
     func_c3pt_2st=lambda tf,tc,E0a,E0b,a00,dE1a,dE1b,a01,a10,a11: np.exp(-E0a*(tf-tc))*np.exp(-E0b*tc)*(a00 + a01*np.exp(-dE1b*tc) + a10*np.exp(-dE1a*(tf-tc)) + a11*np.exp(-dE1a*(tf-tc))*np.exp(-dE1b*tc))
     func_c3pt_2st_0a00=lambda tf,tc,E0a,E0b,dE1a,dE1b,a01,a10,a11:np.exp(-E0a*(tf-tc))*np.exp(-E0b*tc)*(a01*np.exp(-dE1b*tc) + a10*np.exp(-dE1a*(tf-tc)) + a11*np.exp(-dE1a*(tf-tc))*np.exp(-dE1b*tc))
     
+    func_c3pt_2st_2dE1=lambda tf,tc,E0a,E0b,a00,dE1a,dE1b,dE1pa,dE1pb,a01,a10,a11: np.exp(-E0a*(tf-tc))*np.exp(-E0b*tc)*(a00 + a01*np.exp(-dE1b*tc) + a10*np.exp(-dE1a*(tf-tc)) + a11*np.exp(-dE1pa*(tf-tc))*np.exp(-dE1pb*tc))
+    
     func_ratioSYM_2st=lambda tf,tc,g,dE1,ra01,ra11, dE1_2pt,rc1_2pt:func_c3pt_2st(tf,tc,0,0,g,dE1,dE1,ra01,ra01,ra11)/func_c2pt_2st(tf,0,1,dE1_2pt,rc1_2pt)
     func_ratioSYMshare_2st=lambda tf,tc,g,ra01,ra11, dE1_2pt,rc1_2pt:func_ratioSYM_2st(tf,tc,g,dE1_2pt,ra01,ra11, dE1_2pt,rc1_2pt)
     
@@ -1047,16 +1051,24 @@ if True:
             func_c2pt_2st(tf,0,1,dE1_2pta,rc1_2pta)*func_c2pt_2st(tf,0,1,dE1_2ptb,rc1_2ptb) )
     func_ratioEFITshare_2st=lambda tf,tc,g,ra01,ra10,ra11, dE1_2pta,rc1_2pta, dE1_2ptb,rc1_2ptb:func_ratioEFIT_2st(tf,tc,g,dE1_2pta,dE1_2ptb,ra01,ra10,ra11, dE1_2pta,rc1_2pta, dE1_2ptb,rc1_2ptb)
     
+    func_ratioSYM_2st_0ra11=lambda tf,tc,g,dE1,ra01, dE1_2pt,rc1_2pt:func_c3pt_2st(tf,tc,0,0,g,dE1,dE1,ra01,ra01,0)/func_c2pt_2st(tf,0,1,dE1_2pt,rc1_2pt)
+    func_ratioSYM_2st_0rc1_0ra11=lambda tf,tc,g,dE1,ra01:func_c3pt_2st(tf,tc,0,0,g,dE1,dE1,ra01,ra01,0)
+    func_ratioSYM_2st_share11=lambda tf,tc,g,dE1,ra01,ra11, dE1_2pt,rc1_2pt:func_c3pt_2st_2dE1(tf,tc,0,0,g,dE1,dE1,dE1_2pt,dE1_2pt,ra01,ra01,ra11)/func_c2pt_2st(tf,0,1,dE1_2pt,rc1_2pt)
+    
     fittype2func={
         '2st2step_SYM':func_ratioSYM_2st,
         '2st2step_SYMshare':func_ratioSYMshare_2st,
         '2st2step_SQRTshare':func_ratioSQRTshare_2st,
-        '2st2step_EFITshare':func_ratioEFITshare_2st
+        '2st2step_EFITshare':func_ratioEFITshare_2st,
+        '2st2step_SYM_0ra11':func_ratioSYM_2st_0ra11,
+        '2st2step_SYM_0rc1_0ra11':func_ratioSYM_2st_0rc1_0ra11,
+        '2st2step_SYM_share11':func_ratioSYM_2st_share11,
     }
     
     def doFit_3pt(fittype,tf2ratio,tfmin,tcmin,pars_jk_meff2st=None,pars_fixed=None,pars0=None,corrQ=True,downSampling=[1,1],fastFlag=False,symmetrizeQ=False):
         '''
-        fittype in ['const','sum','2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare'] \\
+        fittype in ['const','sum','2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare', \\
+        '2st2step_SYM_0ra11','2st2step_SYM_0rc1_0ra11','2st2step_SYM_share11'] \\
         return pars_jk,chi2_jk,Ndof,Nwarning
         '''
         symQ = isinstance(tcmin, int)
@@ -1068,10 +1080,14 @@ if True:
             ra01= 1 if g<ratio[tcmin] else -1
             ra10= 1 if g<ratio[tfmin-tcmin] else -1
             ra11=0.1
-            dE1 = np.mean(pars_jk_meff2st[:,1])
+            if pars_jk_meff2st is not None:
+                dE1 = np.mean(pars_jk_meff2st[:,1])
+            else:
+                dE1 = 0.2
             pars0={
                 'const':[g], 'sum':[g,0], '2st2step_SYM':[g,dE1,ra01,ra11], '2st2step_SYMshare':[g,ra01,ra11],
-                '2st2step_SQRTshare':[g,ra01,ra10,ra11], '2st2step_EFITshare':[g,ra01,ra10,ra11]
+                '2st2step_SQRTshare':[g,ra01,ra10,ra11], '2st2step_EFITshare':[g,ra01,ra10,ra11], 
+                '2st2step_SYM_0ra11':[g,dE1,ra01],'2st2step_SYM_0rc1_0ra11':[g,dE1,ra01],'2st2step_SYM_share11':[g,dE1,ra01,ra11]
             }[fittype]
             
             if pars_fixed is not None:
@@ -1095,7 +1111,7 @@ if True:
                 {tf:np.arange(tcmin[0],tf-tcmin[1]+1,downSampling[1])  for tf in tfs_fit} 
             y_jk=np.concatenate([tf2ratio[tf][:,tf2tcs_fit[tf]] for tf in tfs_fit],axis=1)
             
-        if fittype in ['const','sum']:
+        if fittype in ['const','sum','2st2step_SYM_0rc1_0ra11']:
             pars_jk_meff2st=None
 
         if fittype in ['const']:
@@ -1106,7 +1122,8 @@ if True:
             def fitfunc(pars):
                 g,c=pars
                 return g*tfs_fit+c
-        elif fittype in ['2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare']:
+        elif fittype in ['2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare',
+            '2st2step_SYM_0ra11','2st2step_SYM_0rc1_0ra11','2st2step_SYM_share11']:
             func=fittype2func[fittype]
             if pars_fixed is None:
                 def fitfunc(pars):
@@ -1121,7 +1138,7 @@ if True:
 
             if type(pars_jk_meff2st)==list:
                 pars_jk_meff2st=np.concatenate(pars_jk_meff2st,axis=1)
-            if fittype in ['2st2step_SYM','2st2step_SYMshare'] and pars_jk_meff2st.shape[1]==3:
+            if fittype in ['2st2step_SYM','2st2step_SYMshare', '2st2step_SYM_0ra11', '2st2step_SYM_share11'] and pars_jk_meff2st.shape[1]==3:
                 pars_jk_meff2st=pars_jk_meff2st[:,[1,2]]
             if fittype in ['2st2step_SQRTshare','2st2step_EFITshare'] and pars_jk_meff2st.shape[1]==6:
                 pars_jk_meff2st=pars_jk_meff2st[:,[1,2,4,5]]
@@ -1155,10 +1172,11 @@ if True:
     @decorator_fits
     def doFits_3pt(fittype,tf2ratio_para,tfmins,tcmins,tfmin2tcmins=None,pars_jk_meff2st=None,pars0=None,downSampling=[1,1],symmetrizeQ=False,unicutQ=False,corrQ=True,fastQ=False,verbose=0):
         '''
-        fittype in ['const','sum','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare'] \\
-        fit = [(tfmin,tcmin),pars_jk,chi2_jk,Ndof]
+        fittype in ['const','sum','2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare', \\
+        '2st2step_SYM_0ra11','2st2step_SYM_0rc1_0ra11','2st2step_SYM_share11'] \\
+        return pars_jk,chi2_jk,Ndof,Nwarning
         '''
-        assert(fittype in ['const','sum','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare'])
+        # assert(fittype in ['const','sum','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare'])
         
         fastFlag = (unicutQ is not False) or (fastQ)
         
@@ -1183,9 +1201,14 @@ if True:
             ra01= 1 if g<ratio[tc] else -1
             ra10= 1 if g<ratio[tf-tc] else -1
             ra11=0.1
+            if pars_jk_meff2st is not None:
+                dE1 = np.mean(pars_jk_meff2st[:,1])
+            else:
+                dE1 = 0.2
             pars0={
-                'const':[g], 'sum':[g,0], '2st2step_SYMshare':[g,ra01,ra11],
-                '2st2step_SQRTshare':[g,ra01,ra10,ra11], '2st2step_EFITshare':[g,ra01,ra10,ra11]
+                'const':[g], 'sum':[g,0], '2st2step_SYM':[g,dE1,ra01,ra11], '2st2step_SYMshare':[g,ra01,ra11],
+                '2st2step_SQRTshare':[g,ra01,ra10,ra11], '2st2step_EFITshare':[g,ra01,ra10,ra11], 
+                '2st2step_SYM_0ra11':[g,dE1,ra01],'2st2step_SYM_0rc1_0ra11':[g,dE1,ra01],'2st2step_SYM_share11':[g,dE1,ra01,ra11]
             }[fittype]
         if verbose>=3:
             print(f'[verbose3] pars0={formatList(pars0,".2f")}')
@@ -1229,7 +1252,7 @@ if True:
         return fits
     
     @decorator_fits 
-    def doFits_3pt_lbd(lbd2tf2ratio,tfmins,tcmins,tfmin2tcmins=None,pars0=None,symmetrizeQ=False,corrQ=True,verbose=0):
+    def doFits_3pt_lbd(lbd2tf2ratio,tfmins,tcmins,tfmin2tcmins=None,pars0=None,symmetrizeQ=False,downSampling=[1,1],corrQ=True,verbose=0):
         if tfmin2tcmins is not None:
             tfmins=list(tfmin2tcmins.keys()); tfmins.sort()
             tcmins=tfmin2tcmins[tfmins[0]] 
@@ -1253,7 +1276,7 @@ if True:
                 if verbose>=2:
                     print(f'[verbose2] tfmin={tfmin}, tcmin={tcmin};')
                 
-                res=doFit_3pt_lbd(lbd2tf2ratio,tfmin,tcmin,symmetrizeQ=symmetrizeQ,corrQ=corrQ)
+                res=doFit_3pt_lbd(lbd2tf2ratio,tfmin,tcmin,symmetrizeQ=symmetrizeQ,corrQ=corrQ,downSampling=downSampling)
                 if res is None:
                     continue
                 pars_jk,chi2_jk,Ndof,Nwarning=res
@@ -1339,9 +1362,9 @@ if True:
             ax.annotate(col, xy=(0.5, 1), xytext=(0, pad),
                     xycoords='axes fraction', textcoords='offset points', ha='center', va='baseline', fontsize=fontsize, **kargs)
             
-    def addRefLine(ax,val,hv='h',color='grey',ls='--',marker='',label=None):
+    def addRefLine(ax,val,hv='h',color='grey',ls='--',marker='',label=None,**kwargs):
         axline={'h':ax.axhline,'v':ax.axvline}[hv]
-        axline(val,color=color,ls=ls,marker=marker,label=label)
+        axline(val,color=color,ls=ls,marker=marker,label=label,**kwargs)
 
     def finalizePlot(file=None,closeQ=None,mkdirQ=False):
         if closeQ is None:
@@ -1667,12 +1690,19 @@ if True:
         '''
         if type(list_dic)==dict:
             list_dic=[list_dic]
-        width_ratios=[3 if show in ['rainbow'] else 2 for show in shows]
+
         Nrow=len(list_dic); Ncol=len(shows)
+        if isinstance(colHeaders,list):
+            Ncol=len(colHeaders)
         if figAxs is None:
+            shows=shows + [None]*(Ncol-len(shows))
+            width_ratios=[3 if show in ['rainbow'] else 2 for show in shows]
             fig, axs = getFigAxs(Nrow,Ncol,Lrow=Lrow,Lcol=Lcol,sharex='col',sharey=sharey, gridspec_kw={'width_ratios': width_ratios},**kwargs)
         else:
             fig, axs = figAxs
+            Nrow, Ncol = axs.shape
+            shows=shows + [None]*(Ncol-len(shows))
+        
         if colHeaders is not None:
             show2Header={'rainbow':r'ratio','midpoint':r'mid point','fit_band':r'const fit to each $t_s$',
                     'fit_const':r'const fit', 'fit_2st':r'2st fit', 'fit_sum':r'summation method',
@@ -1683,9 +1713,12 @@ if True:
                     'fit_const':r'$t_{s}^{\rm low}$ [fm]', 'fit_2st':r'$t_{s}^{\rm low}$ [fm]', 'fit_sum':r'$t_{s}^{\rm low}$ [fm]',
                     'fit_const_prob':r'Fit Prob.','fit_sum_prob':r'Fit Prob.','fit_2st_prob':r'Fit Prob.'}
         for i in range(Ncol):
-            axs[-1,i].set_xlabel(show2xlabel[shows[i]])
+            if shows[i] in show2xlabel:
+                axs[-1,i].set_xlabel(show2xlabel[shows[i]])
         
         for show in shows:
+            if show is None:
+                continue
             if show.endswith('_prob'):
                 ax=axs[-1,shows.index(show)]  
                 xticks=[1,3,10,30,90]
