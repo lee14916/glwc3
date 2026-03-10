@@ -11,6 +11,7 @@ import timeit
 ens='cE211.044.112'
 stouts=range(40+1)
 basePath='/capstor/scratch/cscs/gspanoud/cE112/gluon_loops/'
+basePath='/capstor/scratch/cscs/gspanoud/cE112/gluon_loops/new_runs/'
 # replicas=['cD96a','cD96b','cD96c','cD96d']; labels=['a','b','c','d']
 
 beta={'cB211.072.64':1.778,'cC211.060.80':1.836,'cD211.054.96':1.900,'cE211.044.112':1.960}[ens]
