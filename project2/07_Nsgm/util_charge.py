@@ -1,12 +1,13 @@
 import util as yu
 from util import *
 
+lat_a2s_plt=np.arange(0,0.009,0.001)
 
 def load(path,symmetrizeQ=True):
     with h5py.File(path) as f:
         c2pt_disc=yu.jackknife(np.real(f['disc_c2pt'][:]))
-        tfs_conn=[int(tf) for tf in f['conn_c2pt'].keys()]
-        tfs_disc=[int(tf) for tf in f['disc_gS+'].keys()]
+        tfs_conn=[int(tf) for tf in f['conn_c2pt'].keys()]; tfs_conn.sort()
+        tfs_disc=[int(tf) for tf in f['disc_gS+'].keys()]; tfs_disc.sort()
         tf2c2pt_conn={tf:yu.jackknife(np.real(f[f'conn_c2pt/{tf}'][:])) for tf in tfs_conn}
 
         key2tf2c3pt={}

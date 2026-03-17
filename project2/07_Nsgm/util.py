@@ -49,6 +49,8 @@ if True:
         
         for path in [path_fig_internal, path_pkl_internal, path_fig, path_pkl]:
             os.makedirs(path,exist_ok=True)
+            
+    instance_int=(int, np.integer)
 
 #!============== small functions ==============#
 if True:
@@ -927,7 +929,7 @@ if True:
         if tfmax is not None:
             tfs=[tf for tf in tfs if tf<=tfmax]    
             
-        symQ = isinstance(tcmins[0], int)
+        symQ = isinstance(tcmins[0], instance_int)
         tf2ratio=tf2ratio_para.copy()
         if symmetrizeQ:
             assert(symQ)
@@ -965,7 +967,7 @@ if True:
         '''
         return: pars_jk,chi2_jk,Ndof,fits
         '''
-        symQ = isinstance(fits[0][0][1], int)
+        symQ = isinstance(fits[0][0][1], instance_int)
         tfs=[fit[0][0] for fit in fits]
         tf_min = min(tfs) if tf_min is None else tf_min
         tf_max = max(tfs) if tf_max is None else tf_max
@@ -1006,7 +1008,7 @@ if True:
             if type(fitlabels)!=list:
                 fitlabels=[fitlabels]
             fits=[fit for fit in fits if fit[0] in fitlabels]
-        symQ = isinstance(fits[0][0][1], int)
+        symQ = isinstance(fits[0][0][1], instance_int)
         convert_tcmin = (lambda tcmin:tcmin) if symQ else (lambda tcmin:tcmin[0]+tcmin[1])
         convert_tcmins = (lambda tcmins:tcmins) if symQ else (lambda tcmins:[tcmina+tcminb for tcmina,tcminb in tcmins])
         
@@ -1071,7 +1073,7 @@ if True:
         '2st2step_SYM_0ra11','2st2step_SYM_0rc1_0ra11','2st2step_SYM_share11'] \\
         return pars_jk,chi2_jk,Ndof,Nwarning
         '''
-        symQ = isinstance(tcmin, int)
+        symQ = isinstance(tcmin, instance_int)
         tfs=list(tf2ratio.keys()); tfs.sort()
         
         if pars0 is None:
@@ -1096,7 +1098,7 @@ if True:
                     pars0.pop(ind)     
 
         if fittype in ['sum']:                    
-            downSampling=1 if not isinstance(downSampling,int) else downSampling
+            downSampling=1 if not isinstance(downSampling,instance_int) else downSampling
             tfs_fit=np.array([tf for tf in tfs if tfmin<=tf and tf%downSampling==tfmin%downSampling])
             if len(tfs_fit)==0:
                 return None
@@ -1146,7 +1148,7 @@ if True:
         return pars_jk,chi2_jk,Ndof,Nwarning
     
     def doFit_3pt_lbd(lbd2tf2ratio,tfmin,tcmin,pars0=None,corrQ=True,downSampling=[1,1],symmetrizeQ=False):
-        symQ = isinstance(tcmin, int)
+        symQ = isinstance(tcmin, instance_int)
         lbd0 = pars0[-1] if pars0 is not None else 1
         tf2ratio=lbd2tf2ratio(lbd0)
         g0 = pars0[0] if pars0 is not None else np.mean(tf2ratio[tfmin][:,tfmin//2])
@@ -1184,7 +1186,7 @@ if True:
             tfmins=list(tfmin2tcmins.keys()); tfmins.sort()
             tcmins=tfmin2tcmins[tfmins[0]] 
 
-        symQ = isinstance(tcmins[0], int)
+        symQ = isinstance(tcmins[0], instance_int)
 
         tf2ratio=tf2ratio_para.copy()
         tfs=list(tf2ratio.keys()); tfs.sort()
@@ -1194,7 +1196,7 @@ if True:
         pars0Initial=pars0
         if pars0 is None:
             tfmin=min(tfs); tf=max([tf for tf in tfs if tf<tfmin+7]) 
-            tc=min(tcmins) if isinstance(tcmins[0],int) else min([tcmina for tcmina,tcminb in tcmins])
+            tc=min(tcmins) if isinstance(tcmins[0],instance_int) else min([tcmina for tcmina,tcminb in tcmins])
             
             ratio=np.mean(tf2ratio[tf],axis=0)
             g=ratio[tf//2]
@@ -1230,7 +1232,7 @@ if True:
                     continue
                 pars_jk,chi2_jk,Ndof,Nwarning=res
 
-                if isinstance(Nwarning,int) and Nwarning>0:
+                if isinstance(Nwarning,instance_int) and Nwarning>0:
                     print(f'[Nwarning={Nwarning}] tfmin={tfmin}, tcmin={tcmin};')
                 pars0=np.mean(pars_jk,axis=0)
                 if verbose>=3:
@@ -1256,7 +1258,7 @@ if True:
         if tfmin2tcmins is not None:
             tfmins=list(tfmin2tcmins.keys()); tfmins.sort()
             tcmins=tfmin2tcmins[tfmins[0]] 
-        symQ = isinstance(tcmins[0], int)
+        symQ = isinstance(tcmins[0], instance_int)
         lbd0 = pars0[-1] if pars0 is not None else 0.2
         tf2ratio=lbd2tf2ratio(lbd0)
         g0 = pars0[0] if pars0 is not None else np.mean(tf2ratio[tfmins[0]][:,tfmins[0]//2])
@@ -1281,7 +1283,7 @@ if True:
                     continue
                 pars_jk,chi2_jk,Ndof,Nwarning=res
                 
-                if isinstance(Nwarning,int) and Nwarning>0:
+                if isinstance(Nwarning,instance_int) and Nwarning>0:
                     print(f'[Nwarning={Nwarning}] tfmin={tfmin}, tcmin={tcmin};')
                 pars0=np.mean(pars_jk,axis=0)
                 if verbose>=3:
@@ -1758,7 +1760,7 @@ if True:
             for fits in [fits_band,fits_const,fits_sum,fits_2st]:
                 if fits is None:
                     continue
-                symQ=isinstance(fits[0][0][1],int)
+                symQ=isinstance(fits[0][0][1],instance_int)
                 break
             symQs.append(symQ)
             # rainbow
@@ -2066,7 +2068,9 @@ if True:
 if True:
     ens2full={'a24':'cA211.53.24','a':'cA2.09.48','b':'cB211.072.64','c':'cC211.060.80','d':'cD211.054.96','e':'cE211.044.112'}
     ens2label={'a24':'A24','a':'A48','b':'B64','c':'C80','d':'D96','e':'E112'}
-    ens2a={'a24':0.0908,'a':0.0938,'b':0.07957,'c':0.06821,'d':0.05692,'e':0.04892} # fm
+    # ens2a={'a24':0.0908,'a':0.0938,'b':0.07957,'c':0.06821,'d':0.05692,'e':0.04892} # fm
+    ens2a={'a24':0.0908,'a':0.0938,'b':0.07948,'c':0.06819,'d':0.056850,'e':0.04892} # fm; isoQCD arXiv:2411.08852 for BCDE
+    
     ens2NL={'a24':24,'a':48,'b':64,'c':80,'d':96,'e':112}
     ens2NT={'a24':24*2,'a':48*2,'b':64*2,'c':80*2,'d':96*2,'e':112*2}
     ens2amul={'a24':0.0053,'a':0.0009,'b':0.00072,'c':0.00060,'d':0.00054,'e':0.00044}

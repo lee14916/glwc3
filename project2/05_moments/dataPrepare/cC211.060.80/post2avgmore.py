@@ -155,15 +155,17 @@ if input=='q=0':
     jqs=['j+','js','jc'] # disc
     stouts=range(40+1) # gluon
     
-    if case=='local':
-        jqs=['j+','j-','js','jc']
-    
 if input=='p1=0':
     moms_target=get_moms(16,0)
     jqs=['j+','js','jc'] # disc
     stouts=range(40+1) # gluon
 
 tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
+
+if case=='local' and input=='q=0':
+    moms_target=get_moms(0,0)
+    jqs=['j+','j-','js','jc']
+    tfs={'cB211.072.64':range(2,28+1),'cC211.060.80':range(2,34+1),'cD211.054.96':range(2,40+1),'cE211.044.112':range(2,50+1)}[ens]
 
 flags={
     'g5H':True
@@ -247,6 +249,8 @@ def extractLoop(basepath,mom):
                     moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
                     sgns=np.array([g5Cj[gnu] for gnu in gnus])
                     t_transformed=np.conj(t[:,moms_map,:]) * sgns[None,None,:]
+                    if 'j-' in j:
+                        t_transformed *= -1
                     t = (t + t_transformed)/2
                     
             elif case in ['1DV','1DA']:
@@ -263,6 +267,8 @@ def extractLoop(basepath,mom):
                         dic[tuple(m[3:])]=i
                     moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
                     t_transformed=np.conj(t[:,moms_map,:]) * {'1DV':1,'1DA':-1}[case]
+                    if 'j-' in j:
+                        t_transformed *= -1
                     t = (t + t_transformed)/2
                     
             else:
