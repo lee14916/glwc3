@@ -8,14 +8,14 @@ import click
 
 #============================= input start
 
-cd='disc'
+cd='conn'
 cd_2pt=cd
 
 basepath_2pt_conn=f'/p/project1/ngff/li47/code/projectData/05_moments/'
 basepath_2pt_disc=basepath_2pt_conn
 
 basepath_3pt_conn=basepath_2pt_conn
-basepath_3pt_disc=f'/p/project1/ngff/li47/code/scratch/run/05_moments_run5/'
+basepath_3pt_disc=f'/p/project1/ngff/li47/code/scratch/run/05_moments_run5_1DV/'
 basepath_3pt={'conn':basepath_3pt_conn,'disc':basepath_3pt_disc}[cd]
 
 basepath_output=f'{basepath_3pt}doSVD/'
@@ -57,6 +57,9 @@ def extract2pt_conn(ens,n2qpp1):
     inpath=f'{basepath_2pt_conn}{yu.ens2full[ens]}/data_merge/'
     n2q,n2p,n2p1=n2qpp1
     path=f'{inpath}conn_2pt.h5'
+    
+    if ens=='e':
+        path=f'{inpath}conn_2pt_cfgs_conn_Giannis_fine.h5'
     
     tf2c2pta,tf2c2ptb={},{}
     with h5py.File(path) as f:
@@ -123,6 +126,8 @@ def extract3pt(ens,moms):
     j2mom2tf2c3pt={j:{} for j in js}
     for mom in moms:
         path=f'{inpath}{cd}_{yu.mom2str(mom)}.h5'
+        if ens=='e' and cd=='conn':
+            path=f'{inpath}{cd}_{yu.mom2str(mom)}_cfgs_conn_Giannis_fine.h5'
         for j in js:
             j2mom2tf2c3pt[j][tuple(mom)]={}
         with h5py.File(path) as f:
@@ -299,13 +304,22 @@ def run(ens_n2qpp1):
         pass
     
     ens,n2qpp1=ens_n2qpp1.split('_')
+    
+    if ens=='e' and cd=='conn':
+        global ens2msq2pars_jk
+        ens2msq2pars_jk=yu.load_pkl('pkl/analysis_conn_Eensemble_withLessCfg/reg_ignore/ens2msq2pars_jk.pkl') 
+    
     n2qpp1=tuple([int(ele) for ele in n2qpp1.split(',')])
     n2q,n2p,n2p1=n2qpp1
     assert(n2q!=0 and n2p>=n2p1)
     
     inpath=f'{basepath_3pt}{yu.ens2full[ens]}/data_merge/'
-    moms=[[int(e) for e in file[5:-3].split(',')] for file in os.listdir(inpath) \
-        if file.startswith(cd) and file.endswith('.h5') and not file.endswith('n.h5') and not file.endswith('t.h5')]
+    if ens=='e' and cd=='conn':
+        moms=[[int(e) for e in file[5:-len('_cfgs_conn_Giannis_fine.h5')].split(',')] for file in os.listdir(inpath) \
+            if file.startswith(cd) and file.endswith('_cfgs_conn_Giannis_fine.h5') and not file.endswith('n_cfgs_conn_Giannis_fine.h5') and not file.endswith('t_cfgs_conn_Giannis_fine.h5')]
+    else:
+        moms=[[int(e) for e in file[5:-3].split(',')] for file in os.listdir(inpath) \
+            if file.startswith(cd) and file.endswith('.h5') and not file.endswith('n.h5') and not file.endswith('t.h5')]
     moms=[mom for mom in moms if yu.mom2n2qpp1_sym(mom)==n2qpp1]
     
     j2mom2tf2ratio=extractRatio(ens,moms)

@@ -378,7 +378,9 @@ def avgmore(jtf2dat3pt,mom):
                 if insert in ['sgmtx','sgmty','sgmtz']:
                     return signs[xyzt.index(insert[-1])]
                 if insert in ['sgmyz','sgmzx','sgmxy']:
-                    return signs[xyzt.index(insert[-2])]*signs[xyzt.index(insert[-1])]
+                    ele=xyzt2[insert[-2]]+xyzt2[insert[-1]]
+                    sign = 1 if ele in ['yz','zx','xy'] else -1
+                    return signs[xyzt.index(insert[-2])]*signs[xyzt.index(insert[-1])]*sign
                 1/0                 
             e2signs_insert[e]=np.array([get_sign(insert) for insert in inserts])
             def get_ind(insert):

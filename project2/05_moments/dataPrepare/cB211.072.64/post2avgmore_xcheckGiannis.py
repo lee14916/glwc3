@@ -1,5 +1,5 @@
 '''
-cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u post2avgmore.py -c @ > log/post2avgmore.out & 
+cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u post2avgmore_xcheckGiannis.py -c @ > log/post2avgmore_xcheckGiannis.out & 
 '''
 import h5py,os,re,click
 import numpy as np
@@ -145,14 +145,15 @@ input='q=0'
 
 ens='cB211.072.64'
 
-case='local'
+case='1DA'
 assert(case in ['local','1DV','1DA'])
-folder=f'05_moments_run5_{case}'
+folder=f'05_moments_run5_{case}_xcheckGiannis'
 inserts={'local':inserts_local,'1DV':inserts_1DV,'1DA':inserts_1DA,'1DT':inserts_1DT}[case]
 
 if input=='q=0':
     moms_target=get_moms(0,0)
     jqs=['j+','js','jc'] # disc
+    jqs=['j+']
     stouts=range(40+1) # gluon
     
 if input=='p1=0':
@@ -255,11 +256,17 @@ def extractLoop(basepath,mom):
                     
             elif case in ['1DV','1DA']:
                 t=np.array([[f[f'data/{j};{Dmu}'][:,:,gms.index(gnu)] for Dmu in Dmus] for gnu in gnus])
-                
+                # print(case,gnus,Dmus)
                 t=t[:,:,:,inds_moms]
+                # print(t.shape)
+                # print(t[:,:,0,0])
+                # print(t[0,3,0,0],t[3,0,0,0],(t[0,3,0,0]+t[3,0,0,0])/2)
                 t=(t+np.transpose(t,[1,0,2,3]))/2
                 t=t - np.eye(4)[:,:,None,None]*np.trace(t,axis1=0,axis2=1)[None,None,:,:]/4
+                
                 t=np.transpose([t[txyz.index(m),txyz.index(n)] for m,n in inserts],[1,2,0])
+                # print(t.shape)
+                # print(t[0,0,inserts.index('tz')])
                 
                 if flags['g5H']:
                     dic={}
@@ -309,7 +316,6 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m,j2datLoop,mom):
     for i,m in enumerate(moms):
         dic[tuple(m)]=i
     inds_negmom=[dic[tuple(-np.array(m))] for m in moms]
-    signs=(-1)*np.array([1,-1,-1,-1])[None,None,:,None]
     
     sgns_PT_proj=(-1)*np.array([1,-1,-1,-1])[None,None,:,None]
     sgns_PT_insert={
@@ -320,6 +326,8 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m,j2datLoop,mom):
     
     phases=np.array([[get_phase(src,m[3:]) for m in moms] for src in srcs_all])[:,None,:,None]
     sts=[src2ints(src)[-1] for src in srcs_all]
+    isrc=srcs_all.index('sx000sy002sz040st115')
+    print(srcs_all[isrc])
     
     jtf2dat3pt={}
     for j in j2datLoop.keys():
@@ -328,10 +336,17 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m,j2datLoop,mom):
         datLoop_fw=np.array([np.roll(datLoop[i],-st,axis=0) for i,st in enumerate(sts)])[:,:,:,None,:]
         datLoop_bw=np.array([np.roll(datLoop[i],-st-1,axis=0)[::-1] for i,st in enumerate(sts)])[:,:,:,None,:]
         
-        for tf in tfs:
+        for tf in [10]:
             t2pt=dat2pt[:,tf:tf+1,:,:,None] if 'j-' not in j else dat2pt_m[:,tf:tf+1,:,:,None] 
             tj=datLoop_fw[:,:tf+1]
             t=np.mean(t2pt*tj,axis=0)
+            print(t2pt.shape,tj.shape,t.shape)
+            print(t2pt[isrc,0,0,3])
+            print(tj[isrc,:,0,0,inserts.index('tz')])
+            print(t2pt[isrc,0,0,3]*tj[isrc,0,0,0,inserts.index('tz')])
+            print(np.mean(t2pt[:,0,0,3,0]*tj[:,0,0,0,inserts.index('tz')]))
+            print(t[:4,0,3,inserts.index('tz')])
+            # print(t2pt[isrc],tj[isrc],t2pt[isrc]*tj[isrc])
             
             t2pt=dat2pt_bw[:,-tf:-tf+1,:,:,None] if 'j-' not in j else dat2pt_bw_m[:,-tf:-tf+1,:,:,None]
             tj=datLoop_bw[:,:tf+1]
@@ -340,7 +355,7 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m,j2datLoop,mom):
             tbw=tbw[:,inds_negmom]
             tbw=tbw*sgns_PT_proj
             tbw=tbw*sgns_PT_insert
-            t=(t+tbw)/2
+            # t=(t+tbw)/2
             
             jtf2dat3pt[f'{j}_{tf}']=t.copy()
 
@@ -442,8 +457,8 @@ def run(cfg):
         
         outfile=outfile_avgmore
         outfile_flag=outfile+'_flag'
-        if os.path.isfile(outfile) and (not os.path.isfile(outfile_flag)):
-            continue
+        # if os.path.isfile(outfile) and (not os.path.isfile(outfile_flag)):
+        #     continue
         with open(outfile_flag,'w') as f:
             pass
         

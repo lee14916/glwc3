@@ -19,7 +19,7 @@ def decodeTask(task):
     return (n2qpp1,ff,j)
 
 
-enss_all=['b','c','d']
+enss_all=['b','c','d','e']
 
 #====================
 overwrite=True
@@ -37,7 +37,7 @@ def run(task):
     figs=[]
     for ens in enss:
         case2tf2ratio={}
-        path=f'/p/project1/ngff/li47/code/scratch/run/05_moments_run5/doSVD/disc_{ens}_{yu.n2qpp12str(n2qpp1)}.h5'
+        path=f'/p/project1/ngff/li47/code/scratch/run/05_moments_run5_1DV/doSVD/disc_{ens}_{yu.n2qpp12str(n2qpp1)}.h5'
         tfs_conn=set()
         with h5py.File(path) as f:
             for case in f.keys():

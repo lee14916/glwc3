@@ -141,7 +141,7 @@ def get_moms(max_mom2_pc,max_mom2_pf):
 # Input
 # -------------------------
 
-input='q=0'
+input='p1=0'
 
 ens='cE211.044.112'
 
@@ -379,7 +379,9 @@ def avgmore(jtf2dat3pt,mom):
                 if insert in ['sgmtx','sgmty','sgmtz']:
                     return signs[xyzt.index(insert[-1])]
                 if insert in ['sgmyz','sgmzx','sgmxy']:
-                    return signs[xyzt.index(insert[-2])]*signs[xyzt.index(insert[-1])]
+                    ele=xyzt2[insert[-2]]+xyzt2[insert[-1]]
+                    sign = 1 if ele in ['yz','zx','xy'] else -1
+                    return signs[xyzt.index(insert[-2])]*signs[xyzt.index(insert[-1])]*sign
                 1/0                 
             e2signs_insert[e]=np.array([get_sign(insert) for insert in inserts])
             def get_ind(insert):
@@ -428,8 +430,8 @@ def avgmore(jtf2dat3pt,mom):
 def run(cfg):
     basepath=f'/p/project1/ngff/li47/code/projectData/05_moments/{ens}/data_post_hold/{cfg}/'
     files=os.listdir(basepath)
-    paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5')]
-    # paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5') and file.split('_')[1] in ['Nrun1','Nrun2','Nrun3' ]]
+    # paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5')]
+    paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5') and file.split('_')[1] in ['Nrun1','Nrun2','Nrun3' ]]
     # print(paths_2pt)
     
     path_avgsrc=f'/p/project1/ngff/li47/code/scratch/run/{folder}/{ens}/data_avgsrc/{cfg}/'; os.makedirs(path_avgsrc,exist_ok=True)
