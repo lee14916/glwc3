@@ -49,7 +49,9 @@ def load(path,symmetrizeQ=True):
             for tf in key2tf2c3pt[key].keys():
                 if 'conn' in key:
                     tf2ratio[tf] = key2tf2c3pt[key][tf]/tf2c2pt_conn[tf][:,tf:tf+1]
-                else:
+                elif 'disc' in key:
                     tf2ratio[tf] = key2tf2c3pt[key][tf]/c2pt_disc[:,tf:tf+1]
+                else:
+                    tf2ratio[tf] = key2tf2c3pt[f'{key};conn'][tf]/tf2c2pt_conn[tf][:,tf:tf+1] + key2tf2c3pt[f'{key};disc'][tf]/c2pt_disc[:,tf:tf+1]
             key2tf2ratio[key]=tf2ratio
     return [c2pt_disc,tfs_conn,tfs_disc,tf2c2pt_conn,key2tf2c3pt,key2tf2ratio]

@@ -1403,14 +1403,21 @@ if True:
             ax.set_xticklabels(xticklabels)
         return fig,axs
     
-    def makePlot_continuumExtrapolation(matrix_dic,shows=['MA']):
+    def makePlot_continuumExtrapolation(matrix_dic,shows=['MA'],figAxs=None):
+        '''
+        ens2dat \\
+        fit:[fits,lat_a2s_plt]
+        '''
         if type(matrix_dic)==dict:
             matrix_dic=[[matrix_dic]]
         elif type(matrix_dic[0])==dict:
             matrix_dic=[matrix_dic]
         
         Nrow,Ncol=len(matrix_dic),len(matrix_dic[0])
-        fig,axs=getFigAxs(Nrow,Ncol,sharex='col',sharey='row')
+        if figAxs is None:
+            fig,axs=getFigAxs(Nrow,Ncol,sharex='col',sharey='row')
+        else:
+            fig,axs=figAxs
         for icol in range(Ncol):
             ax=axs[-1,icol]
             ax.set_xlabel(r'$a^2$ [fm$^2$]')

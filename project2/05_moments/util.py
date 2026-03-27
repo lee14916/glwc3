@@ -1403,14 +1403,21 @@ if True:
             ax.set_xticklabels(xticklabels)
         return fig,axs
     
-    def makePlot_continuumExtrapolation(matrix_dic,shows=['MA']):
+    def makePlot_continuumExtrapolation(matrix_dic,shows=['MA'],figAxs=None):
+        '''
+        ens2dat \\
+        fit:[fits,lat_a2s_plt]
+        '''
         if type(matrix_dic)==dict:
             matrix_dic=[[matrix_dic]]
         elif type(matrix_dic[0])==dict:
             matrix_dic=[matrix_dic]
         
         Nrow,Ncol=len(matrix_dic),len(matrix_dic[0])
-        fig,axs=getFigAxs(Nrow,Ncol,sharex='col',sharey='row')
+        if figAxs is None:
+            fig,axs=getFigAxs(Nrow,Ncol,sharex='col',sharey='row')
+        else:
+            fig,axs=figAxs
         for icol in range(Ncol):
             ax=axs[-1,icol]
             ax.set_xlabel(r'$a^2$ [fm$^2$]')
@@ -1662,12 +1669,14 @@ if True:
         return fig,axd,result           
 #!============== plot (3pt) ==============#
 if True:
-    def plot_rainbow(ax,tf2ratio,tfmin=None,tfmax=None,tcmin=1,xunit=1,yunit=1,shift=0,mid_tfshift=0,colors=colors16,mfc=None,ax_mid=None):
+    def plot_rainbow(ax,tf2ratio,tfmin=None,tfmax=None,dt=1,tcmin=1,xunit=1,yunit=1,shift=0,mid_tfshift=0,colors=colors16,mfc=None,ax_mid=None):
         tfs=list(tf2ratio.keys())
         tfmin = min(tfs) if tfmin is None else tfmin
         tfmax = max(tfs) if tfmax is None else tfmax
         tfs=[tf for tf in tfs if tfmin<=tf<=tfmax]
         for itf,tf in enumerate(tfs):
+            if tf%dt!=0:
+                continue
             mean,err=jackme(tf2ratio[tf])
             tcs=np.arange(tcmin,tf-tcmin+1)
             plt_x=(tcs-tf/2+0.05*(itf-len(tfs)/2)+shift*0.1)*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
@@ -1983,13 +1992,15 @@ if True:
                                   
         return fig,axs
 
-    def makePlot_3pt_rainbow(list_tf2ratio,tfmin=None,tfmax=None,tcmin=None,dt=None,xunit=1,yunit=1,**kwargs):
+    def makePlot_3pt_rainbow(list_tf2ratio,tfmin=None,tfmax=None,tcmin=None,dt=None,mfc=None,xunit=1,yunit=1,shift=0,**kwargs):
         if type(list_tf2ratio)==dict:
             list_tf2ratio=[list_tf2ratio]
         list_dic=[{
             'tf2ratio':tf2ratio,
             'rainbow:[tfmin,tfmax,tcmin,dt]':[tfmin,tfmax,tcmin,dt],
             'xunit':xunit, 'yunit':yunit,
+            'mfc:[global]': [mfc],
+            'shift:[rainbow,midpoint,fit]': [shift,shift,None]
         } for tf2ratio in list_tf2ratio]
         return makePlot_3pt(list_dic,shows=['rainbow','midpoint'],**kwargs)
     
@@ -2000,7 +2011,7 @@ if True:
             'xunit':xunit, 'yunit':yunit,
         }]
         fig,axs=makePlot_3pt(list_dic,shows=['rainbow','midpoint'],**kwargs)
-        plot_rainbow(axs[0,0],tf2ratio2,xunit=xunit,yunit=yunit,mfc='white',tcmin=tcmin2,shift=shift2,mid_tfshift=mid_tfshift2,ax_mid=axs[0,1])
+        plot_rainbow(axs[0,0],tf2ratio2,xunit=xunit,yunit=yunit,mfc='white',tfmin=tfmin,tfmax=tfmax,dt=dt,tcmin=tcmin2,shift=shift2,mid_tfshift=mid_tfshift2,ax_mid=axs[0,1])
         return fig,axs 
         
 #!============== GEVP ==============#
