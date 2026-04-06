@@ -752,6 +752,17 @@ if True:
         pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,[np.mean(y_jk),0],mask=None if corrQ else 'uncorrelated',**kargs)
         return pars_jk,chi2_jk,Ndof
     
+    fitfunc_dipole = lambda xs,g,m: g/(1+xs/m**2)**2
+    def doFit_dipole(xs,y_jk,corrQ=True,**kargs):
+        '''
+        xs=Q2; pars=g,m; y=g/(1+xs/m**2)**2 \\
+        return pars_jk,chi2_jk,Ndof
+        '''
+        def fitfunc(pars):
+            return fitfunc_dipole(xs,*pars)
+        pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,[np.mean(y_jk),np.mean(xs)],mask=None if corrQ else 'uncorrelated',**kargs)
+        return pars_jk,chi2_jk,Ndof
+    
     def fits2text(fits,toStringQ=False):
         text=[]
         pars_jk,probs_jk=jackMA(fits)
@@ -777,10 +788,16 @@ if True:
         print(fits2text(fits,toStringQ=True))
         
     def findFit(fits,fitlabel):
+        if isinstance(fits[0][0][1],tuple) and isinstance(fitlabel[1],int):
+            for fit in fits:
+                tfmin,tcmin=fit[0]
+                if (tfmin,tcmin[0]+tcmin[1])==fitlabel:
+                    return fit
+             
         for fit in fits:
             if fit[0]==fitlabel:
                 return fit
-    
+             
     def decorator_fits(func):
         @functools.wraps(func)
         def wrapper(*args, label=None, overwrite=False, **kwargs):
@@ -1204,7 +1221,10 @@ if True:
             ra10= 1 if g<ratio[tf-tc] else -1
             ra11=0.1
             if pars_jk_meff2st is not None:
-                dE1 = np.mean(pars_jk_meff2st[:,1])
+                if symQ:
+                    dE1 = np.mean(pars_jk_meff2st[:,1])
+                else:
+                    dE1 = (np.mean(pars_jk_meff2st[0][:,1])+np.mean(pars_jk_meff2st[1][:,1]))/2
             else:
                 dE1 = 0.2
             pars0={
@@ -1669,12 +1689,14 @@ if True:
         return fig,axd,result           
 #!============== plot (3pt) ==============#
 if True:
-    def plot_rainbow(ax,tf2ratio,tfmin=None,tfmax=None,tcmin=1,xunit=1,yunit=1,shift=0,mid_tfshift=0,colors=colors16,mfc=None,ax_mid=None):
+    def plot_rainbow(ax,tf2ratio,tfmin=None,tfmax=None,dt=1,tcmin=1,xunit=1,yunit=1,shift=0,mid_tfshift=0,colors=colors16,mfc=None,ax_mid=None):
         tfs=list(tf2ratio.keys())
         tfmin = min(tfs) if tfmin is None else tfmin
         tfmax = max(tfs) if tfmax is None else tfmax
         tfs=[tf for tf in tfs if tfmin<=tf<=tfmax]
         for itf,tf in enumerate(tfs):
+            if tf%dt!=0:
+                continue
             mean,err=jackme(tf2ratio[tf])
             tcs=np.arange(tcmin,tf-tcmin+1)
             plt_x=(tcs-tf/2+0.05*(itf-len(tfs)/2)+shift*0.1)*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
@@ -1990,13 +2012,15 @@ if True:
                                   
         return fig,axs
 
-    def makePlot_3pt_rainbow(list_tf2ratio,tfmin=None,tfmax=None,tcmin=None,dt=None,xunit=1,yunit=1,**kwargs):
+    def makePlot_3pt_rainbow(list_tf2ratio,tfmin=None,tfmax=None,tcmin=None,dt=None,mfc=None,xunit=1,yunit=1,shift=0,**kwargs):
         if type(list_tf2ratio)==dict:
             list_tf2ratio=[list_tf2ratio]
         list_dic=[{
             'tf2ratio':tf2ratio,
             'rainbow:[tfmin,tfmax,tcmin,dt]':[tfmin,tfmax,tcmin,dt],
             'xunit':xunit, 'yunit':yunit,
+            'mfc:[global]': [mfc],
+            'shift:[rainbow,midpoint,fit]': [shift,shift,None]
         } for tf2ratio in list_tf2ratio]
         return makePlot_3pt(list_dic,shows=['rainbow','midpoint'],**kwargs)
     
@@ -2007,7 +2031,7 @@ if True:
             'xunit':xunit, 'yunit':yunit,
         }]
         fig,axs=makePlot_3pt(list_dic,shows=['rainbow','midpoint'],**kwargs)
-        plot_rainbow(axs[0,0],tf2ratio2,xunit=xunit,yunit=yunit,mfc='white',tcmin=tcmin2,shift=shift2,mid_tfshift=mid_tfshift2,ax_mid=axs[0,1])
+        plot_rainbow(axs[0,0],tf2ratio2,xunit=xunit,yunit=yunit,mfc='white',tfmin=tfmin,tfmax=tfmax,dt=dt,tcmin=tcmin2,shift=shift2,mid_tfshift=mid_tfshift2,ax_mid=axs[0,1])
         return fig,axs 
         
 #!============== GEVP ==============#

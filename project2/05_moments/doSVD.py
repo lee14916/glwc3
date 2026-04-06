@@ -1,5 +1,5 @@
 '''
-cat data_aux/dat_ignore/doSVD_run | xargs -I @ -P 10 python3 -u doSVD.py -e @ > log/doSVD.out & 
+cat data_aux/dat_ignore/doSVD_conn_run | xargs -I @ -P 10 python3 -u doSVD.py -e @ > log/doSVD.out & 
 '''
 import util as yu
 from util import *
@@ -39,6 +39,14 @@ cases=[(c1,c2) for c1 in cases_munu for c2 in cases_SVD]
 ratiotype=['sqrt','Efit'][1]
 
 ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')    
+
+if cd=='conn':
+    ens='e'; Njk=225
+    for msq in ens2msq2pars_jk[ens].keys():
+        t=ens2msq2pars_jk[ens][msq]
+        m,e=yu.jackme(t)
+        t=yu.jackknife_pseudo(m,e,Njk)
+        ens2msq2pars_jk[ens][msq]=t
 
 #============================= input end
 
@@ -305,9 +313,9 @@ def run(ens_n2qpp1):
     
     ens,n2qpp1=ens_n2qpp1.split('_')
     
-    if ens=='e' and cd=='conn':
-        global ens2msq2pars_jk
-        ens2msq2pars_jk=yu.load_pkl('pkl/analysis_conn_Eensemble_withLessCfg/reg_ignore/ens2msq2pars_jk.pkl') 
+    # if ens=='e' and cd=='conn':
+    #     global ens2msq2pars_jk
+    #     ens2msq2pars_jk=yu.load_pkl('pkl/analysis_conn_Eensemble_withLessCfg/reg_ignore/ens2msq2pars_jk.pkl') 
     
     n2qpp1=tuple([int(ele) for ele in n2qpp1.split(',')])
     n2q,n2p,n2p1=n2qpp1

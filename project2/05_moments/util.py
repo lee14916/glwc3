@@ -752,6 +752,17 @@ if True:
         pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,[np.mean(y_jk),0],mask=None if corrQ else 'uncorrelated',**kargs)
         return pars_jk,chi2_jk,Ndof
     
+    fitfunc_dipole = lambda xs,g,m: g/(1+xs/m**2)**2
+    def doFit_dipole(xs,y_jk,corrQ=True,**kargs):
+        '''
+        xs=Q2; pars=g,m; y=g/(1+xs/m**2)**2 \\
+        return pars_jk,chi2_jk,Ndof
+        '''
+        def fitfunc(pars):
+            return fitfunc_dipole(xs,*pars)
+        pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,[np.mean(y_jk),np.mean(xs)],mask=None if corrQ else 'uncorrelated',**kargs)
+        return pars_jk,chi2_jk,Ndof
+    
     def fits2text(fits,toStringQ=False):
         text=[]
         pars_jk,probs_jk=jackMA(fits)
@@ -777,10 +788,16 @@ if True:
         print(fits2text(fits,toStringQ=True))
         
     def findFit(fits,fitlabel):
+        if isinstance(fits[0][0][1],tuple) and isinstance(fitlabel[1],int):
+            for fit in fits:
+                tfmin,tcmin=fit[0]
+                if (tfmin,tcmin[0]+tcmin[1])==fitlabel:
+                    return fit
+             
         for fit in fits:
             if fit[0]==fitlabel:
                 return fit
-    
+             
     def decorator_fits(func):
         @functools.wraps(func)
         def wrapper(*args, label=None, overwrite=False, **kwargs):
@@ -1204,7 +1221,10 @@ if True:
             ra10= 1 if g<ratio[tf-tc] else -1
             ra11=0.1
             if pars_jk_meff2st is not None:
-                dE1 = np.mean(pars_jk_meff2st[:,1])
+                if symQ:
+                    dE1 = np.mean(pars_jk_meff2st[:,1])
+                else:
+                    dE1 = (np.mean(pars_jk_meff2st[0][:,1])+np.mean(pars_jk_meff2st[1][:,1]))/2
             else:
                 dE1 = 0.2
             pars0={
