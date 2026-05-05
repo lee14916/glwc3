@@ -51,6 +51,67 @@ if True:
                 for j in j2j1.keys():
                     key2bare[(ens,f'{j};{cd}')]=np.sum([factor*key2bare[(ens,f'{j1};{cd}')] for factor,j1 in j2j1[j]],axis=0)
                     
+    def bareRC2phy_avgx_np(key2bare,ens2RCs_np,fitlabels=['const','linear']):
+        '''
+            nonsinglet converted to be renormalzied by mu!=nu
+            singlet to be renormalzied by mu!=nu
+        '''
+        keys=list(key2bare)
+        enss=yu.removeDuplicates([ens for ens,j in keys])
+        stouts=yu.removeDuplicates([int(j.split('stout')[-1]) for ens,j in keys if 'stout' in j])
+        
+        mn_conn=mn_disc=mn_g='mu!=nu'
+        
+        key2phy={}
+        for ens in enss:
+            for j in ['jv1','jv2','jv3']:
+                key2phy[(ens,f'{j};conn')]=ens2RCs_np[ens][f'Zqq({mn_conn})']*key2bare[(ens,f'{j};conn')]
+                key2phy[(ens,f'{j};disc')]=ens2RCs_np[ens][f'Zqq({mn_disc})']*key2bare[(ens,f'{j};disc')]
+                key2phy[(ens,f'{j}')]=key2phy[(ens,f'{j};conn')]+key2phy[(ens,f'{j};disc')]
+            
+            key2phy[(ens,f'jq;conn')]=ens2RCs_np[ens][f'Zqq({mn_conn})']*key2bare[(ens,'jq;conn')]
+            for stout in stouts:
+                key2phy[(ens,f'jq;conn;stout{stout}')]=ens2RCs_np[ens][f'Zqq^s^{stout}({mn_conn})']*key2bare[(ens,'jq;conn')]
+                key2phy[(ens,f'jq;disc;stout{stout}')]=ens2RCs_np[ens][f'Zqq^s^{stout}({mn_disc})']*key2bare[(ens,'jq;disc')] 
+                key2phy[(ens,f'jq;0mix;stout{stout}')]=key2phy[(ens,f'jq;conn;stout{stout}')]+key2phy[(ens,f'jq;disc;stout{stout}')]
+                
+                key2phy[(ens,f'jq;mix;stout{stout}')]=ens2RCs_np[ens][f'Zqg^{stout}({mn_g})']*key2bare[(ens,f'jg;stout{stout}')]
+                key2phy[(ens,f'jq;stout{stout}')]=key2phy[(ens,f'jq;0mix;stout{stout}')]+key2phy[(ens,f'jq;mix;stout{stout}')]
+                
+                key2phy[(ens,f'jg;0mix;stout{stout}')]=ens2RCs_np[ens][f'Zgg^{stout}({mn_g})']*key2bare[(ens,f'jg;stout{stout}')]
+                key2phy[(ens,f'jg;mix;stout{stout}')]=ens2RCs_np[ens][f'Zgq^{stout}({mn_conn})']*key2bare[(ens,'jq;conn')] + ( ens2RCs_np[ens][f'Zgq^{stout}({mn_disc})']*key2bare[(ens,'jq;disc')] )
+                key2phy[(ens,f'jg;stout{stout}')]=key2phy[(ens,f'jg;mix;stout{stout}')]+key2phy[(ens,f'jg;0mix;stout{stout}')]
+                
+                key2phy[(ens,f'jtot;stout{stout}')]=key2phy[(ens,f'jq;stout{stout}')]+key2phy[(ens,f'jg;stout{stout}')]
+                
+                for fla in fla2iso.keys():
+                    key2phy[(ens,f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(ens,f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(ens,f'j{iso}')])  for factor,iso in fla2iso[fla]],axis=0)        
+
+        js=['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]
+        js_conn=['jv1;conn','jv2;conn','jv3;conn','jq;conn']
+        for j in js+js_conn:
+            ens2dat={ens:key2phy[(ens,j)] for ens in enss}
+            fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt,fitlabels=fitlabels)
+            for fit in fits:
+                fitlabel,pars_jk,chi2_jk,Ndof=fit
+                key2phy[(f'a=#_{fitlabel}',j)]=pars_jk
+            pars_jk,probs_jk=yu.jackMA(fits)
+            key2phy[('a=#_MA',j)]=pars_jk
+        
+        for stout in stouts:
+            for fitlabel in fitlabels+['MA']:
+                for fla in fla2iso.keys():
+                    key2phy[(f'a=#_{fitlabel}',f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(f'a=#_{fitlabel}',f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(f'a=#_{fitlabel}',f'j{iso}')]) for factor,iso in fla2iso[fla]],axis=0)
+                key2phy[(f'a=#_{fitlabel}',f'jtot;stout{stout}')]=key2phy[(f'a=#_{fitlabel}',f'jq;stout{stout}')]+key2phy[(f'a=#_{fitlabel}',f'jg;stout{stout}')]
+                
+        # conn
+        for fitlabel in fitlabels+['MA']:
+            for fla in fla2iso.keys():
+                key2phy[(f'a=#_{fitlabel}',f'j{fla};conn')]=np.sum([factor*key2phy[(f'a=#_{fitlabel}',f'j{iso};conn')] for factor,iso in fla2iso[fla]],axis=0)
+            key2phy[(f'a=#_{fitlabel}',f'jtot;conn')]=key2phy[(f'a=#_{fitlabel}',f'jq;conn')]
+    
+        return key2phy
+                    
     def bareRC2phy_avgx_new(key2bare,ens2RCs,mn_conn='mu!=nu',mn_disc='mu!=nu',mn_g='mu!=nu'):
         keys=list(key2bare)
         enss=yu.removeDuplicates([ens for ens,j in keys])
@@ -164,6 +225,7 @@ if True:
     def bareRC2phy_avgx_old(key2bare,ens2RCs,mn_conn='mu=nu',mn_disc='mu!=nu',mn_g='mu!=nu'):
         keys=list(key2bare)
         enss=yu.removeDuplicates([ens for ens,j in keys])
+        enss=['b','c','d']
         stouts=yu.removeDuplicates([int(j.split('stout')[-1]) for ens,j in keys if 'stout' in j])
         
         key2phy={}
@@ -219,6 +281,7 @@ if True:
     def bareRC2phy_avgx_pre_old(key2bare,ens2RCs,ens2RCs_pre,mn_conn='mu=nu',mn_disc='mu!=nu',mn_g='mu!=nu'):
         keys=list(key2bare)
         enss=yu.removeDuplicates([ens for ens,j in keys])
+        enss=['b','c','d']
         stouts=yu.removeDuplicates([int(j.split('stout')[-1]) for ens,j in keys if 'stout' in j])
         
         key2phy={}

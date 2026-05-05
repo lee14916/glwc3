@@ -8,6 +8,9 @@ import click
 
 yu.setpath('analysis_A20')
 
+tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
+tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
+
 def encodeTask(task):
     n2qpp1,ff,j=task
     n2q,n2p,n2p1=n2qpp1
@@ -20,14 +23,10 @@ def decodeTask(task):
 
 enss_all=['b','c','d','e']
 
-ens2msq2pars_jk=yu.load_pkl(f'pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
-
-ens='e'; Njk=225
+ens2msq2pars_jk=yu.load_pkl_reg('ens2msq2pars_jk',pathlabel='analysis_c2pt')
+ens='e'
 for msq in ens2msq2pars_jk[ens].keys():
-    t=ens2msq2pars_jk[ens][msq]
-    m,e=yu.jackme(t)
-    t=yu.jackknife_pseudo(m,e,Njk)
-    ens2msq2pars_jk[ens][msq]=t
+    ens2msq2pars_jk[ens][msq]=ens2msq2pars_jk[ens+'_p'][msq]
 
 #====================
 overwrite=False
@@ -92,10 +91,10 @@ def run(task):
             fit_const_MA=yu.doMA_3pt(fits_const,tfmin_min=gett(0.9),tcmin_min=gett(0.2)*2)
             fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=2,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
             fit_sum_MA=yu.doMA_3pt(fits_sum,tcmin_min=gett(0.2)*2)
+            
             fits_2st=yu.doFits_3pt(fittype,tf2ratio,tfmins_2st,tcmins_2st,pars_jk_meff2st=pars_jk_meff2st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_2st',overwrite=overwrite)
-            tf_phy=0.7; tc_phy=0.2
-            ind=np.argmin([np.abs(tfmin-tf_phy/yu.ens2a[ens]) + np.abs(tcmin[0]+tcmin[1] - tc_phy*2/yu.ens2a[ens] ) for (tfmin,tcmin),*_ in fits_2st])
-            print(fits_2st[ind][0])
+            tfphy,tcphy=tftcphy_A20_conn
+            ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_2st])
             fit_2st_MA=yu.doMA_3pt(fits_2st[ind:ind+1])
             
             res[(case,'bandfit_WA',ens)]=fit_band_WA[0][:,0]
@@ -105,7 +104,7 @@ def run(task):
                   
             dic={
                 'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]':[tf2ratio,fits_band,fits_const,fits_sum,fits_2st],
-                'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA],
+                'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[None,None,None,fit_2st_MA],
                 'rainbow:[tfmin,tfmax,tcmin,dt]':[None,None,2,None],
                 'fit_2st_rainbow_midpoint:[fittype,pars_jk_meff2st]':[fittype,pars_jk_meff2st],
                 'xunit':yu.ens2a[ens],
@@ -114,6 +113,8 @@ def run(task):
         list_dic=[createDic(ind,case) for ind,case in enumerate(cases_do)]
 
         fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','midpoint','fit_2st','fit_sum','fit_band','fit_const'],sharey=True)
+        axs[-1,2].set_xlim([0.35,1.45])
+        axs[-1,2].set_xticks(np.arange(0.4,1.5,0.2))
         fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')
         
         for i in range(len(axs)):

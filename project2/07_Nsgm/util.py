@@ -34,6 +34,22 @@ mpl.rcParams['legend.fontsize'] = 16
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["mathtext.fontset"] = "dejavuserif"
 
+plt.rcParams.update({
+    'axes.linewidth': 2,      # axes (spines)
+    'lines.linewidth': 2,     # plot lines
+    'lines.markersize': 6,    # markers (optional)
+
+    'xtick.major.width': 2,
+    'ytick.major.width': 2,
+    'xtick.minor.width': 1.5,
+    'ytick.minor.width': 1.5,
+
+    'xtick.major.size': 6,
+    'ytick.major.size': 6,
+
+    'legend.frameon': True,  # optional cleaner look
+})
+
 __all__ = ['np','os','mpl','plt','h5py','pickle','pd','display','product','defaultdict']
 
 #!============== Initialization ==============#
@@ -726,10 +742,11 @@ if True:
     def find_fitmax(dat,threshold=0.2):
         mean,err=jackme(dat)
         rela=np.abs(err/mean)
-        temp=[(i,rela) for i,rela in enumerate(rela) if rela>0.2 and i!=0]
+        temp=[(i,rela) for i,rela in enumerate(rela) if rela>threshold and i!=0]
         fitmax=temp[0][0]-1 if len(temp)!=0 else len(mean)-1
         return fitmax
     
+    fitfunc_const = lambda xs,g: [g]*len(xs)
     def doFit_const(y_jk,corrQ=True,**kargs):
         '''
         return pars_jk,chi2_jk,Ndof
@@ -742,6 +759,7 @@ if True:
         pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,y_jk,[np.mean(y_jk)],mask=None if corrQ else 'uncorrelated',**kargs)
         return pars_jk,chi2_jk,Ndof
     
+    fitfunc_linear = lambda xs,g,c: c*xs+g
     def doFit_linear(xs,y_jk,corrQ=True,**kargs):
         '''
         return pars_jk,chi2_jk,Ndof
@@ -836,23 +854,45 @@ if True:
         return fits
 
     @decorator_fits
-    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None):
-        enss=list(ens2dat.keys()); enss.sort()
+    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None,fitlabels=['const','linear']):
+        enss=list(ens2dat.keys()); enss.sort(key=lambda ens:-ens2a[ens])
         lat_a2s=[ens2a[ens]**2 for ens in enss]
         dat=[ens2dat[ens][:,None] for ens in enss]
         
         t=superjackknife(dat)
         fits=[]
+        
         fitlabel='const'
-        pars_jk,chi2_jk,Ndof=doFit_const(t)
-        if lat_a2s_plt is not None:
-            pars_jk=np.array([0*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
-        fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+        if fitlabel in fitlabels:
+            pars_jk,chi2_jk,Ndof=doFit_const(t)
+            if lat_a2s_plt is not None:
+                pars_jk=np.array([0*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
+            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+        fitlabel='const-1'
+        if fitlabel in fitlabels:
+            pars_jk,chi2_jk,Ndof=doFit_const(t[:,1:])
+            if lat_a2s_plt is not None:
+                pars_jk=np.array([0*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
+            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+        fitlabel='const-2'
+        if fitlabel in fitlabels:
+            pars_jk,chi2_jk,Ndof=doFit_const(t[:,2:])
+            if lat_a2s_plt is not None:
+                pars_jk=np.array([0*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
+            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+            
         fitlabel='linear'
-        pars_jk,chi2_jk,Ndof=doFit_linear(np.array(lat_a2s),t)
-        if lat_a2s_plt is not None:
-            pars_jk=np.array([pars[1]*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
-        fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+        if fitlabel in fitlabels:
+            pars_jk,chi2_jk,Ndof=doFit_linear(np.array(lat_a2s),t)
+            if lat_a2s_plt is not None:
+                pars_jk=np.array([pars[1]*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
+            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+        fitlabel='linear-1'
+        if fitlabel in fitlabels:
+            pars_jk,chi2_jk,Ndof=doFit_linear(np.array(lat_a2s[1:]),t[:,1:])
+            if lat_a2s_plt is not None:
+                pars_jk=np.array([pars[1]*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
+            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
         return fits
 #!============== fit (2pt) ==============#
 if True:    

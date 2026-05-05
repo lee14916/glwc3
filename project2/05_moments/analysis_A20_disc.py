@@ -1,12 +1,12 @@
 '''
-cat data_aux/dat_ignore/analysis_B20_disc_run | xargs -I @ -P 3 python3 -u analysis_B20_disc.py -t @ > log/analysis_B20_disc.out & 
+cat data_aux/dat_ignore/analysis_A20_disc_run | xargs -I @ -P 3 python3 -u analysis_A20_disc.py -t @ > log/analysis_A20_disc.out & 
 '''
 import util as yu
 from util import *
 import util_moments as yum
 import click
 
-yu.setpath('analysis_B20_2')
+yu.setpath('analysis_A20')
 
 tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
 tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
@@ -77,7 +77,7 @@ def run(task):
             tcmins_2st_sum=[(2,2)]
             # WAMA & display
             tf_max=gett(1.3)
-            tfmin_max=gett(1.2); tcmin_max=gett(0.6)
+            tfmin_max=gett(1.2); tcmin_max=gett(0.8)
             
             tf2ratio=case2tf2ratio[case]
             tf2ratio=yu.cut_tf2ratio(tf2ratio,gett(1.3))
@@ -86,7 +86,7 @@ def run(task):
             fit_band_WA=yu.doWA_band(fits_band,tf_min=gett(0.9),tf_max=tf_max,tcmin=gett(0.2)*2,corrQ=False)
             
             fits_const=yu.doFits_3pt('const',tf2ratio,tfmins_1st,tcmins_1st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_const',overwrite=overwrite)
-            tfphy,tcphy=tftcphy_B20_discq
+            tfphy,tcphy=tftcphy_A20_discq
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_const])
             fit_const_MA=yu.doMA_3pt(fits_const[ind:ind+1])
             
@@ -124,16 +124,15 @@ def run(task):
             tcmins_2st_sum=[(2,2)]
             # WAMA & display
             tf_max=gett(1.3)
-            tfmin_max=gett(1.2); tcmin_max=gett(0.6)
+            tfmin_max=gett(1.2); tcmin_max=gett(0.8)
             
             tf2ratio=case2tf2ratio[case]
             tf2ratio=yu.cut_tf2ratio(tf2ratio,gett(1.3))
             
             fits_band=yu.doFits_3pt_band(tf2ratio,tcmins_1st,corrQ=False,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_band',overwrite=overwrite)
             fit_band_WA=yu.doWA_band(fits_band,tf_min=gett(0.8),tf_max=tf_max,tcmin=gett(0.2)*2,corrQ=False)
-            
             fits_const=yu.doFits_3pt('const',tf2ratio,tfmins_1st,tcmins_1st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_const',overwrite=overwrite)
-            tfphy,tcphy=tftcphy_B20_gluon
+            tfphy,tcphy=tftcphy_A20_gluon
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_const])
             fit_const_MA=yu.doMA_3pt(fits_const[ind:ind+1])
             

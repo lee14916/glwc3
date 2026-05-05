@@ -1,12 +1,12 @@
 '''
-cat data_aux/dat_ignore/analysis_B20_conn_run | xargs -I @ -P 10 python3 -u analysis_B20_conn.py -t @ > log/analysis_B20_conn.out & 
+cat data_aux/dat_ignore/analysis_A20_conn_run | xargs -I @ -P 10 python3 -u analysis_A20_conn_check_match_tfs.py -t @ > log/analysis_A20_conn_check_match_tfs.out & 
 '''
 import util as yu
 from util import *
 import util_moments as yum
 import click
 
-yu.setpath('analysis_B20')
+yu.setpath('analysis_A20_conn_check_match_tfs')
 
 tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
 tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
@@ -23,10 +23,14 @@ def decodeTask(task):
 
 enss_all=['b','c','d','e']
 
-ens2msq2pars_jk=yu.load_pkl_reg('ens2msq2pars_jk',pathlabel='analysis_c2pt')
-ens='e'
+ens2msq2pars_jk=yu.load_pkl(f'pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')
+
+ens='e'; Njk=225
 for msq in ens2msq2pars_jk[ens].keys():
-    ens2msq2pars_jk[ens][msq]=ens2msq2pars_jk[ens+'_p'][msq]
+    t=ens2msq2pars_jk[ens][msq]
+    m,e=yu.jackme(t)
+    t=yu.jackknife_pseudo(m,e,Njk)
+    ens2msq2pars_jk[ens][msq]=t
 
 #====================
 overwrite=False
@@ -55,11 +59,15 @@ def run(task):
                 if case not in case2tf2ratio.keys():
                     case2tf2ratio[case]={}
                 for key in f[case].keys():
-                    tff,tj,tf=key.split('_'); tf=int(tf); tfs_conn.add(tf)
+                    tff,tj,tf=key.split('_'); tf=int(tf)
                     if (tff,tj) != (ff,j):
                         continue
+                    if not 0.6<tf*yu.ens2a[ens]<1.3:
+                        continue
+                    tfs_conn.add(tf)
                     case2tf2ratio[case][tf]=f[case][key][:]
         tfs_conn=list(tfs_conn); tfs_conn.sort()
+        print(tfs_conn)
                     
         cases_do=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s) if f'{c1}_{c2}' in case2tf2ratio and len(case2tf2ratio[f'{c1}_{c2}'])!=0]
         eqs=[{'all':'=','unequal':'!=','equal':'='}[case.split('_')[0]] for case in cases_do]
@@ -75,7 +83,7 @@ def run(task):
             tfmins_1st=tfs_conn
             tcmins_1st=cutExtraDiff2tcmins(0.8,0.4)
             
-            tfmins_2st_sum=list(range(8,tfs_conn[-3],2))
+            tfmins_2st_sum=tfs_conn[:-2]
             tcmins_2st_sum=cutExtraDiff2tcmins(0.6,0.2)
             
             tfmins_2st=tfmins_2st_sum
@@ -91,8 +99,9 @@ def run(task):
             fit_const_MA=yu.doMA_3pt(fits_const,tfmin_min=gett(0.9),tcmin_min=gett(0.2)*2)
             fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=2,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
             fit_sum_MA=yu.doMA_3pt(fits_sum,tcmin_min=gett(0.2)*2)
+            
             fits_2st=yu.doFits_3pt(fittype,tf2ratio,tfmins_2st,tcmins_2st,pars_jk_meff2st=pars_jk_meff2st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_2st',overwrite=overwrite)
-            tfphy,tcphy=tftcphy_B20_conn
+            tfphy,tcphy=tftcphy_A20_conn
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_2st])
             fit_2st_MA=yu.doMA_3pt(fits_2st[ind:ind+1])
             
