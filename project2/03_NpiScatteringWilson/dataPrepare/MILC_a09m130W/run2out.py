@@ -4,7 +4,7 @@ cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u run2out.py -c @ > log/run2ou
 import os, click, h5py, re, pickle
 import numpy as np
 
-runPath='/capstor/store/cscs/userlab/s1174/lyan/code/scratch/run/03_NpiScatteringWilson/MILC_a09m130W/'
+runPath='/capstor/store/cscs/userlab/lp139/lyan/code/scratch/run/03_NpiScatteringWilson/MILC_a09m130W/'
 
 lat_L,lat_T=64,96
 
@@ -60,7 +60,7 @@ def mom2pi1(mom):
 @click.option('-c','--cfg')
 def run(cfg):
     inpath=f'{runPath}run/{cfg}/'
-    outpath=f'{runPath}out/{cfg}/'
+    outpath=f'{runPath}out_0mom_2th_100/{cfg}/'
     os.makedirs(outpath,exist_ok=True)
     
     files=[file for file in os.listdir(inpath) if file.endswith('.h5')]
@@ -87,6 +87,7 @@ def run(cfg):
                     pass
                 with h5py.File(outfile,'w') as fw, h5py.File(infile) as f:
                     src=list(f.keys())[0]
+                    print(file)
                     (sx,sy,sz,st)=re.search('sx([0-9]*)sy([0-9]*)sz([0-9]*)st([0-9]*)',file).groups()
                     (sx,sy,sz,st)=(int(sx),int(sy),int(sz),int(st))
                     src_new='sx{:03d}sy{:03d}sz{:03d}st{:03d}'.format(sx,sy,sz,st)

@@ -14,6 +14,8 @@ def run(cfg):
     os.makedirs(outpath,exist_ok=True)
     files=os.listdir(inpath)
     
+    NsrcBWZ='skip'; NsrcN='skip'
+    
     outfile=outpath+'NPBWZM.h5'
     outfile_flag=outfile+'_flag'
     if (not os.path.isfile(outfile)) or os.path.isfile(outfile_flag):
@@ -32,6 +34,7 @@ def run(cfg):
             # fw.create_dataset('data/P_hybrid',data=t)
             fw.create_dataset('momsP',data=fP['moms'][:])
             
+            NsrcBWZ=len(fBWZ['data'].keys())
             src=list(fBWZ['data'].keys())[0]
             flas=fBWZ[f'data/{src}'].keys()
             for fla in flas:
@@ -42,6 +45,7 @@ def run(cfg):
             t=[]
             imom=16; 
             assert(np.all(fN['moms'][imom]==[0,0,0]))
+            NsrcN=len(fN['data'].keys())
             for src in fN['data'].keys():
                 (sx,sy,sz,st)=re.search('sx([0-9]*)sy([0-9]*)sz([0-9]*)st([0-9]*)',src).groups()
                 (sx,sy,sz,st)=(int(sx),int(sy),int(sz),int(st))
@@ -55,6 +59,6 @@ def run(cfg):
             fw.create_dataset(f'data/M',data=t)
 
         os.remove(outfile_flag)
-    print('flag_cfg_done: '+cfg)
+    print(f'flag_cfg_done: {cfg}; {NsrcBWZ}, {NsrcN}')
     
 run()

@@ -990,7 +990,7 @@ if True:
         tf2ratio=tf2ratio_para.copy()
         if symmetrizeQ:
             assert(symQ)
-            symmetrizeRatio(tf2ratio)
+            tf2ratio=symmetrizeRatio(tf2ratio)
         
         fits=[]
         for tf in tfs: 
@@ -1249,7 +1249,7 @@ if True:
         tfs=list(tf2ratio.keys()); tfs.sort()
         if symmetrizeQ:
             assert(symQ)
-            symmetrizeRatio(tf2ratio)
+            tf2ratio=symmetrizeRatio(tf2ratio)
         pars0Initial=pars0
         if pars0 is None:
             tfmin=min(tfs); tf=max([tf for tf in tfs if tf<tfmin+7]) 

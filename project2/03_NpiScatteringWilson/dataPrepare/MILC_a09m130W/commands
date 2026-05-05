@@ -1,0 +1,4 @@
+rsync -a --include='*/' --include='*.h5' --exclude='*' run/ run_finished/
+
+find run -type f -name "flagFinish" -delete
+find run -type f -name "*.h5" -delete

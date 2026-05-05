@@ -4,14 +4,14 @@ cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u out2post.py -c @ > log/out2p
 import os, click, h5py, re, pickle
 import numpy as np
 
-postcode='0mom_1th_100'
-runPath='/capstor/store/cscs/userlab/s1174/lyan/code/scratch/run/03_NpiScatteringWilson/MILC_a09m130W/'
+postcode='0mom_2th_100'
+runPath='/capstor/store/cscs/userlab/lp139/lyan/code/scratch/run/03_NpiScatteringWilson/MILC_a09m130W/'
 basePath='/capstor/store/cscs/userlab/lp139/lyan/code/projectData/03_NpiScatteringWilson/MILC_a09m130W/'
 
 @click.command()
 @click.option('-c','--cfg')
 def run(cfg):
-    inpath=f'{runPath}out/{cfg}/'
+    inpath=f'{runPath}out_{postcode}/{cfg}/'
     outpath=f'{basePath}data_post/{cfg}/'
     os.makedirs(outpath,exist_ok=True)
     

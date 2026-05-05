@@ -31,6 +31,7 @@ def run():
 
         data={cont:[] for cont in conts}
         for cfg in cfgs:
+            print(cfg)
             infile=f'{inpath}{cfg}/NPBWZM.h5'
             with h5py.File(infile) as f:
                 for cont in conts:
