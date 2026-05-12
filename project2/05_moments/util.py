@@ -527,6 +527,10 @@ if True:
         dats_jkmean=[np.mean(dat_jk,axis=0) for dat_jk in dats_jk]
         t=[[dats_jk[i] if i==j else np.repeat(dats_jkmean[j][None,:],Ncfgss[i],axis=0) for j in range(Nens)] for i in range(Nens)]
         return np.block(t)
+    
+    # def chi2Ndof2weight(chi2,Ndof,k=None):
+    #     return np.exp(-chi2/2+Ndof +2*k*(k+1)/(Ndof-1))
+    #     return np.exp(-chi2/2+Ndof)
 
     def jackMA(fits,propagateChi2=True,systematicQ=False):
         ''' 
@@ -555,7 +559,8 @@ if True:
 
     def modelAvg(fits,jackInputQ=False,fullOutputQ=False):
         '''
-        fits=[fit]; fit=(fitlabel,pars_mean,pars_err,chi2,Ndof)
+        fits=[fit]; fit=(fitlabel,pars_mean,pars_err,chi2,Ndof) \\
+        return (pars_mean_MA,pars_err_MA,probs) or (pars_mean_MA,pars_err_MA,probs, pars_err_MA_stats, pars_err_MA_systs)
         '''
         if jackInputQ:
             temp=[]

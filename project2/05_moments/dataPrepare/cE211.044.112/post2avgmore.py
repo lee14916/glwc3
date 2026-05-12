@@ -141,11 +141,11 @@ def get_moms(max_mom2_pc,max_mom2_pf):
 # Input
 # -------------------------
 
-input='p1=0'
+input='q=0'
 
 ens='cE211.044.112'
 
-case='1DV'
+case='1DA'
 assert(case in ['local','1DV','1DA'])
 folder=f'05_moments_run5_{case}'
 inserts={'local':inserts_local,'1DV':inserts_1DV,'1DA':inserts_1DA,'1DT':inserts_1DT}[case]

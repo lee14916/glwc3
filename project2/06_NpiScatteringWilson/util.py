@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
 from math import floor, log10
-from scipy.optimize import leastsq, fsolve
+from scipy.optimize import leastsq, curve_fit, fsolve
 from scipy.linalg import cholesky
 from scipy.stats import chi2 as chi2_dist
 from IPython.display import display,HTML
@@ -528,10 +528,17 @@ if True:
         t=[[dats_jk[i] if i==j else np.repeat(dats_jkmean[j][None,:],Ncfgss[i],axis=0) for j in range(Nens)] for i in range(Nens)]
         return np.block(t)
 
-    def jackMA(fits,propagateChi2=True):
+    def jackMA(fits,propagateChi2=True,systematicQ=False):
         ''' 
         fits=[fit]; fit=(fit_label,pars_jk,chi2_jk,Ndof)
         '''
+        if systematicQ:
+            Njk=len(fits[0][1])
+            (pars_mean_MA,pars_err_MA,probs)=modelAvg(fits,jackInputQ=True)
+            pars_jk=jackknife_pseudo(pars_mean_MA,pars_err_MA,Njk)
+            probs_jk = np.tile(probs, (Njk, 1))
+            return pars_jk,probs_jk
+            
         if propagateChi2:
             temp=[(pars_jk
                 ,np.exp(-chi2_jk/2+Ndof) # weights_jk
@@ -546,23 +553,35 @@ if True:
         probs_jk=np.transpose([weights_jk[:,0]/weightsSum_jk[:,0] for _,weights_jk in temp])
         return pars_jk,probs_jk
 
-    def modelAvg(fits):
+    def modelAvg(fits,jackInputQ=False,fullOutputQ=False):
         '''
-        fits=[fit]; fit=(pars_mean,pars_err,chi2,Ndof)
+        fits=[fit]; fit=(fitlabel,pars_mean,pars_err,chi2,Ndof)
         '''
-        weights=np.exp([-chi2/2+Ndof for pars_mean,pars_err,chi2,Ndof in fits])
+        if jackInputQ:
+            temp=[]
+            for fitlabel,pars_jk,chi2_jk,Ndof in fits:
+                pars_mean,pars_err=jackme(pars_jk)
+                chi2_mean,chi2_err=jackme(chi2_jk)
+                temp.append((fitlabel,pars_mean,pars_err,chi2_mean[0],Ndof))
+            fits=temp
+        
+        weights=np.exp([-chi2/2+Ndof for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])
         probs=weights/np.sum(weights)
-        pars_mean_MA=np.sum(np.array([pars_mean for pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0)
-        pars_err_MA=np.sqrt(np.sum(np.array([pars_err**2+pars_mean**2 for pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0)-pars_mean_MA**2)
+        pars_mean_MA=np.sum(np.array([pars_mean for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0)
+        pars_err_MA=np.sqrt(np.sum(np.array([pars_err**2+pars_mean**2 for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0)-pars_mean_MA**2)
+        if fullOutputQ:
+            pars_err_MA_stats=np.sqrt(np.sum(np.array([pars_err**2 for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0))
+            pars_err_MA_systs=np.sqrt(np.sum(np.array([pars_mean**2 for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0)-pars_mean_MA**2)
+            return (pars_mean_MA,pars_err_MA,probs, pars_err_MA_stats, pars_err_MA_systs)
         return (pars_mean_MA,pars_err_MA,probs)
-    def jackMA2(fits): # doing model average after jackknife
-        temp=[]
-        for fit_label,pars_jk,chi2_jk,Ndof in fits:
-            pars_mean,pars_err=jackme(pars_jk)
-            chi2_mean,chi2_err=jackme(chi2_jk)
-            temp.append((pars_mean,pars_err,chi2_mean[0],Ndof))
-        # print([np.exp(-chi2/2+Ndof) for pars_mean,pars_err,chi2,Ndof in temp])
-        return modelAvg(temp)
+    # def jackMA2(fits): # doing model average after jackknife
+    #     temp=[]
+    #     for fit_label,pars_jk,chi2_jk,Ndof in fits:
+    #         pars_mean,pars_err=jackme(pars_jk)
+    #         chi2_mean,chi2_err=jackme(chi2_jk)
+    #         temp.append((pars_mean,pars_err,chi2_mean[0],Ndof))
+    #     # print([np.exp(-chi2/2+Ndof) for pars_mean,pars_err,chi2,Ndof in temp])
+    #     return modelAvg(temp)
 
     # uncertainty to string: taken from https://stackoverflow.com/questions/6671053/python-pretty-print-errorbars
     def un2str(x, xe, precision=2, forceResult = 1):
@@ -746,6 +765,31 @@ if True:
         fitmax=temp[0][0]-1 if len(temp)!=0 else len(mean)-1
         return fitmax
     
+    def doSimpleFit(fitfunc, xdata, ydata, sigma=None, p0=None, xdata_extra=None, jackQ=True, **kargs):
+        xdata=np.asarray(xdata); ydata=np.asarray(ydata)
+        if jackQ:
+            assert(sigma is None)
+            pars,cov=curve_fit(fitfunc, xdata, np.mean(ydata,axis=0), p0=p0, absolute_sigma=True)
+            pars_jk,chi2_jk,Ndof,Nwarning=jackfit(lambda p:fitfunc(xdata,*p),ydata,pars,**kargs)
+            if xdata_extra is not None:
+                pars_jk_extra=np.array([fitfunc(xdata_extra,*pars) for pars in pars_jk])
+                return pars_jk,chi2_jk,Ndof, pars_jk_extra
+            return pars_jk,chi2_jk,Ndof
+        
+        assert(sigma is not None)
+        sigma=np.asarray(sigma)
+        pars,cov=curve_fit(fitfunc, xdata, ydata, p0=p0, sigma=sigma, absolute_sigma=True, **kargs)
+        Ndof = len(xdata) - len(pars)
+        diff = fitfunc(xdata, *pars) - ydata
+        chi2 = np.sum( (diff/sigma)**2 ) if sigma.ndim==1 else diff @ np.linalg.solve(sigma, diff)
+        err=np.sqrt(np.diag(cov))
+        
+        if xdata_extra is not None:
+            xdata_extra=np.asarray(xdata_extra)
+            (m,e,c)=propagateError(lambda p:fitfunc(xdata_extra,*p), pars, cov)
+            return (pars,err,cov,chi2,Ndof) + (m,e,c)
+        return (pars,err,cov,chi2,Ndof)
+    
     fitfunc_const = lambda xs,g: [g]*len(xs)
     def doFit_const(y_jk,corrQ=True,**kargs):
         '''
@@ -854,46 +898,35 @@ if True:
         return fits
 
     @decorator_fits
-    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None,fitlabels=['const','linear']):
+    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None,fitlabels=['const','linear'],supjackQ=True):
         enss=list(ens2dat.keys()); enss.sort(key=lambda ens:-ens2a[ens])
         lat_a2s=[ens2a[ens]**2 for ens in enss]
         dat=[ens2dat[ens][:,None] for ens in enss]
         
-        t=superjackknife(dat)
-        fits=[]
+        lat_a2s_plt = np.array([0]) if lat_a2s_plt is None else lat_a2s_plt
+        lat_a2s_plt = np.asarray(lat_a2s_plt)
         
-        fitlabel='const'
-        if fitlabel in fitlabels:
-            pars_jk,chi2_jk,Ndof=doFit_const(t)
-            if lat_a2s_plt is not None:
-                pars_jk=np.array([0*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
-            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
-        fitlabel='const-1'
-        if fitlabel in fitlabels:
-            pars_jk,chi2_jk,Ndof=doFit_const(t[:,1:])
-            if lat_a2s_plt is not None:
-                pars_jk=np.array([0*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
-            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
-        fitlabel='const-2'
-        if fitlabel in fitlabels:
-            pars_jk,chi2_jk,Ndof=doFit_const(t[:,2:])
-            if lat_a2s_plt is not None:
-                pars_jk=np.array([0*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
-            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+        if supjackQ:
+            t=superjackknife(dat)
+        else:
+            t=[jackme(ele[:,0]) for ele in dat]
+            means=np.array([m for m,e in t]); errs=np.array([e for m,e in t])
+        
+        fits=[]
+        for fitlabel in ['const','const-1','const-2','linear','linear-1']:
+            if fitlabel not in fitlabels:
+                continue 
+            Ncut = 1 if '-1' in fitlabel else 2 if '-2' in fitlabel else 0
+            fitfunc = fitfunc_const if 'const' in fitlabel else fitfunc_linear if 'linear' in fitlabel else 1/0
             
-        fitlabel='linear'
-        if fitlabel in fitlabels:
-            pars_jk,chi2_jk,Ndof=doFit_linear(np.array(lat_a2s),t)
-            if lat_a2s_plt is not None:
-                pars_jk=np.array([pars[1]*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
-            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
-        fitlabel='linear-1'
-        if fitlabel in fitlabels:
-            pars_jk,chi2_jk,Ndof=doFit_linear(np.array(lat_a2s[1:]),t[:,1:])
-            if lat_a2s_plt is not None:
-                pars_jk=np.array([pars[1]*np.array(lat_a2s_plt)+pars[0] for pars in pars_jk])
-            fits.append([fitlabel,pars_jk,chi2_jk,Ndof])
+            if supjackQ:
+                pars_jk,chi2_jk,Ndof, pars_jk_extra = doSimpleFit(fitfunc,lat_a2s[Ncut:],t[:,Ncut:], xdata_extra=lat_a2s_plt, jackQ=True)
+                fits.append([fitlabel,pars_jk_extra,chi2_jk,Ndof])
+            else:
+                pars,err,cov,chi2,Ndof, m,e,c = doSimpleFit(fitfunc,lat_a2s[Ncut:],means[Ncut:], sigma=errs[Ncut:], xdata_extra=lat_a2s_plt, jackQ=False)
+                fits.append([fitlabel,m,e,chi2,Ndof])
         return fits
+
 #!============== fit (2pt) ==============#
 if True:    
     def doFits_2pt_pion(dat,tmins,tmax,func=lambda ts,m:[m]*len(ts),pars0=[1],corrQ=True,debugQ=False):
@@ -1755,6 +1788,7 @@ if True:
         rainbow:[tfmin,tfmax,tcmin,dt] \\
         fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc] \\
         fit_#:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc] \\
+        fit_2st_rainbow_midpoint:[fittype,pars_jk_meff2st] \\
         
         mfc:[global] \\
         shift:[rainbow,midpoint,fit] \\
@@ -2016,7 +2050,7 @@ if True:
                         if pars_jk_meff2st is not None:
                             if type(pars_jk_meff2st)==list:
                                 pars_jk_meff2st=np.concatenate(pars_jk_meff2st,axis=1)
-                            if fittype in ['2st2step_SYMshare'] and pars_jk_meff2st.shape[1]==3:
+                            if fittype in ['2st2step_SYMshare','2st2step_SYM'] and pars_jk_meff2st.shape[1]==3:
                                 pars_jk_meff2st=pars_jk_meff2st[:,[1,2]]
                             if fittype in ['2st2step_SQRTshare','2st2step_EFITshare'] and pars_jk_meff2st.shape[1]==6:
                                 pars_jk_meff2st=pars_jk_meff2st[:,[1,2,4,5]]
