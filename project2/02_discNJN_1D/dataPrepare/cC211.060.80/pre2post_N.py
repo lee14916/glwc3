@@ -8,7 +8,7 @@ import numpy as np
 
 ens='cC211.060.80'
 
-basePath=f'/p/project/ngff/li47/code/projectData/02_discNJN_1D/{ens}/'
+basePath=f'/p/project1/ngff/li47/code/projectData/02_discNJN_1D/{ens}/'
 tmax={'cB211.072.64':36,'cC211.060.80':40,'cD211.054.96':48}[ens]
 
 
@@ -24,7 +24,7 @@ with h5py.File('/p/arch1/hch02/hch02b/cC211.60.80/0008_r1/twop_ts22_246src.h5') 
     moms=[list(mom) for mom in f['sx01sy14sz16st35/baryons/nucl_nucl/mvec'][:]]
     momMap=np.array([moms.index(mom) for mom in moms_N])
         
-with h5py.File('/p/project/ngff/li47/code/projectData/02_discNJN_1D/cB211.072.64/data_pre_N/0004_r1/N.h5_hch02k_twop') as f:
+with h5py.File('/p/project1/ngff/li47/code/projectData/02_discNJN_1D/cB211.072.64/data_pre_N/0004_r1/N.h5_hch02k_twop') as f:
     moms2=[list(mom) for mom in f['Momenta_list_xyz'][:]]
     # momMap2=np.array([moms2.index(mom) for mom in moms_N])
     momMap_2to1=np.array([moms2.index(mom) for mom in moms])

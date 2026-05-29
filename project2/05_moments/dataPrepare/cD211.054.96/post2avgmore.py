@@ -141,25 +141,33 @@ def get_moms(max_mom2_pc,max_mom2_pf):
 # Input
 # -------------------------
 
-input='q=0'
+input='p1=0'
 
 ens='cD211.054.96'
 
-case='local'
+case='1DA'
 assert(case in ['local','1DV','1DA'])
 folder=f'05_moments_run5_{case}'
 inserts={'local':inserts_local,'1DV':inserts_1DV,'1DA':inserts_1DA,'1DT':inserts_1DT}[case]
 
-if input=='q=0':
-    moms_target=get_moms(0,0)
-    jqs=['j+','js','jc'] # disc
-    stouts=range(40+1) # gluon
-    
-if input=='p1=0':
-    moms_target=get_moms(16,0)
-    jqs=['j+','js','jc'] # disc
-    stouts=range(40+1) # gluon
-
+if case=='1DV':
+    if input=='q=0':
+        moms_target=get_moms(0,0)
+        jqs=['j+','js','jc'] # disc
+        stouts=range(40+1) # gluon
+    if input=='p1=0':
+        moms_target=get_moms(16,0)
+        jqs=['j+','js','jc'] # disc
+        stouts=range(40+1) # gluon
+        
+if case=='1DA':
+    if input=='q=0':
+        moms_target=get_moms(0,0)
+        jqs=['j+','js','jc'] # disc
+    if input=='p1=0':
+        moms_target=get_moms(25,0)
+        jqs=['j+','js','jc'] # disc
+        
 tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
 
 if case=='local' and input=='q=0':

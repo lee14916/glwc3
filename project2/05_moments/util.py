@@ -24,7 +24,7 @@ mpl.rcParams['axes.labelsize'] = 24
 mpl.rcParams['axes.titlesize'] = 24
 mpl.rcParams['lines.marker'] = 's'
 mpl.rcParams['lines.linestyle'] = ''
-mpl.rcParams['lines.markersize'] = 7
+mpl.rcParams['lines.markersize'] = 6
 mpl.rcParams['errorbar.capsize'] = 6
 mpl.rcParams['xtick.labelsize'] = mpl.rcParams['ytick.labelsize'] = 22
 mpl.rcParams['xtick.major.size'] = mpl.rcParams['ytick.major.size'] = 10
@@ -37,7 +37,6 @@ plt.rcParams["mathtext.fontset"] = "dejavuserif"
 plt.rcParams.update({
     'axes.linewidth': 2,      # axes (spines)
     'lines.linewidth': 2,     # plot lines
-    'lines.markersize': 6,    # markers (optional)
 
     'xtick.major.width': 2,
     'ytick.major.width': 2,
@@ -590,58 +589,61 @@ if True:
 
     # uncertainty to string: taken from https://stackoverflow.com/questions/6671053/python-pretty-print-errorbars
     def un2str(x, xe, precision=2, forceResult = 1):
-        if type(x) in [list,np.ndarray]:
-            return [un2str(m,e,precision=precision,forceResult=forceResult) for m,e in zip(x,xe)]
-        
-        """pretty print nominal value and uncertainty
+        try:
+            if type(x) in [list,np.ndarray]:
+                return [un2str(m,e,precision=precision,forceResult=forceResult) for m,e in zip(x,xe)]
+            
+            """pretty print nominal value and uncertainty
 
-        x  - nominal value
-        xe - uncertainty
-        precision - number of significant digits in uncertainty
+            x  - nominal value
+            xe - uncertainty
+            precision - number of significant digits in uncertainty
 
-        returns shortest string representation of `x +- xe` either as
-            x.xx(ee)e+xx
-        or as
-            xxx.xx(ee)"""
-        # base 10 exponents
-        x_exp = int(floor(log10(np.abs(x))))
-        xe_exp = int(floor(log10(xe)))
+            returns shortest string representation of `x +- xe` either as
+                x.xx(ee)e+xx
+            or as
+                xxx.xx(ee)"""
+            # base 10 exponents
+            x_exp = int(floor(log10(np.abs(x))))
+            xe_exp = int(floor(log10(xe)))
 
-        # uncertainty
-        un_exp = xe_exp-precision+1
-        un_int = round(xe*10**(-un_exp))
+            # uncertainty
+            un_exp = xe_exp-precision+1
+            un_int = round(xe*10**(-un_exp))
 
-        # nominal value
-        no_exp = un_exp
-        no_int = round(x*10**(-no_exp))
+            # nominal value
+            no_exp = un_exp
+            no_int = round(x*10**(-no_exp))
 
-        # format - nom(unc)exp
-        fieldw = x_exp - no_exp
-        
-        if fieldw<0 and forceResult!=1:
-            return un2str(x, xe, precision+1,forceResult=forceResult)
-        if fieldw>=0:
+            # format - nom(unc)exp
+            fieldw = x_exp - no_exp
+            
+            if fieldw<0 and forceResult!=1:
+                return un2str(x, xe, precision+1,forceResult=forceResult)
+            if fieldw>=0:
+                fmt = '%%.%df' % fieldw
+                result1 = (fmt + '(%.0f)e%d') % (no_int*10**(-fieldw), un_int, x_exp)
+            else:
+                result1 = None
+
+            # format - nom(unc)
+            fieldw = max(0, -no_exp)
             fmt = '%%.%df' % fieldw
-            result1 = (fmt + '(%.0f)e%d') % (no_int*10**(-fieldw), un_int, x_exp)
-        else:
-            result1 = None
+            result2 = (fmt + '(%.0f)') % (no_int*10**no_exp, un_int*10**max(0, un_exp))
+            if un_exp<0 and un_int*10**un_exp>=1:
+                fmt2= '(%%.%df)' % (-un_exp)
+                result2 = (fmt + fmt2) % (no_int*10**no_exp, un_int*10**un_exp)
+            
+            if forceResult is not None:
+                return [result1,result2][forceResult]
 
-        # format - nom(unc)
-        fieldw = max(0, -no_exp)
-        fmt = '%%.%df' % fieldw
-        result2 = (fmt + '(%.0f)') % (no_int*10**no_exp, un_int*10**max(0, un_exp))
-        if un_exp<0 and un_int*10**un_exp>=1:
-            fmt2= '(%%.%df)' % (-un_exp)
-            result2 = (fmt + fmt2) % (no_int*10**no_exp, un_int*10**un_exp)
-        
-        if forceResult is not None:
-            return [result1,result2][forceResult]
-
-        # return shortest representation
-        if len(result2) <= len(result1):
-            return result2
-        else:
-            return result1
+            # return shortest representation
+            if len(result2) <= len(result1):
+                return result2
+            else:
+                return result1
+        except:
+            return f'{x}({xe})'
         
     def chi2Ndof2pval(chi2, Ndof):
         pval = 1 - chi2_dist.cdf(chi2, Ndof)
@@ -1049,7 +1051,7 @@ if True:
                 
         if unicutQ is not False:
             assert(not symQ)
-            fits=filterFits_3ptasy_unicut(fits,Nmin = 3 if unicutQ==True else unicutQ)
+            fits=filterFits_3ptasy_unicut(fits,Nmin = 0 if unicutQ==True else unicutQ)
             tf2tcmins=defaultdict(list)
             for ((tf,tcmin),pars_jk,chi2_jk,Ndof) in fits:
                 tf2tcmins[tf].append(tcmin)
@@ -1418,12 +1420,43 @@ if True:
 
 #!============== plot (basic) ==============#
 if True:
+    global mpl_global_elinewidth
+    global mpl_global_capthick
+    mpl_global_elinewidth=mpl_global_capthick=None
+    def errorbar(ax,*args,**kwargs):
+        ax.errorbar(*args,**kwargs,elinewidth=mpl_global_elinewidth,capthick=mpl_global_capthick)
+    
     colors8=['r','g','b','orange','purple','brown','magenta','olive']
     fmts8=['s','o','d','^','v','<','>','*']
     
     colors16=['blue','orange','green','red','purple','brown','darkblue','olive','darkgreen','darkred','grey','tan','peru','magenta','gold','skyblue']
     fmts16=['o','v','^','<','>','d','s','h','*','H','p','8','X','P','D','.']
     
+    kwargs_tightLegend = {
+        'columnspacing': 0.1,
+        'handletextpad': 0.1,
+        'handlelength': 1.0,
+        'labelspacing': 0.1,
+        'borderpad': 0.2,
+    }
+    def legend(ax, order=None, tightQ=False, **kwargs):
+        handles, labels = ax.get_legend_handles_labels()
+
+        if order is None:
+            order = range(len(handles))
+
+        legend_kwargs = {}
+
+        if tightQ:
+            legend_kwargs.update(kwargs_tightLegend)
+
+        legend_kwargs.update(kwargs)
+
+        ordered_handles = [handles[i] for i in order]
+        ordered_labels = [labels[i] for i in order]
+
+        return ax.legend(ordered_handles, ordered_labels, **legend_kwargs)
+
     def jitter_duplicate_x(x, fraction=0.2):
         x = np.asarray(x, float)
         out = x.copy()
@@ -1466,10 +1499,11 @@ if True:
         axline={'h':ax.axhline,'v':ax.axvline}[hv]
         axline(val,color=color,ls=ls,marker=marker,label=label,**kwargs)
 
-    def finalizePlot(file=None,closeQ=None,mkdirQ=False):
+    def finalizePlot(file=None,closeQ=None,mkdirQ=False,tightQ=True):
         if closeQ is None:
             closeQ=False if file is None else True
-        plt.tight_layout()
+        if tightQ:
+            plt.tight_layout()    
         if file!=None:
             if path_fig_internal is None:
                 print('path_fig_internal is None')
@@ -1785,7 +1819,7 @@ if True:
                 plt_x=(tf+mid_tfshift+shift*0.1)*xunit; plt_y=mean[tf//2]*yunit; plt_yerr=err[tf//2]*yunit
                 ax_mid.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
     
-    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,**kwargs):
+    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,fmts_rainbow=fmts16,fmts_fit=fmts8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,**kwargs):
         '''
         show in ['rainbow','midpoint','fit_#','fit_#_prob'] \\
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
@@ -1948,25 +1982,25 @@ if True:
             show='rainbow'
             mfc=mfc_global if mfc_global!='not set' else None
             if show in shows:
-                ax=axs[irow,shows.index(show)]                
+                ax=axs[irow,shows.index(show)]          
                 for itf,tf in enumerate(tfs_rainbow):
                     mean,err=jackme(tf2ratio[tf])
                     tcs=np.arange(tcmin_rainbow,tf-tcmin_rainbow+1)
                     plt_x=(tcs-tf/2+0.05*(itf-len(tfs_rainbow)/2)+shift_rainbow)*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
                     itf_color=tfs_color.index(tf)
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
+                    errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts_rainbow[itf_color%16],mfc=mfc)
                     
             show='midpoint'
             mfc=mfc_global if mfc_global!='not set' else None
             if show in shows:
-                ax=axs[irow,shows.index(show)]   
+                ax=axs[irow,shows.index(show)]  
                 for itf,tf in enumerate(tfs_mid):
                     if tf%2!=0:
                         continue
                     mean,err=jackme(tf2ratio[tf][:,tf//2])
                     plt_x=(tf+shift_midpoint)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     itf_color=tfs_color.index(tf)
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc) 
+                    errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts_rainbow[itf_color%16],mfc=mfc) 
             show='fit_band'
             if show in shows and fits_band is not None:
                 ax=axs[irow,shows.index(show)]   
@@ -1999,7 +2033,7 @@ if True:
                         mfc=mfc_global
                     mean,err=jackme(pars_jk[:,0])
                     plt_x=(tf+itcmin*0.1+shift_fit)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
-                    ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_rainbow[itf%16],fmt=fmts16[itf%16],mfc=mfc)
+                    errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf%16],fmt=fmts_rainbow[itf%16],mfc=mfc)
                     
             def plot_fits(show,fits,tfmins,tcmins,fit_MA):
                 show_prob=show+'_prob'
@@ -2036,7 +2070,7 @@ if True:
                             mfc=mfc_global
                         mean,err=jackme(pars_jk[:,0])
                         plt_x=(tfmin+itcmin*0.1+shift_fit)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
-                        ax.errorbar(plt_x,plt_y,plt_yerr,color=colors_fit[itcmin%8],fmt=fmts8[itcmin%8],mfc=mfc)
+                        errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_fit[itcmin%8],fmt=fmts_fit[itcmin%8],mfc=mfc)
                         
                         if show_prob in shows and (tfmin,tcmin) in fitlabels:
                             ind=fitlabels.index((tfmin,tcmin))
@@ -2045,7 +2079,7 @@ if True:
                                 continue
                             mean,err=jackme(pars_jk)
                             plt_x=(prob)*100; plt_y=mean[0]*yunit; plt_yerr=err[0]*yunit
-                            axp.errorbar(plt_x,plt_y,plt_yerr,color=colors_fit[itcmin%8],fmt=fmts8[itcmin%8],mfc=mfc)
+                            errorbar(axp,plt_x,plt_y,plt_yerr,color=colors_fit[itcmin%8],fmt=fmts_fit[itcmin%8],mfc=mfc)
 
                     if show=='fit_2st' and 'fit_2st_rainbow_midpoint:[fittype,pars_jk_meff2st]' in dic:
                         fittype,pars_jk_meff2st=dic['fit_2st_rainbow_midpoint:[fittype,pars_jk_meff2st]']

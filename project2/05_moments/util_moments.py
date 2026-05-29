@@ -3,18 +3,70 @@ from util import *
 
 #!============== General ==============#
 
-#!============== exp ==============#
+#!============== exp & other lat ==============#
 if True:
+    def ss2e(stat,syst):
+        return (stat,syst)
+
     src2j2avgx={
-        'NNPDF3.1':{'j-': (0.152,0.003), 'ju': (0.348,0.004), 'jd': (0.196,0.003), 'js': (0.039,0.003), 'jg': (0.410,0.004)}
+        # 'NNPDF3.1':{'j-': (0.152,0.003), 'ju': (0.348,0.004), 'jd': (0.196,0.003), 'js': (0.039,0.003), 'jg': (0.410,0.004)},
+        'ETM20': {'ju':(0.359,0.030),'jd':(0.188,0.019),'js':(0.052,0.012),'jc':(0.019,0.009),'jg':(0.427,0.092),'jv1':(0.171,0.018)}, # Alexandrou:2020sml
+        r'$\chi$QCD18': {'ju':(0.307,ss2e(0.030,0.018)),'jd':(0.160,ss2e(0.027,0.040)),'js':(0.051,ss2e(0.026,0.005)),'jg':(0.482,ss2e(0.069,0.048)),'jv1':(0.151,ss2e(0.028,0.029))}, # Yang:2018nqn
+        'MIT24':{'ju':(0.3255,0.0092),'jd':(0.1590,0.0092),'js':(0.0257,0.0095),'jg':(0.501,0.027),'jv1':(0.1665,0.0056)}, # Hackett:2023rif
+        'ETM22':{'jv1':(0.126,0.032)}, # Alexandrou:2022dtc
+        'PNDME21': {'jv1':(0.173,ss2e(0.014,0.007))}, # Mondal:2020cmt
+        # 'PNDME21': {'jv1':(0.153,ss2e(0.015,0.010))}, # Djukanovic:2024krw
+        # 'PNDME21': {'jv1':(0.173,ss2e(0.014,0.007))}, # Mondal:2021oot
     }
-    
     def get_avgx_from_src(src,j):
-        j2avgx=src2j2avgx[src]
-        if j in j2avgx:
-            return j2avgx[j]
-        return {'jc':(0,0), 'jq':(0.583,0.006), 'jtot':(0.993,0.007)}[j]
+        if src in src2j2avgx:
+            j2avgx=src2j2avgx[src]
+            if j in j2avgx:
+                return j2avgx[j]
+        return None
         
+    src2j2J={
+        'ETM20': {'ju':(0.211,ss2e(0.022,0.005)),'jd':(0.050,ss2e(0.018,0.005)),'js':(0.016,ss2e(0.012,0.005)),'jc':(0.009,ss2e(0.005,0.000)),'jg':(0.187,ss2e(0.046,0.010)),'jv1':(0.161,(0.024,0.007))},
+        'MIT24':{'ju':(0.2213,0.0085),'jd':(0.0197,0.0085),'js':(0.0097,0.0082),'jg':(0.255,0.013),'jv1':( 0.2016,0.0086)},
+    }
+    def get_J_from_src(src,j):
+        if src in src2j2J:
+            j2J=src2j2J[src]
+            if j in j2J:
+                return j2J[j]
+        return None
+    
+    src2j2gA={
+        'ETM20':{'ju':(0.432*2,0.008*2),'jd':(-0.213*2,0.008*2),'js':(-0.023*2,0.004*2),'jc':(-0.005*2,0.002*2)},
+        
+        'PNDME25':{'ju':(0.781,ss2e(0.022,0.011)),'jd':(-0.440,ss2e(0.029,0.026)),'js':(-0.055,ss2e(0.009,0.001))}, # Park:2025rxi
+        'ETMC25':{'ju':(0.832,0.028),'jd':(-0.417,0.022),'js':(-0.037,0.018),'jc':(0.003,0.013)}, # Alexandrou:2024ozj
+        r'$\chi$QCD18':{'ju':(0.847,ss2e(0.018,0.032)),'jd':(-0.407,ss2e(0.016,0.018)),'js':(-0.035,ss2e(0.006,0.007))}, # Liang:2018pis
+        'Mainz26':{'ju':(0.821,ss2e(0.023,0.010)),'jd':(-0.433,ss2e(0.023,0.010)),'js':(-0.0325,ss2e(0.0071,0.0033))}, # Barone:2026uyx, Djukanovic:2024krw
+    }
+    def get_gA_from_src(src,j):
+        if src in src2j2gA:
+            j2J=src2j2gA[src]
+            if j in j2J:
+                return j2J[j]
+        return None
+    def get_DeltaSigmaBy2_from_src(src,j):
+        if src in src2j2gA:
+            j2J=src2j2gA[src]
+            if j in j2J:
+                m,e=j2J[j]
+                return (m/2,e/2) if not isinstance(e,tuple) else (m/2,(e[0]/2,e[1]/2)) 
+        return None
+    
+    src2j2L={
+        'ETM20': {'ju':(-0.221,ss2e(0.026,0.005)),'jd':(0.262,ss2e(0.020,0.005)),'js':(0.039,ss2e(0.013,0.005)),'jc':(0.014,ss2e(0.010,0.000))},
+    }
+    def get_L_from_src(src,j):
+        if src in src2j2L:
+            j2J=src2j2L[src]
+            if j in j2J:
+                return j2J[j]
+        return None
 
 #!============== Renomalization ==============#
 if True:
@@ -381,7 +433,7 @@ if True:
 
     def makePlot_a2dependence_avgx(list_dic,case='avgx',ce='MA',noNumberQ=False,noCEonPreQ=False,plotwhich='both'):
         Ncol=len(list_dic)
-        fig, axs = yu.getFigAxs(2 if plotwhich=='both' else 1,Ncol,Lrow=4,Lcol=6,sharex=True,sharey='row')
+        fig, axs = yu.getFigAxs(2 if plotwhich=='both' else 1,Ncol,Lrow=4,Lcol=6,sharex=True,sharey='row',gridspec_kw={'hspace':0})
         caselabel={'avgx':r'\langle \mathrm{x} \rangle', 'B20':r'B', 'J':r'J'}[case]
         extralabel={'avgx':'','B20':'20;','J':''}[case]
         
@@ -493,7 +545,7 @@ if True:
                     if noNumberQ:
                         label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}$'
                     for iens,ens in enumerate(enss):
-                        plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
+                        plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*0.0001/2; plt_y,plt_yerr=yu.jackme(get(ens,j))
                         ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
                         
                         if key2phy_pre is None or ens not in enss_pre:
@@ -522,7 +574,7 @@ if True:
                     if noNumberQ:
                         label=rf'${caselabel}_{{{extralabel}{j2label[j]}}}$'
                     for iens,ens in enumerate(enss):
-                        plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*5e-10; plt_y,plt_yerr=yu.jackme(get(ens,j))
+                        plt_x=yu.ens2a[ens]**2+(ij-len(js)/2)*0.0001/2; plt_y,plt_yerr=yu.jackme(get(ens,j))
                         ax.errorbar(plt_x,plt_y,plt_yerr,color=color,fmt=j2fmt[j],label=label if iens==0 else None)
                         if key2phy_pre is None or ens not in enss_pre:
                             continue
@@ -577,6 +629,7 @@ if True:
         
         if case in ['DeltaSigmaBy2','L']:
             labelpad={'DeltaSigmaBy2':-21,'L':-17}[case]
+            labelpad={'DeltaSigmaBy2':-10,'L':-10}[case]
         else:
             labelpad=None
         if case in ['DeltaSigmaBy2']:
@@ -631,6 +684,7 @@ if True:
             ax.set_xticks(x)
             ax.set_xticklabels(labels)
             ax.set_xlim([x[0]-3/4,x[-1]+3/4])
+            ax.set_yticks([-0.25,0,0.25,0.50])
                         
             factor=valRef
             mes_conn=[yu.jackme(key2phy[('a=#_MA',f'{j};conn')][:,0]) for j in js_conn]

@@ -18,7 +18,7 @@ cfg2old=lambda cfg: cfg[1:]+'_r'+{'a':'0','b':'1','c':'2','d':'3'}[cfg[0]]
 cfg2new=lambda cfg: {'0':'a','1':'b','2':'c','3':'d'}[cfg[-1]] + cfg[:4]
 
 # pf1 pf2 pc pi1 pi2
-Nmax={'cB211.072.64':23,'cC211.060.80':26,'cD211.054.96':26}[ens]
+Nmax={'cB211.072.64':26,'cC211.060.80':26,'cD211.054.96':26}[ens]
 Nmax_sq=int(np.floor(np.sqrt(Nmax))); t_range=range(-Nmax_sq,Nmax_sq+1)
 base_momList=[[x,y,z] for x in t_range for y in t_range for z in t_range if np.linalg.norm([x,y,z])**2<=Nmax]
 base_momList.sort()
