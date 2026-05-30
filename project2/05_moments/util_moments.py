@@ -24,6 +24,8 @@ if True:
             if j in j2avgx:
                 return j2avgx[j]
         return None
+    def get_A20_from_src(src,j):
+        return get_avgx_from_src(src,j)
         
     src2j2J={
         'ETM20': {'ju':(0.211,ss2e(0.022,0.005)),'jd':(0.050,ss2e(0.018,0.005)),'js':(0.016,ss2e(0.012,0.005)),'jc':(0.009,ss2e(0.005,0.000)),'jg':(0.187,ss2e(0.046,0.010)),'jv1':(0.161,(0.024,0.007))},
