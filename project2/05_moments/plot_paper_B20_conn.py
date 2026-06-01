@@ -1,6 +1,6 @@
 '''
 cat data_aux/dat_ignore/analysis_B20_conn_run | xargs -I @ -P 10 python3 -u plot_paper_B20_conn.py -t @ > log/plot_paper_B20_conn.out & 
-python3 -u plot_paper_B20_conn.py -t 1,1,0_B20_j-,conn & python3 -u plot_paper_B20_conn.py -t 2,2,0_B20_j+,conn & wait
+python3 -u plot_paper_B20_conn.py -t 1,1,0_B20_j-,conn & python3 -u plot_paper_B20_conn.py -t 2,2,0_B20_j+,conn & 
 '''
 import util as yu
 from util import *
@@ -163,9 +163,9 @@ def run(task):
     
     for i in range(len(enss)):
         if j in ['j-;conn']:
-            axs[i,0].set_ylabel(r'$B_{20}^{u-d}(Q_1)$')
+            axs[i,0].set_ylabel(r'$B_{20}^{u-d}(Q_1^2)$')
         else:
-            axs[i,0].set_ylabel(r'$\tilde{B}_{20}^{u+d}(Q_2)$')
+            axs[i,0].set_ylabel(r'$\tilde{B}_{20}^{u+d}(Q_2^2)$')
         
     # axs[-1,2].set_xlim([0.35,1.45])
     # axs[-1,2].set_xticks(np.arange(0.4,1.5,0.2))

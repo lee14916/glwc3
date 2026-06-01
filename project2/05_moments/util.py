@@ -147,12 +147,13 @@ if True:
         return True
     def save_txt_internal(label,txt):
         save_txt(f'{path_pkl_internal}{any2filename(label)}.txt',txt)
-    def load_pkl_internal(file):
+    def load_pkl_internal(file,pathlabel=None):
+        if pathlabel is not None:
+            return load_pkl(f'pkl/{pathlabel}/internal_ignore/{any2filename(file)}.pkl')
         if path_pkl_internal is None:
             print('path_pkl_internal is None, stop loading')
             return None
-        res=load_pkl(f'{path_pkl_internal}{any2filename(file)}.pkl')
-        return res
+        return load_pkl(f'{path_pkl_internal}{any2filename(file)}.pkl')
     def save_pkl_reg(label,res,mkdirQ=False):
         file=f'{path_pkl}{any2filename(label)}.pkl'
         if mkdirQ:
@@ -882,8 +883,8 @@ if True:
             return res
         return wrapper
 
-    def getFits(label):
-        return load_pkl_internal(label)
+    def getFits(label,pathlabel=None):
+        return load_pkl_internal(label,pathlabel=pathlabel)
     
     @decorator_fits
     def doFits_const(y_jk,xmins,xmaxs,corrQ=True,**kargs):
@@ -1439,8 +1440,8 @@ if True:
         'labelspacing': 0.1,
         'borderpad': 0.2,
     }
-    def legend(ax, order=None, tightQ=False, **kwargs):
-        handles, labels = ax.get_legend_handles_labels()
+    def legend(ax, order=None, tightQ=False, handles=None, labels=None, **kwargs):
+        handles_temp, labels_temp = ax.get_legend_handles_labels()
 
         if order is None:
             order = range(len(handles))
@@ -1452,8 +1453,8 @@ if True:
 
         legend_kwargs.update(kwargs)
 
-        ordered_handles = [handles[i] for i in order]
-        ordered_labels = [labels[i] for i in order]
+        ordered_handles = [handles_temp[i] for i in order] if handles is None else handles
+        ordered_labels = [labels_temp[i] for i in order] if labels is None else labels
 
         return ax.legend(ordered_handles, ordered_labels, **legend_kwargs)
 
@@ -1489,10 +1490,10 @@ if True:
             ax.annotate(row, xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
                     xycoords=ax.yaxis.label, textcoords='offset points', ha='right', va='center', fontsize=fontsize, **kargs)
             
-    def addColHeader(axs,cols,fontsize='xx-large',**kargs):
+    def addColHeader(axs,cols,fontsize='xx-large',y=1,**kargs):
         pad=5
         for ax, col in zip(axs[0,:], cols):
-            ax.annotate(col, xy=(0.5, 1), xytext=(0, pad),
+            ax.annotate(col, xy=(0.5, y), xytext=(0, pad),
                     xycoords='axes fraction', textcoords='offset points', ha='center', va='baseline', fontsize=fontsize, **kargs)
             
     def addRefLine(ax,val,hv='h',color='grey',ls='--',marker='',label=None,**kwargs):
@@ -1633,7 +1634,7 @@ if True:
 
         return fig, axs, result
     
-    def makePlot_2pt_SimoneStyle(meff,fitss,xunit=1,yunit=1,E0_ref=None,selection={},ylims='auto',labelType='mN'):
+    def makePlot_2pt_SimoneStyle(meff,fitss,xunit=1,yunit=1,E0_ref=None,selection={},ylims='auto',labelType='mN',chi2Q=True,bandQ=True,legendQ=True):
         for _ in [0]:
             result={}
             fig, axd = plt.subplot_mosaic([['f1','f1','f1'],['f2','f2','f3']],figsize=(24,10))
@@ -1641,8 +1642,8 @@ if True:
             label_fm=' [fm]' if xunit!=1 else None
             label_GeV=' [GeV]' if yunit!=1 else None
             ax1.set_xlabel(r'$t$'+label_fm)
-            ax2.set_xlabel(r'$t_{\mathrm{min}}$'+label_fm)
-            ax3.set_xlabel(r'$t_{\mathrm{min}}$'+label_fm)
+            ax2.set_xlabel(r'$t_{\mathrm{low}}$'+label_fm)
+            ax3.set_xlabel(r'$t_{\mathrm{low}}$'+label_fm)
             ax1.set_ylabel(r'$E_0^{\mathrm{eff}}$'+label_GeV)
             ax2.set_ylabel(r'$E_0$'+label_GeV)
             ax3.set_ylabel(r'$E_1$'+label_GeV)
@@ -1685,7 +1686,8 @@ if True:
                 result[fitcase]=pars_jk
             pars_mean,pars_err=jackme(result[fitcase])
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
-            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2,label=r'$E_0^{\mathrm{1st}}=$'+un2str(plt_y,plt_yerr))
+            if bandQ:
+                ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2,label=r'$E_0^{\mathrm{1st}}=$'+un2str(plt_y,plt_yerr))
             if ylims=='auto':
                 ax1.set_ylim([plt_y-plt_yerr*20,plt_y+plt_yerr*40])
                 ax2.set_ylim([plt_y-plt_yerr*20,plt_y+plt_yerr*30])
@@ -1700,7 +1702,8 @@ if True:
                 plt_x=fitmin*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
                 ax2.errorbar(plt_x,plt_y,plt_yerr,fmt='s',color=color,mfc='white' if showQ else None)
                 ylim=ax2.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
-                ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
+                if chi2Q:
+                    ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
                 if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax2.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
             
@@ -1722,9 +1725,11 @@ if True:
             t=np.transpose([result[fitcase][:,0],result[fitcase][:,0]+result[fitcase][:,2-DNpar]])
             pars_mean,pars_err=jackme(t)
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
-            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_0^{\mathrm{2st}}=$'+un2str(plt_y,plt_yerr))
+            if bandQ:
+                ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_0^{\mathrm{2st}}=$'+un2str(plt_y,plt_yerr))
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
-            ax3.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_1^{\mathrm{2st}}=$'+un2str(plt_y,plt_yerr))
+            if bandQ:
+                ax3.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_1^{\mathrm{2st}}=$'+un2str(plt_y,plt_yerr))
             if ylims=='auto':
                 ax3.set_ylim([plt_y-plt_yerr*20,plt_y+plt_yerr*30])
             for i,fit in enumerate(fits):
@@ -1740,14 +1745,16 @@ if True:
                 plt_x=fitmin*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
                 ax2.errorbar(plt_x,plt_y,plt_yerr,fmt='o',color=color,mfc='white' if showQ else None)
                 ylim=ax2.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
-                ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
+                if chi2Q:
+                    ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
                 if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax2.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
                 
                 plt_x=fitmin*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
                 ax3.errorbar(plt_x,plt_y,plt_yerr,fmt='o',color=color,mfc='white' if showQ else None)
                 ylim=ax3.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
-                ax3.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
+                if chi2Q:
+                    ax3.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
                 if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax3.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
                     
@@ -1769,9 +1776,11 @@ if True:
             t=np.transpose([result[fitcase][:,0],result[fitcase][:,0]+result[fitcase][:,2-DNpar]])
             pars_mean,pars_err=jackme(t)
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
-            ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_0^{\mathrm{3st}}=$'+un2str(plt_y,plt_yerr))
+            if bandQ:
+                ax2.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_0^{\mathrm{3st}}=$'+un2str(plt_y,plt_yerr))
             plt_x=np.array([fitmins[0]-0.5,fitmins[-1]+0.5])*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
-            ax3.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_1^{\mathrm{3st}}=$'+un2str(plt_y,plt_yerr))    
+            if bandQ:
+                ax3.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color=color,alpha=0.2, label=r'$E_1^{\mathrm{3st}}=$'+un2str(plt_y,plt_yerr))    
             for i,fit in enumerate(fits):
                 fitmin,pars_jk,chi2_jk,Ndof=fit; prob=probs_mean[i]
                 t=pars_jk.copy()
@@ -1785,19 +1794,21 @@ if True:
                 plt_x=fitmin*xunit; plt_y=pars_mean[0]*yunit; plt_yerr=pars_err[0]*yunit
                 ax2.errorbar(plt_x,plt_y,plt_yerr,fmt='d',color=color,mfc='white' if showQ else None)
                 ylim=ax2.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
-                ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
+                if chi2Q:
+                    ax2.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center')
                 if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax2.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
                 
                 plt_x=fitmin*xunit; plt_y=pars_mean[1]*yunit; plt_yerr=pars_err[1]*yunit
                 ax3.errorbar(plt_x,plt_y,plt_yerr,fmt='d',color=color,mfc='white' if showQ else None)
                 ylim=ax3.get_ylim(); chi2_shift=(ylim[1]-ylim[0])/12
-                ax3.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center') 
+                if chi2Q:
+                    ax3.annotate("%0.1f" %chi2R,(plt_x,plt_y-plt_yerr-chi2_shift),color=color,size=chi2Size,ha='center') 
                 if probThreshold is not None and prob>probThreshold and (fitcase not in selection):
                     ax3.annotate(f"{int(prob*100)}%",(plt_x,plt_y-plt_yerr-chi2_shift*percentage_shiftMultiplier),color=color,size=chi2Size,ha='center')
-        
-        ax2.legend(fontsize=16)
-        ax3.legend(fontsize=16)
+        if legendQ:
+            ax2.legend(fontsize=16)
+            ax3.legend(fontsize=16)
         return fig,axd,result           
 #!============== plot (3pt) ==============#
 if True:

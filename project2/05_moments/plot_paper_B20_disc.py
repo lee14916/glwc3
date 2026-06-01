@@ -1,7 +1,7 @@
 '''
 cat data_aux/dat_ignore/analysis_B20_disc_run | xargs -I @ -P 3 python3 -u plot_paper_B20_disc.py -t @ > log/plot_paper_B20_disc.out & 
 python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_j+,disc 
-python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_j+,disc & python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_js,disc & python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_jc,disc & python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_jg,stout10 & wait 
+python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_j+,disc & python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_js,disc & python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_jc,disc & python3 -u plot_paper_B20_disc.py -t 2,2,0_B20_jg,stout10 & 
 '''
 import util as yu
 from util import *
@@ -206,7 +206,7 @@ def run(task):
     jstr=j[1]
     jstr='u+d' if jstr=='+' else jstr
     for i in range(len(enss)):
-        axs[i,0].set_ylabel(rf'$B_{{20}}^{{{jstr}}}(Q_2)$')
+        axs[i,0].set_ylabel(rf'$B_{{20}}^{{{jstr}}}(Q_2^2)$')
         axs[i,0].set_ylim(axs[i,0].get_ylim())
     fig,axs=yu.makePlot_3pt(list_dic_sum,shows=['rainbow','rainbow','fit_sum'],figAxs=(fig,axs),colors_fit=['g'],fmts_fit=['o'],colHeaders=None)
     axs[-1,1].set_xticks([0.7,1.1])

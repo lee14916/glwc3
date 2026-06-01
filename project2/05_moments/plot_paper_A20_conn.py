@@ -1,6 +1,6 @@
 '''
 cat data_aux/dat_ignore/analysis_A20_conn_run | xargs -I @ -P 10 python3 -u plot_paper_A20_conn.py -t @ > log/plot_paper_A20_conn.out & 
-python3 -u plot_paper_A20_conn.py -t 1,1,0_A20_j-,conn & python3 -u plot_paper_A20_conn.py -t 2,2,0_A20_j+,conn & wait
+python3 -u plot_paper_A20_conn.py -t 1,1,0_A20_j-,conn & python3 -u plot_paper_A20_conn.py -t 2,2,0_A20_j+,conn & 
 '''
 import util as yu
 from util import *
@@ -167,9 +167,9 @@ def run(task):
     
     for i in range(len(enss)):
         if j in ['j-;conn']:
-            axs[i,0].set_ylabel(r'$A_{20}^{u-d}(Q_1)$')
+            axs[i,0].set_ylabel(r'$A_{20}^{u-d}(Q_1^2)$')
         else:
-            axs[i,0].set_ylabel(r'$\tilde{A}_{20}^{u+d}(Q_2)$')
+            axs[i,0].set_ylabel(r'$\tilde{A}_{20}^{u+d}(Q_2^2)$')
         
     # yu.addRowHeader(axs,[yu.ens2label[ens][0] for ens in enss])
     # axs[-1,2].set_xlim([0.35,1.45])
