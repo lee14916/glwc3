@@ -79,8 +79,8 @@ def run(task):
         
         def createDic(ind,case):
             rainbow_tfphy_min=0.5
-            rainbow_tfphy_max=1.3
-            sum_tfphy_max=1.3
+            rainbow_tfphy_max=1.1
+            sum_tfphy_max=0.7
             dt=2
             gett=lambda t:round(t/yu.ens2a[ens])
             def get_tfs(tmin,tmax,dt=1):
@@ -138,8 +138,8 @@ def run(task):
         
         def createDic2(ind,case):
             rainbow_tfphy_min=0.5
-            rainbow_tfphy_max=1.3       
-            sum_tfphy_max=1.3
+            rainbow_tfphy_max=1.1       
+            sum_tfphy_max=0.7
             dt=2
             # print(ens,case)
             gett=lambda t:round(t/yu.ens2a[ens])
@@ -202,25 +202,26 @@ def run(task):
     list_dic=[ele[0] for ele in t]
     list_dic_sum=[ele[1] for ele in t]
 
-    fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const'],noLegendQ=True,colHeaders=None)
+    fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const'],noLegendQ=True,colHeaders=None,fullband='fit_const')
     jstr=j[1]
     jstr='u+d' if jstr=='+' else jstr
     for i in range(len(enss)):
-        axs[i,0].set_ylabel(rf'$B_{{20}}^{{{jstr}}}(Q_2^2)$')
+        axs[i,0].set_ylabel(rf'$\tilde{{B}}_{{20}}^{{{jstr}}}(Q_2^2)$')
         axs[i,0].set_ylim(axs[i,0].get_ylim())
     fig,axs=yu.makePlot_3pt(list_dic_sum,shows=['rainbow','rainbow','fit_sum'],figAxs=(fig,axs),colors_fit=['g'],fmts_fit=['o'],colHeaders=None)
-    axs[-1,1].set_xticks([0.7,1.1])
-    axs[-1,2].set_xticks([0.7,1.1])
+    axs[-1,0].set_xticks([-0.3,0,0.3])
+    axs[-1,1].set_xticks([0.7,1.0])
+    axs[-1,2].set_xticks([0.7,1.0])
     # fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')
     
     # axs[-1,0].set_xlim([-0.55,0.55])
     
     yu.setpath('plot_paper')
     if j in ['j-;conn']:
-        yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)
+        yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
     else:
         yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
-    yu.setpath('analysis_A20')
+    yu.setpath('analysis_B20_2')
 
     print('flag_done: ' + task)
     return res

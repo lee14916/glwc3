@@ -80,7 +80,7 @@ def run(task):
         case2tf2ratio={}
         path=f'/p/project1/ngff/li47/code/projectData/05_moments/doSVD/conn_{ens}_{yu.n2qpp12str(n2qpp1)}.h5'
         
-        yunit=ens2RCs_np_me[ens]['Zqq(mu=nu)'] if j in ['j-;conn'] else 1
+        yunit=ens2RCs_np_me[ens]['Zqq(mu=nu)']/ens2RCs_np_me[ens]['Zqq(mu!=nu)'] if j in ['j-;conn'] else 1
         
         tfs_conn=set()
         with h5py.File(path) as f:
@@ -162,12 +162,12 @@ def run(task):
     list_dic=[ele[0] for ele in t]
     list_dic_sum=[ele[1] for ele in t]
 
-    fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','midpoint','fit_2st'],sharey=True,noLegendQ=True,colHeaders=None)
+    fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','midpoint','fit_2st'],sharey=True,noLegendQ=True,colHeaders=None,fullband='fit_2st',oddmidQ=True)
     fig,axs=yu.makePlot_3pt(list_dic_sum,shows=['rainbow','rainbow','fit_sum'],figAxs=(fig,axs),colors_fit=['g'],fmts_fit=['o'],colHeaders=None)
     
     for i in range(len(enss)):
         if j in ['j-;conn']:
-            axs[i,0].set_ylabel(r'$A_{20}^{u-d}(Q_1^2)$')
+            axs[i,0].set_ylabel(r'$\tilde{A}_{20}^{u-d}(Q_1^2)$')
         else:
             axs[i,0].set_ylabel(r'$\tilde{A}_{20}^{u+d}(Q_2^2)$')
         
@@ -180,7 +180,7 @@ def run(task):
         # axs[i,0].set_ylabel(cases_do[i])
     yu.setpath('plot_paper')
     if j in ['j-;conn']:
-        yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)
+        yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
     else:
         yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
     yu.setpath('analysis_A20')

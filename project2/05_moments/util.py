@@ -1830,7 +1830,7 @@ if True:
                 plt_x=(tf+mid_tfshift+shift*0.1)*xunit; plt_y=mean[tf//2]*yunit; plt_yerr=err[tf//2]*yunit
                 ax_mid.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
     
-    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,fmts_rainbow=fmts16,fmts_fit=fmts8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,**kwargs):
+    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,fmts_rainbow=fmts16,fmts_fit=fmts8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,fullband=False,oddmidQ=False,**kwargs):
         '''
         show in ['rainbow','midpoint','fit_#','fit_#_prob'] \\
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
@@ -2007,8 +2007,12 @@ if True:
                 ax=axs[irow,shows.index(show)]  
                 for itf,tf in enumerate(tfs_mid):
                     if tf%2!=0:
-                        continue
-                    mean,err=jackme(tf2ratio[tf][:,tf//2])
+                        if oddmidQ:
+                            mean,err=jackme((tf2ratio[tf][:,(tf-1)//2]+tf2ratio[tf][:,(tf+1)//2])/2)
+                        else:
+                            continue
+                    else:
+                        mean,err=jackme(tf2ratio[tf][:,tf//2])
                     plt_x=(tf+shift_midpoint)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     itf_color=tfs_color.index(tf)
                     errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts_rainbow[itf_color%16],mfc=mfc) 
@@ -2063,7 +2067,11 @@ if True:
                             ax.fill_between(plt_x,plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
                             ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.1)
                         else:
-                            ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
+                            if fullband==show:
+                                for i in range(axs.shape[1]):
+                                    axs[irow,i].axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2)
+                            else:
+                                ax.axhspan(plt_y-plt_yerr,plt_y+plt_yerr,color='r',alpha=0.2,label=None if noLegendQ else un2str(plt_y,plt_yerr))
                         if not noLegendQ:
                             ax.legend()
                         if show_prob in shows:
