@@ -2,6 +2,18 @@ import util as yu
 from util import *
 
 #!============== General ==============#
+if True:
+    key2cfgs={}
+    for ens in ['e']:
+        basepath=f'dataPrepare/{yu.ens2full[ens]}/data_aux/'
+        def load(inpath):
+            with open(f'{basepath}{inpath}','r') as f:
+                cfgs=f.read().splitlines()
+            return cfgs
+        t=[ele for ele in os.listdir(basepath) if ele.startswith('cfgs_sup_')]
+        for ele in t:
+            key=(ens,ele[len('cfgs_sup_'):])
+            key2cfgs[key]=load(ele)
 
 #!============== exp & other lat ==============#
 if True:

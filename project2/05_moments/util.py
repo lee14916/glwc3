@@ -420,11 +420,12 @@ if True:
             cov=np.diag(cov**2)
         dat_ens=np.random.multivariate_normal(mean,cov*n,n)
         dat_jk=jackknife(dat_ens)
-        # do transformation [pars_jk -> A pars_jk + B] to force pseudo mean and err exactly the same
         mean1,_,cov1=jackmec(dat_jk)
-        A=np.sqrt(np.diag(cov)/np.diag(cov1))
-        B=mean-A*mean1
-        dat_jk=A[None,:]*dat_jk+B[None,:]
+        C=np.linalg.cholesky(cov)
+        C1=np.linalg.cholesky(cov1)
+        L=C@np.linalg.inv(C1)
+        B=mean-L@mean1
+        dat_jk=dat_jk@L.T+B[None,:]
         return dat_jk
     
     def jackknife2(in_dat,in_func=lambda dat:np.mean(np.real(dat),axis=0),minNcfg:int=600,d:int=0):
@@ -520,13 +521,43 @@ if True:
         Ncfg=len(dat)
         mean,err,_=jackknife2(dat,lambda dat:get_autocorrelation(dat,normalizeQ)[:Ncfg-1])
         return np.array(mean),np.array(err)
-
-    def superjackknife(dats_jk):
-        Nens=len(dats_jk)
+    def superjackknife(dats_jk,cfgss=None,cfgs_all=None):
+        if cfgss is not None and not isinstance(cfgss[0],list):
+            dats_jk=[dats_jk]
+            cfgss=[cfgss]
+        Ns=len(dats_jk)
         Ncfgss=[len(dat) for dat in dats_jk]
+        if cfgss is None:
+            cfgs_all=[f'x{i:05d}' for i in range(sum(Ncfgss))]
+            cfgss = []
+            i0 = 0
+            for Ncfgs in Ncfgss:
+                cfgss.append(cfgs_all[i0:i0+Ncfgs])
+                i0 += Ncfgs
+        else:
+            assert(len(cfgss)==Ns)
+            for i,cfgs in enumerate(cfgss):
+                assert(Ncfgss[i]==len(cfgs))
+            if cfgs_all is None:
+                cfgs_all=[]
+                for cfgs in cfgss:
+                    cfgs_all+=cfgs
+                cfgs_all=list(set(cfgs_all)); cfgs_all.sort()
+            
         dats_jkmean=[np.mean(dat_jk,axis=0) for dat_jk in dats_jk]
-        t=[[dats_jk[i] if i==j else np.repeat(dats_jkmean[j][None,:],Ncfgss[i],axis=0) for j in range(Nens)] for i in range(Nens)]
-        return np.block(t)
+        cols=[]
+        for dat_jk,cfgs,dat_jkmean in zip(dats_jk,cfgss,dats_jkmean):
+            dic={cfg:dat for cfg,dat in zip(cfgs,dat_jk)}
+            col=np.array([dic[cfg] if cfg in dic else dat_jkmean for cfg in cfgs_all])
+            cols.append(col)
+        return np.concatenate(cols,axis=1)
+    
+    # def superjackknife(dats_jk):
+    #     Nens=len(dats_jk)
+    #     Ncfgss=[len(dat) for dat in dats_jk]
+    #     dats_jkmean=[np.mean(dat_jk,axis=0) for dat_jk in dats_jk]
+    #     t=[[dats_jk[i] if i==j else np.repeat(dats_jkmean[j][None,:],Ncfgss[i],axis=0) for j in range(Nens)] for i in range(Nens)]
+    #     return np.block(t)
     
     # def chi2Ndof2weight(chi2,Ndof,k=None):
     #     return np.exp(-chi2/2+Ndof +2*k*(k+1)/(Ndof-1))
