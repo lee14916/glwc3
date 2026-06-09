@@ -1375,7 +1375,7 @@ if True:
             assert(not symQ)
             if len(fits)==0:
                 return []
-            fits=filterFits_3ptasy_unicut(fits,Nmin = 3 if unicutQ==True else unicutQ)
+            fits=filterFits_3ptasy_unicut(fits,Nmin = 0 if unicutQ==True else unicutQ)
             tfmin2tcmins=defaultdict(list)
             for ((tfmin,tcmin),pars_jk,chi2_jk,Ndof) in fits:
                 tfmin2tcmins[tfmin].append(tcmin)

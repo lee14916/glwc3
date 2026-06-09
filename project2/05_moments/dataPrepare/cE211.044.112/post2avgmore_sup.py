@@ -141,38 +141,42 @@ def get_moms(max_mom2_pc,max_mom2_pf):
 # Input
 # -------------------------
 
-input='p1=0'
+input='q=0'
 
 ens='cE211.044.112'
 
-case='1DV'
+case='local'
 assert(case in ['local','1DV','1DA'])
 folder=f'05_moments_run5_{case}'
 inserts={'local':inserts_local,'1DV':inserts_1DV,'1DA':inserts_1DA,'1DT':inserts_1DT}[case]
 
+if case=='local' and input=='q=0':
+    srcsUse='all'
+    moms_target=get_moms(0,0)
+    jqs=['j+','j-','js','jc']
+    tfs={'cB211.072.64':range(2,28+1),'cC211.060.80':range(2,34+1),'cD211.054.96':range(2,40+1),'cE211.044.112':range(2,50+1)}[ens]
+
 if case=='1DV':
+    srcsUse='run123'
     stouts=[5,7,10,13,15,20,25,30,35,40]
     if input=='q=0':
-        moms_target=get_moms(0,0)
+        moms_target=get_moms(0,1)
         jqs=['j+','js','jc','jg']
     if input=='p1=0':
         moms_target=get_moms(16,0)
         jqs=['j+','js','jc','jg']
+    tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
         
 if case=='1DA':
+    srcsUse='run123'
     if input=='q=0':
         moms_target=get_moms(0,0)
         jqs=['j+','js','jc']
     if input=='p1=0':
         moms_target=get_moms(25,0)
         jqs=['j+','js','jc']
-    
-tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
+    tfs={'cB211.072.64':range(2,22+1),'cC211.060.80':range(2,26+1),'cD211.054.96':range(2,30+1),'cE211.044.112':range(2,32+1)}[ens]
 
-if case=='local' and input=='q=0':
-    moms_target=get_moms(0,0)
-    jqs=['j+','j-','js','jc']
-    tfs={'cB211.072.64':range(2,28+1),'cC211.060.80':range(2,34+1),'cD211.054.96':range(2,40+1),'cE211.044.112':range(2,50+1)}[ens]
 
 flags={
     'g5H':True
@@ -443,9 +447,11 @@ def avgmore(jtf2dat3pt,mom):
 def run(cfg):
     basepath=f'/p/project1/ngff/li47/code/projectData/05_moments/{ens}/data_post_hold/{cfg}/'
     files=os.listdir(basepath)
-    # paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5')]
-    paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5') and file.split('_')[1] in ['Nrun1','Nrun2','Nrun3' ]]
-    # print(paths_2pt)
+    
+    if srcsUse=='all':
+        paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5')]
+    else:
+        paths_2pt=[f'{basepath}/{file}' for file in files if file.startswith('N.h5') and file.split('_')[1] in ['Nrun1','Nrun2','Nrun3' ]]
     
     path_avgsrc=f'/p/project1/ngff/li47/code/scratch/run/{folder}/{ens}/data_avgsrc/{cfg}/'; os.makedirs(path_avgsrc,exist_ok=True)
     path_avgmore=f'/p/project1/ngff/li47/code/scratch/run/{folder}/{ens}/data_avgmore/{cfg}/'; os.makedirs(path_avgmore,exist_ok=True)

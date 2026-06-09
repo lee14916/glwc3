@@ -24,12 +24,9 @@ def decodeTask(task):
 enss_all=['b','c','d','e']
 
 ens2msq2pars_jk=yu.load_pkl_reg('ens2msq2pars_jk',pathlabel='analysis_c2pt')
-ens='e'
-for msq in ens2msq2pars_jk[ens].keys():
-    ens2msq2pars_jk[ens][msq]=ens2msq2pars_jk[ens+'_p'][msq]
 
 #====================
-overwrite=False
+overwrite=True
 
 c1s=['all','unequal','equal']; c2s=['err']
 cases_todo=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s)]
@@ -75,11 +72,11 @@ def run(task):
             tfmins_1st=tfs_conn
             tcmins_1st=cutExtraDiff2tcmins(0.8,0.4)
             
-            tfmins_2st_sum=list(range(8,tfs_conn[-3],2))
-            tcmins_2st_sum=cutExtraDiff2tcmins(0.6,0.2)
+            tfmins_2st=tfs_conn[:-2]
+            tcmins_2st=cutExtraDiff2tcmins(0.6,0.2)
             
-            tfmins_2st=tfmins_2st_sum
-            tcmins_2st=tcmins_2st_sum
+            tfmins_2st_sum=tfmins_2st
+            tcmins_2st_sum=tcmins_2st
             
             fittype='2st2step_EFITshare'
             pars_jk_meff2st=[ens2msq2pars_jk[ens][n2p1],ens2msq2pars_jk[ens][n2p]]
@@ -89,7 +86,7 @@ def run(task):
             fit_band_WA=yu.doWA_band(fits_band,tf_min=gett(0.9),tcmin=gett(0.2)*2,corrQ=False)
             fits_const=yu.doFits_3pt('const',tf2ratio,tfmins_1st,tcmins_1st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_const',overwrite=overwrite)
             fit_const_MA=yu.doMA_3pt(fits_const,tfmin_min=gett(0.9),tcmin_min=gett(0.2)*2)
-            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=2,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
+            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
             fit_sum_MA=yu.doMA_3pt(fits_sum,tcmin_min=gett(0.2)*2)
             
             fits_2st=yu.doFits_3pt(fittype,tf2ratio,tfmins_2st,tcmins_2st,pars_jk_meff2st=pars_jk_meff2st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_2st',overwrite=overwrite)

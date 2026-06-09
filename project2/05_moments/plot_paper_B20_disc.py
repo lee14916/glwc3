@@ -112,16 +112,17 @@ def run(task):
             fits_band=[fit for fit in fits_band if sum(fit[0][1])==sum(tcmin)]
             
             fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
-            ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_sum])
-            fit_sum_MA=yu.doMA_3pt(fits_sum[ind:ind+1])
+            fits_sum=[fit for fit in fits_sum if fit[0][1]==(2,2)]
+            # ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_sum])
+            # fit_sum_MA=yu.doMA_3pt(fits_sum[ind:ind+1])
             
             # res[(case,'bandfit_WA',ens)]=fit_band_WA[0][:,0]
             res[(case,'const_MA',ens)]=fit_const_MA[0][:,0]
-            res[(case,'sum_MA',ens)]=fit_sum_MA[0][:,0]
+            # res[(case,'sum_MA',ens)]=fit_sum_MA[0][:,0]
             
             dic={
                 'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]':[tf2ratio,fits_band,fits_const,fits_sum,None],
-                'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[None,fit_const_MA,fit_sum_MA,None],
+                'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[None,fit_const_MA,None,None],
                 'rainbow:[tfmin,tfmax,tcmin,dt]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),2,dt],
                 'fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),None,None,dt,None],
                 'fit_const:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[None,tfmin_max,None,tcmin_max,None,None],
@@ -172,16 +173,17 @@ def run(task):
             fits_band=[fit for fit in fits_band if sum(fit[0][1])==sum(tcmin)]
             
             fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
-            ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_sum])
-            fit_sum_MA=yu.doMA_3pt(fits_sum[ind:ind+1])
+            fits_sum=[fit for fit in fits_sum if fit[0][1]==(2,2)]
+            # ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_sum])
+            # fit_sum_MA=yu.doMA_3pt(fits_sum[ind:ind+1])
             
             # res[(case,'bandfit_WA',ens)]=fit_band_WA[0][:,0]
             res[(case,'const_MA',ens)]=fit_const_MA[0][:,0]
-            res[(case,'sum_MA',ens)]=fit_sum_MA[0][:,0]
+            # res[(case,'sum_MA',ens)]=fit_sum_MA[0][:,0]
 
             dic={
                 'base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st]':[tf2ratio,fits_band,fits_const,fits_sum,None],
-                'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[None,fit_const_MA,fit_sum_MA,None],
+                'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[None,fit_const_MA,None,None],
                 'rainbow:[tfmin,tfmax,tcmin,dt]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),2,dt],
                 'fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),None,None,dt,None],
                 'fit_const:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[None,tfmin_max,None,tcmin_max,None,None],

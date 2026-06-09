@@ -1,5 +1,6 @@
 '''
 cat data_aux/dat_ignore/doSVD_conn_run | xargs -I @ -P 10 python3 -u doSVD.py -e @ > log/doSVD.out & 
+cat data_aux/dat_ignore/doSVD_disc_run | xargs -I @ -P 10 python3 -u doSVD.py -e @ > log/doSVD.out & 
 '''
 import util as yu
 from util import *
@@ -8,7 +9,7 @@ import click
 
 #============================= input start
 
-cd='conn'
+cd='disc'
 cd_2pt=cd
 
 basepath_2pt_conn=f'/p/project1/ngff/li47/code/projectData/05_moments/'
@@ -40,14 +41,6 @@ ratiotype=['sqrt','Efit'][1]
 
 ens2msq2pars_jk=yu.load_pkl('pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl')    
 
-if cd=='conn':
-    ens='e'; Njk=225
-    for msq in ens2msq2pars_jk[ens].keys():
-        t=ens2msq2pars_jk[ens][msq]
-        m,e=yu.jackme(t)
-        t=yu.jackknife_pseudo(m,e,Njk)
-        ens2msq2pars_jk[ens][msq]=t
-
 #============================= input end
 
 assert(cd in ['conn','disc'])
@@ -64,43 +57,103 @@ def mom2num(mom):
 def extract2pt_conn(ens,n2qpp1):
     inpath=f'{basepath_2pt_conn}{yu.ens2full[ens]}/data_merge/'
     n2q,n2p,n2p1=n2qpp1
-    path=f'{inpath}conn_2pt.h5'
     
-    if ens=='e':
-        path=f'{inpath}conn_2pt_cfgs_conn_Giannis_fine.h5'
-    
-    tf2c2pta,tf2c2ptb={},{}
-    with h5py.File(path) as f:
-        moms=yu.moms2list(f['moms'])
-        msqs=[yu.mom2msq(mom) for mom in moms]
+    if ens in ['e']:
+        tf2c2pta,tf2c2ptb={},{}
         
-        # sink
-        inds=np.where(np.array(msqs)==n2p1)[0]
-        Ns=[mom2num(moms[ind]) for ind in inds]
-        weights=np.array(Ns)/np.sum(Ns)
-        for tfstr in f['data'].keys():
-            tf=int(tfstr) 
-            t=np.real(f['data'][tfstr][:])
-            t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
-            t=yu.jackknife(t)
-            tf2c2pta[tf]=t
-        
-        # source
-        inds=np.where(np.array(msqs)==n2p)[0]
-        Ns=[mom2num(moms[ind]) for ind in inds]
-        weights=np.array(Ns)/np.sum(Ns)
-        for tfstr in f['data'].keys():
-            tf=int(tfstr) 
-            t=np.real(f['data'][tfstr][:])
-            t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
-            t=yu.jackknife(t)
-            tf2c2ptb[tf]=t
+        path=f'{inpath}conn_2pt_cfgs_sup_conn1D_run1.h5'
+        with h5py.File(path) as f:
+            moms=yu.moms2list(f['moms'])
+            msqs=[yu.mom2msq(mom) for mom in moms]
+            
+            # sink
+            inds=np.where(np.array(msqs)==n2p1)[0]
+            Ns=[mom2num(moms[ind]) for ind in inds]
+            weights=np.array(Ns)/np.sum(Ns)
+            for tfstr in f['data'].keys():
+                tf=int(tfstr) 
+                t=np.real(f['data'][tfstr][:])
+                t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+                t=yu.jackknife(t)
+                t=yu.superjackknife(t,yum.key2cfgs[(ens,'conn1D_run1')],yum.key2cfgs[(ens,'all')])
+                tf2c2pta[tf]=t
+            
+            # source
+            inds=np.where(np.array(msqs)==n2p)[0]
+            Ns=[mom2num(moms[ind]) for ind in inds]
+            weights=np.array(Ns)/np.sum(Ns)
+            for tfstr in f['data'].keys():
+                tf=int(tfstr) 
+                t=np.real(f['data'][tfstr][:])
+                t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+                t=yu.jackknife(t)
+                t=yu.superjackknife(t,yum.key2cfgs[(ens,'conn1D_run1')],yum.key2cfgs[(ens,'all')])
+                tf2c2ptb[tf]=t
+                
+        path=f'{inpath}conn_2pt_cfgs_sup_conn1D_run2.h5'
+        with h5py.File(path) as f:
+            moms=yu.moms2list(f['moms'])
+            msqs=[yu.mom2msq(mom) for mom in moms]
+            
+            # sink
+            inds=np.where(np.array(msqs)==n2p1)[0]
+            Ns=[mom2num(moms[ind]) for ind in inds]
+            weights=np.array(Ns)/np.sum(Ns)
+            for tfstr in f['data'].keys():
+                tf=int(tfstr) 
+                t=np.real(f['data'][tfstr][:])
+                t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+                t=yu.jackknife(t)
+                t=yu.superjackknife(t,yum.key2cfgs[(ens,'conn1D_run2')],yum.key2cfgs[(ens,'all')])
+                tf2c2pta[tf]=t
+            
+            # source
+            inds=np.where(np.array(msqs)==n2p)[0]
+            Ns=[mom2num(moms[ind]) for ind in inds]
+            weights=np.array(Ns)/np.sum(Ns)
+            for tfstr in f['data'].keys():
+                tf=int(tfstr) 
+                t=np.real(f['data'][tfstr][:])
+                t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+                t=yu.jackknife(t)
+                t=yu.superjackknife(t,yum.key2cfgs[(ens,'conn1D_run2')],yum.key2cfgs[(ens,'all')])
+                tf2c2ptb[tf]=t
+    else:
+        path=f'{inpath}conn_2pt.h5'
+        tf2c2pta,tf2c2ptb={},{}
+        with h5py.File(path) as f:
+            moms=yu.moms2list(f['moms'])
+            msqs=[yu.mom2msq(mom) for mom in moms]
+            
+            # sink
+            inds=np.where(np.array(msqs)==n2p1)[0]
+            Ns=[mom2num(moms[ind]) for ind in inds]
+            weights=np.array(Ns)/np.sum(Ns)
+            for tfstr in f['data'].keys():
+                tf=int(tfstr) 
+                t=np.real(f['data'][tfstr][:])
+                t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+                t=yu.jackknife(t)
+                tf2c2pta[tf]=t
+            
+            # source
+            inds=np.where(np.array(msqs)==n2p)[0]
+            Ns=[mom2num(moms[ind]) for ind in inds]
+            weights=np.array(Ns)/np.sum(Ns)
+            for tfstr in f['data'].keys():
+                tf=int(tfstr) 
+                t=np.real(f['data'][tfstr][:])
+                t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
+                t=yu.jackknife(t)
+                tf2c2ptb[tf]=t
 
     return tf2c2pta,tf2c2ptb
 def extract2pt_disc(ens,n2qpp1):
     inpath=f'{basepath_2pt_disc}{yu.ens2full[ens]}/data_merge/'
     n2q,n2p,n2p1=n2qpp1
     path=f'{inpath}disc_2pt.h5'
+    if ens in ['e']:
+        path=f'{inpath}disc_2pt_N=100,127,84_sup.h5'
     
     with h5py.File(path) as f:
         moms=yu.moms2list(f['moms'])
@@ -113,6 +166,8 @@ def extract2pt_disc(ens,n2qpp1):
         t=np.real(f['data/N_N'][:])
         t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
         t=yu.jackknife(t)
+        if ens in ['e']:
+            t=yu.superjackknife(t,yum.key2cfgs[(ens,'N')],yum.key2cfgs[(ens,'all')])
         c2pta=t
         
         # source
@@ -122,31 +177,67 @@ def extract2pt_disc(ens,n2qpp1):
         t=np.real(f['data/N_N'][:])
         t=np.sum([t[:,:,ind]*weights[i] for i,ind in enumerate(inds)],axis=0)
         t=yu.jackknife(t)
+        if ens in ['e']:
+            t=yu.superjackknife(t,yum.key2cfgs[(ens,'N')],yum.key2cfgs[(ens,'all')])
         c2ptb=t
 
     return c2pta,c2ptb
 
 conj_sgns=np.array([1,-1,-1,-1,1, 1,1,1,1,1])[None,None,None,:]
 def extract3pt(ens,moms):
-    inpath=f'{basepath_3pt}{yu.ens2full[ens]}/data_merge/'
+    if ens in ['e'] and cd in ['disc']:
+        inpath=f'{basepath_3pt}{yu.ens2full[ens]}/data_merge_sup/'
+    else:
+        inpath=f'{basepath_3pt}{yu.ens2full[ens]}/data_merge/'
     n2qpp1=yu.mom2n2qpp1_sym(moms[0])
     
     j2mom2tf2c3pt={j:{} for j in js}
     for mom in moms:
         path=f'{inpath}{cd}_{yu.mom2str(mom)}.h5'
-        if ens=='e' and cd=='conn':
-            path=f'{inpath}{cd}_{yu.mom2str(mom)}_cfgs_conn_Giannis_fine.h5'
         for j in js:
             j2mom2tf2c3pt[j][tuple(mom)]={}
-        with h5py.File(path) as f:
-            for key in f['data'].keys():
-                j,tf=key.split('_'); tf=int(tf)
-                if j not in js:
-                    continue
-                c3pt=f['data'][key][:,:,0,:,:]
-                c3pt=yu.jackknife(c3pt)
-                j2mom2tf2c3pt[j][tuple(mom)][tf]=c3pt
-    
+        if ens in ['e']:
+            if cd=='conn':
+                path=f'{inpath}{cd}_{yu.mom2str(mom)}_cfgs_sup_conn1D_run1.h5'
+                with h5py.File(path) as f:
+                    for key in f['data'].keys():
+                        j,tf=key.split('_'); tf=int(tf)
+                        if j not in js:
+                            continue
+                        c3pt=f['data'][key][:,:,0,:,:]
+                        c3pt=yu.jackknife(c3pt)
+                        c3pt=yu.superjackknife(c3pt,yum.key2cfgs[(ens,'conn1D_run1')],yum.key2cfgs[(ens,'all')])
+                        j2mom2tf2c3pt[j][tuple(mom)][tf]=c3pt
+                path=f'{inpath}{cd}_{yu.mom2str(mom)}_cfgs_sup_conn1D_run2.h5'
+                with h5py.File(path) as f:
+                    for key in f['data'].keys():
+                        j,tf=key.split('_'); tf=int(tf)
+                        if j not in js:
+                            continue
+                        c3pt=f['data'][key][:,:,0,:,:]
+                        c3pt=yu.jackknife(c3pt)
+                        c3pt=yu.superjackknife(c3pt,yum.key2cfgs[(ens,'conn1D_run2')],yum.key2cfgs[(ens,'all')])
+                        j2mom2tf2c3pt[j][tuple(mom)][tf]=c3pt
+            else:
+                with h5py.File(path) as f:
+                    for key in f['data'].keys():
+                        j,tf=key.split('_'); tf=int(tf)
+                        if j not in js:
+                            continue
+                        c3pt=f['data'][key][:,:,0,:,:]
+                        c3pt=yu.jackknife(c3pt)
+                        c3pt=yu.superjackknife(c3pt,yum.key2cfgs[(ens,yum.j2jkey(j))],yum.key2cfgs[(ens,'all')])
+                        j2mom2tf2c3pt[j][tuple(mom)][tf]=c3pt
+        else:
+            with h5py.File(path) as f:
+                for key in f['data'].keys():
+                    j,tf=key.split('_'); tf=int(tf)
+                    if j not in js:
+                        continue
+                    c3pt=f['data'][key][:,:,0,:,:]
+                    c3pt=yu.jackknife(c3pt)
+                    j2mom2tf2c3pt[j][tuple(mom)][tf]=c3pt
+        
     # symmetrize using conjugation
     for j in js:
         for mom in moms:

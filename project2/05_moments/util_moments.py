@@ -14,6 +14,9 @@ if True:
         for ele in t:
             key=(ens,ele[len('cfgs_sup_'):])
             key2cfgs[key]=load(ele)
+    def j2jkey(j):
+        t=j[1]; t='l' if t=='+' else t
+        return f'Nj{t}'
 
 #!============== exp & other lat ==============#
 if True:

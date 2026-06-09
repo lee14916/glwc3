@@ -90,7 +90,7 @@ def run(task):
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_const])
             fit_const_MA=yu.doMA_3pt(fits_const[ind:ind+1])
             
-            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=2,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
+            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_sum])
             fit_sum_MA=yu.doMA_3pt(fits_sum[ind:ind+1])
             
@@ -136,7 +136,7 @@ def run(task):
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_const])
             fit_const_MA=yu.doMA_3pt(fits_const[ind:ind+1])
             
-            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=2,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
+            fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_sum])
             fit_sum_MA=yu.doMA_3pt(fits_sum[ind:ind+1])
             
