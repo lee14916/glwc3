@@ -1,15 +1,15 @@
 '''
-cat data_aux/dat_ignore/analysis_B20_conn_run | xargs -I @ -P 10 python3 -u analysis_B20_conn.py -t @ > log/analysis_B20_conn.out & 
+cat data_aux/dat_ignore/analysis_C20_conn_run | xargs -I @ -P 10 python3 -u analysis_C20_conn.py -t @ > log/analysis_C20_conn.out & 
 '''
 import util as yu
 from util import *
 import util_moments as yum
 import click
 
-yu.setpath('analysis_B20')
+yu.setpath('analysis_C20')
 
-tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
-tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
+tftcphy_A20_conn=tftcphy_C20_conn=(0.6,0.2)
+tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_C20_discq=tftcphy_C20_gluon=(0.7,0.3)
 
 def encodeTask(task):
     n2qpp1,ff,j=task
@@ -26,7 +26,7 @@ enss_all=['b','c','d','e']
 ens2msq2pars_jk=yu.load_pkl_reg('ens2msq2pars_jk',pathlabel='analysis_c2pt')
 
 #====================
-overwrite=True
+overwrite=False
 
 c1s=['all','unequal','equal']; c2s=['err']
 cases_todo=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s)]
@@ -89,7 +89,7 @@ def run(task):
             fits_sum=yu.doFits_3pt('sum',tf2ratio,tfmins_2st_sum,tcmins_2st_sum,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_sum',overwrite=overwrite)
             fit_sum_MA=yu.doMA_3pt(fits_sum,tcmin_min=gett(0.2)*2)
             fits_2st=yu.doFits_3pt(fittype,tf2ratio,tfmins_2st,tcmins_2st,pars_jk_meff2st=pars_jk_meff2st,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_2st',overwrite=overwrite)
-            tfphy,tcphy=tftcphy_B20_conn
+            tfphy,tcphy=tftcphy_C20_conn
             ind=np.argmin([np.abs(tfmin*yu.ens2a[ens] - tfphy) + np.abs((tcmin[0]+tcmin[1])/2*yu.ens2a[ens] - tcphy) for (tfmin,tcmin),*_ in fits_2st])
             fit_2st_MA=yu.doMA_3pt(fits_2st[ind:ind+1])
             

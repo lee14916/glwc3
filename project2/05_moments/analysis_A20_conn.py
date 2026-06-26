@@ -26,7 +26,7 @@ enss_all=['b','c','d','e']
 ens2msq2pars_jk=yu.load_pkl_reg('ens2msq2pars_jk',pathlabel='analysis_c2pt')
 
 #====================
-overwrite=True
+overwrite=False
 
 c1s=['all','unequal','equal']; c2s=['err']
 cases_todo=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s)]
@@ -41,6 +41,7 @@ def run(task):
     n2q,n2p,n2p1=n2qpp1
     figs=[]
     for ens in enss:
+        overwrite = True if ens=='e' else False
         case2tf2ratio={}
         path=f'/p/project1/ngff/li47/code/projectData/05_moments/doSVD/conn_{ens}_{yu.n2qpp12str(n2qpp1)}.h5'
         
@@ -109,7 +110,7 @@ def run(task):
             return dic
         list_dic=[createDic(ind,case) for ind,case in enumerate(cases_do)]
 
-        fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','midpoint','fit_2st','fit_sum','fit_band','fit_const'],sharey=True)
+        fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','midpoint','fit_2st','fit_sum','fit_band','fit_const'],sharey=True,oddmidQ=True)
         axs[-1,2].set_xlim([0.35,1.45])
         axs[-1,2].set_xticks(np.arange(0.4,1.5,0.2))
         fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')

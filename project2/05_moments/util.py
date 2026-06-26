@@ -1,4 +1,4 @@
-import os,h5py,warnings,pickle,functools
+import os,h5py,warnings,pickle,functools,json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -49,7 +49,7 @@ plt.rcParams.update({
     'legend.frameon': True,  # optional cleaner look
 })
 
-__all__ = ['np','os','mpl','plt','h5py','pickle','pd','display','product','defaultdict']
+__all__ = ['np','os','mpl','plt','h5py','pickle','pd','display','product','defaultdict','json']
 
 #!============== Initialization ==============#
 if True:
@@ -171,6 +171,9 @@ if True:
     def clear_pkl_internal(file):
         if os.path.isfile(f'{path_pkl_internal}{any2filename(file)}.pkl'):
             os.remove(f'{path_pkl_internal}{any2filename(file)}.pkl')
+    def load_json(file):
+        with open(file, "r", encoding="utf-8") as f:
+            return json.load(f)    
     
     def cut_tf2ratio(tf2ratio,tfmax,tfmin=0):
         return {tf:tf2ratio[tf] for tf in tf2ratio.keys() if tfmin<=tf<=tfmax}
@@ -563,32 +566,41 @@ if True:
     #     return np.exp(-chi2/2+Ndof +2*k*(k+1)/(Ndof-1))
     #     return np.exp(-chi2/2+Ndof)
 
-    def jackMA(fits,propagateChi2=True,systematicQ=False):
+    def jackMA(fits,propagateChi2=True,systematicQ=False,AICcQ=False):
         ''' 
         fits=[fit]; fit=(fit_label,pars_jk,chi2_jk,Ndof)
         '''
         if systematicQ:
             Njk=len(fits[0][1])
-            (pars_mean_MA,pars_err_MA,probs)=modelAvg(fits,jackInputQ=True)
+            (pars_mean_MA,pars_err_MA,probs)=modelAvg(fits,jackInputQ=True,AICcQ=AICcQ)
             pars_jk=jackknife_pseudo(pars_mean_MA,pars_err_MA,Njk)
             probs_jk = np.tile(probs, (Njk, 1))
             return pars_jk,probs_jk
-            
-        if propagateChi2:
-            temp=[(pars_jk
-                ,np.exp(-chi2_jk/2+Ndof) # weights_jk
-                ) for fit_label,pars_jk,chi2_jk,Ndof in fits]
+        if AICcQ:
+            if propagateChi2:
+                temp=[(pars_jk
+                    ,np.exp(-chi2_jk/2+Ndof - Npar*(Npar+1)/(Ndata-Npar-1) ) # weights_jk
+                    ) for fit_label,pars_jk,chi2_jk,(Ndof,Ndata,Npar) in fits]
+            else:
+                temp=[(pars_jk
+                    ,np.exp(-np.mean(chi2_jk,axis=0)[:,None]/2+Ndof - Npar*(Npar+1)/(Ndata-Npar-1)) # weights_jk
+                    ) for fit_label,pars_jk,chi2_jk,(Ndof,Ndata,Npar) in fits]
         else:
-            temp=[(pars_jk
-                ,np.exp(-np.mean(chi2_jk,axis=0)[:,None]/2+Ndof) # weights_jk
-                ) for fit_label,pars_jk,chi2_jk,Ndof in fits]
+            if propagateChi2:
+                temp=[(pars_jk
+                    ,np.exp(-chi2_jk/2+Ndof) # weights_jk
+                    ) for fit_label,pars_jk,chi2_jk,Ndof in fits]
+            else:
+                temp=[(pars_jk
+                    ,np.exp(-np.mean(chi2_jk,axis=0)[:,None]/2+Ndof) # weights_jk
+                    ) for fit_label,pars_jk,chi2_jk,Ndof in fits]
         # print([weights_jk[0,0] for pars_jk,weights_jk in temp])
         weightsSum_jk=np.sum([weights_jk for _,weights_jk in temp],axis=0)
         pars_jk=np.sum([pars_jk*weights_jk/weightsSum_jk for pars_jk,weights_jk in temp],axis=0)
         probs_jk=np.transpose([weights_jk[:,0]/weightsSum_jk[:,0] for _,weights_jk in temp])
         return pars_jk,probs_jk
 
-    def modelAvg(fits,jackInputQ=False,fullOutputQ=False):
+    def modelAvg(fits,jackInputQ=False,fullOutputQ=False,AICcQ=False):
         '''
         fits=[fit]; fit=(fitlabel,pars_mean,pars_err,chi2,Ndof) \\
         return (pars_mean_MA,pars_err_MA,probs) or (pars_mean_MA,pars_err_MA,probs, pars_err_MA_stats, pars_err_MA_systs)
@@ -600,8 +612,10 @@ if True:
                 chi2_mean,chi2_err=jackme(chi2_jk)
                 temp.append((fitlabel,pars_mean,pars_err,chi2_mean[0],Ndof))
             fits=temp
-        
-        weights=np.exp([-chi2/2+Ndof for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])
+        if AICcQ:
+            weights=np.exp([-chi2/2+Ndof - Npar*(Npar+1)/(Ndata-Npar-1) for fitlabel,pars_mean,pars_err,chi2,(Ndof,Ndata,Npar) in fits])
+        else:
+            weights=np.exp([-chi2/2+Ndof for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])
         probs=weights/np.sum(weights)
         pars_mean_MA=np.sum(np.array([pars_mean for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0)
         pars_err_MA=np.sqrt(np.sum(np.array([pars_err**2+pars_mean**2 for fitlabel,pars_mean,pars_err,chi2,Ndof in fits])*probs[:,None],axis=0)-pars_mean_MA**2)
@@ -704,7 +718,7 @@ if False:
 
 #!============== fit (basic) ==============#
 if True:
-    def jackfit(fitfunc,y_jk,pars0,mask=None,parsExtra_jk=None,priors=[],getFilterInfoQ=False,**kargs):
+    def jackfit(fitfunc,y_jk,pars0,mask=None,parsExtra_jk=None,priors=[],getFilterInfoQ=False,Ndof_moreQ=False,**kargs):
         '''
         return pars_jk,chi2_jk,Ndof,Nwarning \\
         priors=[(ind of par, mean, width)]
@@ -735,6 +749,8 @@ if True:
                 pars_mean,pars_cov=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)[:2]
                 if getFilterInfoQ:
                     chi2=np.sum(fitfunc_wrapper(pars_mean)**2)
+                    if Ndof_moreQ:
+                        Ndof=(Ndof,Ndata,Npar)
                     return np.array([pars_mean]),np.array([chi2]),Ndof,'getFilterInfo=True'
                 if flag_fast == "FastFit": # Generate pseudo jackknife resamples from the single fit rather than doing lots of fits
                     pars_jk=jackknife_pseudo(pars_mean,pars_cov,Njk)
@@ -772,6 +788,8 @@ if True:
                 pars_mean,pars_cov=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)[:2]
                 if getFilterInfoQ:
                     chi2=np.sum(fitfunc_wrapper(pars_mean)**2)
+                    if Ndof_moreQ:
+                        Ndof=(Ndof,Ndata,Npar)
                     return np.array([pars_mean]),np.array([chi2]),Ndof,'getFilterInfo=True'
                 if flag_fast == "FastFit": # Generate pseudo jackknife resamples from the single fit rather than doing lots of fits
                     pars_jk=jackknife_pseudo(pars_mean,pars_cov,Njk)
@@ -795,6 +813,8 @@ if True:
             Nwarning = len(list_warnings)
             for w in list_warnings:
                 warnings.showwarning(message=w.message,category=w.category,filename=w.filename,lineno=w.lineno,file=w.file,line=w.line)
+        if Ndof_moreQ:
+            Ndof=(Ndof,Ndata,Npar)
         return pars_jk,chi2_jk,Ndof,Nwarning
     
     def find_fitmax(dat,threshold=0.2):
@@ -804,12 +824,12 @@ if True:
         fitmax=temp[0][0]-1 if len(temp)!=0 else len(mean)-1
         return fitmax
     
-    def doSimpleFit(fitfunc, xdata, ydata, sigma=None, p0=None, xdata_extra=None, jackQ=True, **kargs):
+    def doSimpleFit(fitfunc, xdata, ydata, sigma=None, p0=None, xdata_extra=None, jackQ=True, Ndof_moreQ=False, **kargs):
         xdata=np.asarray(xdata); ydata=np.asarray(ydata)
         if jackQ:
             assert(sigma is None)
             pars,cov=curve_fit(fitfunc, xdata, np.mean(ydata,axis=0), p0=p0, absolute_sigma=True)
-            pars_jk,chi2_jk,Ndof,Nwarning=jackfit(lambda p:fitfunc(xdata,*p),ydata,pars,**kargs)
+            pars_jk,chi2_jk,Ndof,Nwarning=jackfit(lambda p:fitfunc(xdata,*p),ydata,pars, Ndof_moreQ=Ndof_moreQ,**kargs)
             if xdata_extra is not None:
                 pars_jk_extra=np.array([fitfunc(xdata_extra,*pars) for pars in pars_jk])
                 return pars_jk,chi2_jk,Ndof, pars_jk_extra
@@ -822,6 +842,9 @@ if True:
         diff = fitfunc(xdata, *pars) - ydata
         chi2 = np.sum( (diff/sigma)**2 ) if sigma.ndim==1 else diff @ np.linalg.solve(sigma, diff)
         err=np.sqrt(np.diag(cov))
+        
+        if Ndof_moreQ:
+            Ndof=(Ndof,len(xdata),len(pars))
         
         if xdata_extra is not None:
             xdata_extra=np.asarray(xdata_extra)
@@ -937,7 +960,7 @@ if True:
         return fits
 
     @decorator_fits
-    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None,fitlabels=['const','linear'],supjackQ=True):
+    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None,fitlabels=['const','linear'],supjackQ=True,Ndof_moreQ=False):
         enss=list(ens2dat.keys()); enss.sort(key=lambda ens:-ens2a[ens])
         lat_a2s=[ens2a[ens]**2 for ens in enss]
         dat=[ens2dat[ens][:,None] for ens in enss]
@@ -959,10 +982,10 @@ if True:
             fitfunc = fitfunc_const if 'const' in fitlabel else fitfunc_linear if 'linear' in fitlabel else 1/0
             
             if supjackQ:
-                pars_jk,chi2_jk,Ndof, pars_jk_extra = doSimpleFit(fitfunc,lat_a2s[Ncut:],t[:,Ncut:], xdata_extra=lat_a2s_plt, jackQ=True)
+                pars_jk,chi2_jk,Ndof, pars_jk_extra = doSimpleFit(fitfunc,lat_a2s[Ncut:],t[:,Ncut:], xdata_extra=lat_a2s_plt, jackQ=True, Ndof_moreQ=Ndof_moreQ)
                 fits.append([fitlabel,pars_jk_extra,chi2_jk,Ndof])
             else:
-                pars,err,cov,chi2,Ndof, m,e,c = doSimpleFit(fitfunc,lat_a2s[Ncut:],means[Ncut:], sigma=errs[Ncut:], xdata_extra=lat_a2s_plt, jackQ=False)
+                pars,err,cov,chi2,Ndof, m,e,c = doSimpleFit(fitfunc,lat_a2s[Ncut:],means[Ncut:], sigma=errs[Ncut:], xdata_extra=lat_a2s_plt, jackQ=False, Ndof_moreQ=Ndof_moreQ)
                 fits.append([fitlabel,m,e,chi2,Ndof])
         return fits
 
@@ -1622,6 +1645,28 @@ if True:
                 
                 ax.legend(fontsize=16)
         return fig,axs
+    
+    from IPython.display import display, HTML
+    import matplotlib.pyplot as plt, io, base64
+
+    def display_figs(figs, width=420, gap=16, close=True):
+        if not figs: return
+        figs = figs if isinstance(figs[0], (list, tuple)) else [figs]
+
+        def enc(fig):
+            b = io.BytesIO()
+            fig.savefig(b, format="png", bbox_inches="tight")
+            if close: plt.close(fig)
+            return base64.b64encode(b.getvalue()).decode()
+
+        rows = []
+        for row in figs:
+            imgs = ''.join(f'<img src="data:image/png;base64,{enc(f)}" style="width:{width}px;height:auto;">' for f in row)
+            rows.append(f'<div style="display:flex;gap:{gap}px;align-items:flex-start;">{imgs}</div>')
+
+        display(HTML(f'<div style="display:flex;flex-direction:column;gap:{gap}px;">{"".join(rows)}</div>'))
+    
+    
 #!============== plot (2pt) ==============#
 if True:
     def makePlot_2pt_pion(meff,fits,xunit=1,yunit=1,xlim='half',ylim='auto',selection=None):

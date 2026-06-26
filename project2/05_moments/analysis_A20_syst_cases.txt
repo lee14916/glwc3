@@ -1,0 +1,11 @@
+step1: 2st conn; const disc; Q2 fit
+step2: 1 + disc to weighted avg
+step3: 2 + conn to summation
+step4: 3 + 0Q2
+
+case1: 2st conn; WA disc; 0Q2 (paper)
+case2: 2st conn; const disc; 0Q2
+case3: sum; const disc; Q2 fit
+
+case4: 2st conn; const disc; Q2 fit up to 0.7 GeV
+case5: sum conn; sum disc; Q2 fit

@@ -120,7 +120,7 @@ if True:
                 for j in j2j1.keys():
                     key2bare[(ens,f'{j};{cd}')]=np.sum([factor*key2bare[(ens,f'{j1};{cd}')] for factor,j1 in j2j1[j]],axis=0)
                     
-    def bareRC2phy_avgx_np(key2bare,ens2RCs_np,fitlabels=['const','linear'],supjackQ=True):
+    def bareRC2phy_avgx_np(key2bare,ens2RCs_np_input,fitlabels=['const','linear'],supjackQ=True,AICcQ=False,ceQ=True):
         '''
             nonsinglet converted to be renormalzied by mu!=nu
             singlet to be renormalzied by mu!=nu
@@ -130,6 +130,9 @@ if True:
         stouts=yu.removeDuplicates([int(j.split('stout')[-1]) for ens,j in keys if 'stout' in j])
         
         mn_conn=mn_disc=mn_g='mu!=nu'
+        
+        n=key2bare[(enss[0],'jv1;conn')].ndim
+        ens2RCs_np={ens:{key: ens2RCs_np_input[ens][key].reshape((-1,)+(1,)*(n-1)) for key in ens2RCs_np_input[ens]} for ens in enss}
         
         key2phy={}
         for ens in enss:
@@ -160,48 +163,49 @@ if True:
             for fla in fla2iso.keys():
                 key2phy[(ens,f'j{fla};conn')]=np.sum([factor*(key2phy[(ens,f'j{iso};conn')] if iso in ['q'] else key2phy[(ens,f'j{iso};conn')])  for factor,iso in fla2iso[fla]],axis=0)
 
-        if supjackQ:
-            js=['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]
-            js_conn=['jv1;conn','jv2;conn','jv3;conn','jq;conn']
-            for j in js+js_conn:
-                ens2dat={ens:key2phy[(ens,j)] for ens in enss}
-                fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt,fitlabels=fitlabels)
-                for fit in fits:
-                    fitlabel,pars_jk,chi2_jk,Ndof=fit
-                    key2phy[(f'a=#_{fitlabel}',j)]=pars_jk
-                pars_jk,probs_jk=yu.jackMA(fits)
-                key2phy[('a=#_MA',j)]=pars_jk
-            
-            for stout in stouts:
+        if ceQ:
+            if supjackQ:
+                js=['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts]
+                js_conn=['jv1;conn','jv2;conn','jv3;conn','jq;conn']
+                for j in js+js_conn:
+                    ens2dat={ens:key2phy[(ens,j)] for ens in enss}
+                    fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt,fitlabels=fitlabels,Ndof_moreQ=AICcQ)
+                    for fit in fits:
+                        fitlabel,pars_jk,chi2_jk,Ndof=fit
+                        key2phy[(f'a=#_{fitlabel}',j)]=pars_jk
+                    pars_jk,probs_jk=yu.jackMA(fits,AICcQ=AICcQ)
+                    key2phy[('a=#_MA',j)]=pars_jk
+                
+                for stout in stouts:
+                    for fitlabel in fitlabels+['MA']:
+                        for fla in fla2iso.keys():
+                            key2phy[(f'a=#_{fitlabel}',f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(f'a=#_{fitlabel}',f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(f'a=#_{fitlabel}',f'j{iso}')]) for factor,iso in fla2iso[fla]],axis=0)
+                        key2phy[(f'a=#_{fitlabel}',f'jtot;stout{stout}')]=key2phy[(f'a=#_{fitlabel}',f'jq;stout{stout}')]+key2phy[(f'a=#_{fitlabel}',f'jg;stout{stout}')]
+                        
+                # conn
                 for fitlabel in fitlabels+['MA']:
                     for fla in fla2iso.keys():
-                        key2phy[(f'a=#_{fitlabel}',f'j{fla};stout{stout}')]=np.sum([factor*(key2phy[(f'a=#_{fitlabel}',f'j{iso};stout{stout}')] if iso in ['q'] else key2phy[(f'a=#_{fitlabel}',f'j{iso}')]) for factor,iso in fla2iso[fla]],axis=0)
-                    key2phy[(f'a=#_{fitlabel}',f'jtot;stout{stout}')]=key2phy[(f'a=#_{fitlabel}',f'jq;stout{stout}')]+key2phy[(f'a=#_{fitlabel}',f'jg;stout{stout}')]
+                        key2phy[(f'a=#_{fitlabel}',f'j{fla};conn')]=np.sum([factor*key2phy[(f'a=#_{fitlabel}',f'j{iso};conn')] for factor,iso in fla2iso[fla]],axis=0)
+                    key2phy[(f'a=#_{fitlabel}',f'jtot;conn')]=key2phy[(f'a=#_{fitlabel}',f'jq;conn')]
+            else:
+                js=['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts] +\
+                    [f'j{fla};stout{stout}' for stout in stouts for fla in fla2iso.keys()] + [f'jtot;stout{stout}' for stout in stouts]
+                js_conn=['jv1;conn','jv2;conn','jv3;conn','jq;conn'] +\
+                    [f'j{fla};conn' for fla in fla2iso.keys()] + [f'jtot;conn']
+                for j in js+js_conn:
+                    if j in ['js;conn','jc;conn']:
+                        for fitlabel in fitlabels + ['MA']:
+                            key2phy[(f'a=#_{fitlabel}',j)]=yu.jackknife_pseudo(lat_a2s_plt,lat_a2s_plt,444)*0
+                        continue
                     
-            # conn
-            for fitlabel in fitlabels+['MA']:
-                for fla in fla2iso.keys():
-                    key2phy[(f'a=#_{fitlabel}',f'j{fla};conn')]=np.sum([factor*key2phy[(f'a=#_{fitlabel}',f'j{iso};conn')] for factor,iso in fla2iso[fla]],axis=0)
-                key2phy[(f'a=#_{fitlabel}',f'jtot;conn')]=key2phy[(f'a=#_{fitlabel}',f'jq;conn')]
-        else:
-            js=['jv1','jv2','jv3']+[f'jq;stout{stout}' for stout in stouts]+[f'jg;stout{stout}' for stout in stouts] +\
-                [f'j{fla};stout{stout}' for stout in stouts for fla in fla2iso.keys()] + [f'jtot;stout{stout}' for stout in stouts]
-            js_conn=['jv1;conn','jv2;conn','jv3;conn','jq;conn'] +\
-                [f'j{fla};conn' for fla in fla2iso.keys()] + [f'jtot;conn']
-            for j in js+js_conn:
-                if j in ['js;conn','jc;conn']:
-                    for fitlabel in fitlabels + ['MA']:
-                        key2phy[(f'a=#_{fitlabel}',j)]=yu.jackknife_pseudo(lat_a2s_plt,lat_a2s_plt,444)*0
-                    continue
+                    ens2dat={ens:key2phy[(ens,j)] for ens in enss}
+                    fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt,fitlabels=fitlabels,supjackQ=False)
+                    for fit in fits:
+                        fitlabel,m,e,chi2,Ndof=fit
+                        key2phy[(f'a=#_{fitlabel}',j)]=yu.jackknife_pseudo(m,e,444)
+                    (pars_mean_MA,pars_err_MA,probs)=yu.modelAvg(fits,AICcQ=AICcQ)
+                    key2phy[('a=#_MA',j)]=yu.jackknife_pseudo(pars_mean_MA,pars_err_MA,444)
                 
-                ens2dat={ens:key2phy[(ens,j)] for ens in enss}
-                fits=yu.doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=lat_a2s_plt,fitlabels=fitlabels,supjackQ=False)
-                for fit in fits:
-                    fitlabel,m,e,chi2,Ndof=fit
-                    key2phy[(f'a=#_{fitlabel}',j)]=yu.jackknife_pseudo(m,e,444)
-                (pars_mean_MA,pars_err_MA,probs)=yu.modelAvg(fits)
-                key2phy[('a=#_MA',j)]=yu.jackknife_pseudo(pars_mean_MA,pars_err_MA,444)
-            
         return key2phy
                     
     def bareRC2phy_avgx_new(key2bare,ens2RCs,mn_conn='mu!=nu',mn_disc='mu!=nu',mn_g='mu!=nu'):

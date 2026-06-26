@@ -21,7 +21,7 @@ basepath_3pt={'conn':basepath_3pt_conn,'disc':basepath_3pt_disc}[cd]
 
 basepath_output=f'{basepath_3pt}doSVD/'
 
-stouts=[5,7,10,13,15,20]
+stouts=[5,7,10,13,15,20,25,30,35,40]
 js_conn=['j+;conn','j-;conn']
 js_disc=[f'{j};disc' for j in ['j+','js','jc']] + [f'jg;stout{stout}' for stout in stouts]
 js={'conn':js_conn,'disc':js_disc}[cd]
