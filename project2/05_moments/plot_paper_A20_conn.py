@@ -14,8 +14,9 @@ yu.mpl_global_elinewidth=yu.mpl_global_capthick=3
 
 yu.setpath('analysis_A20')
 
-tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
-tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
+tftcphy_A20_conn=tftcphy_B20_conn=(0.8,0.3)
+tftcphy_A20_discq=tftcphy_B20_discq=(0.6,0.2)
+tftcphy_A20_gluon=tftcphy_B20_gluon=(0.6,0.3)
 
 def encodeTask(task):
     n2qpp1,ff,j=task
@@ -165,9 +166,9 @@ def run(task):
     
     for i in range(len(enss)):
         if j in ['j-;conn']:
-            axs[i,0].set_ylabel(r'$\tilde{A}_{20}^{u-d}(Q_1^2)$')
+            axs[i,0].set_ylabel(r'${A}_{20}^{u-d}(Q_1^2)$')
         else:
-            axs[i,0].set_ylabel(r'$\tilde{A}_{20}^{u+d}(Q_2^2)$')
+            axs[i,0].set_ylabel(r'${A}_{20}^{u+d}(Q_2^2)$')
         
     # yu.addRowHeader(axs,[yu.ens2label[ens][0] for ens in enss])
     # axs[-1,2].set_xlim([0.35,1.45])
@@ -177,10 +178,7 @@ def run(task):
     # for i in range(len(axs)):
         # axs[i,0].set_ylabel(cases_do[i])
     yu.setpath('plot_paper')
-    if j in ['j-;conn']:
-        yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
-    else:
-        yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
+    yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)
     yu.setpath('analysis_A20')
 
     print('flag_done: ' + task)

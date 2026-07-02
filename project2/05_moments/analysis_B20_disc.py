@@ -8,8 +8,9 @@ import click
 
 yu.setpath('analysis_B20_2')
 
-tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
-tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
+tftcphy_A20_conn=tftcphy_B20_conn=(0.8,0.2)
+tftcphy_A20_discq=tftcphy_B20_discq=(0.6,0.2)
+tftcphy_A20_gluon=tftcphy_B20_gluon=(0.6,0.3)
 
 def encodeTask(task):
     n2qpp1,ff,j=task
@@ -25,7 +26,7 @@ def decodeTask(task):
 enss_all=['b','c','d','e']
 
 #====================
-overwrite=False
+overwrite=True
 
 c1s=['unequal']; c2s=['err']
 cases_todo=['_'.join([c1,c2]) for c1,c2 in product(c1s,c2s)]

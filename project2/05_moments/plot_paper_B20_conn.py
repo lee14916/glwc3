@@ -14,8 +14,9 @@ yu.mpl_global_elinewidth=yu.mpl_global_capthick=3
 
 yu.setpath('analysis_B20')
 
-tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
-tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
+tftcphy_A20_conn=tftcphy_B20_conn=(0.8,0.3)
+tftcphy_A20_discq=tftcphy_B20_discq=(0.6,0.2)
+tftcphy_A20_gluon=tftcphy_B20_gluon=(0.6,0.3)
 
 def encodeTask(task):
     n2qpp1,ff,j=task
@@ -161,19 +162,16 @@ def run(task):
     
     for i in range(len(enss)):
         if j in ['j-;conn']:
-            axs[i,0].set_ylabel(r'$\tilde{B}_{20}^{u-d}(Q_1^2)$')
+            axs[i,0].set_ylabel(r'${B}_{20}^{u-d}(Q_1^2)$')
         else:
-            axs[i,0].set_ylabel(r'$\tilde{B}_{20}^{u+d}(Q_2^2)$')
+            axs[i,0].set_ylabel(r'${B}_{20}^{u+d}(Q_2^2)$')
         
     # axs[-1,2].set_xlim([0.35,1.45])
     # axs[-1,2].set_xticks(np.arange(0.4,1.5,0.2))
     # fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')
     
     yu.setpath('plot_paper')
-    if j in ['j-;conn']:
-        yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
-    else:
-        yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
+    yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)
     yu.setpath('analysis_B20')
     
     print('flag_done: ' + task)

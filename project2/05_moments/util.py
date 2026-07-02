@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import MaxNLocator
 from math import floor, log10
 from scipy.optimize import leastsq, curve_fit, fsolve
 from scipy.linalg import cholesky

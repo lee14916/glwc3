@@ -15,8 +15,9 @@ yu.mpl_global_elinewidth=yu.mpl_global_capthick=3
 
 yu.setpath('analysis_B20_2')
 
-tftcphy_A20_conn=tftcphy_B20_conn=(0.6,0.2)
-tftcphy_A20_discq=tftcphy_A20_gluon=tftcphy_B20_discq=tftcphy_B20_gluon=(0.7,0.3)
+tftcphy_A20_conn=tftcphy_B20_conn=(0.8,0.3)
+tftcphy_A20_discq=tftcphy_B20_discq=(0.6,0.2)
+tftcphy_A20_gluon=tftcphy_B20_gluon=(0.6,0.3)
 
 def encodeTask(task):
     n2qpp1,ff,j=task
@@ -79,7 +80,7 @@ def run(task):
         
         def createDic(ind,case):
             rainbow_tfphy_min=0.5
-            rainbow_tfphy_max=1.1
+            rainbow_tfphy_max=1.0
             sum_tfphy_max=0.7
             dt=2
             gett=lambda t:round(t/yu.ens2a[ens])
@@ -107,7 +108,7 @@ def run(task):
             tcmin=fits_const[ind][0][1]
             fits_const=[fit for fit in fits_const if sum(fit[0][1])==sum(tcmin)]
             
-            fits_band=yu.doFits_3pt_band(tf2ratio,tcmins_1st,corrQ=False,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_band',overwrite=True)
+            fits_band=yu.doFits_3pt_band(tf2ratio,tcmins_1st,corrQ=False,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_band',overwrite=overwrite)
             # fit_band_WA=yu.doWA_band(fits_band,tf_min=gett(0.9),tf_max=tf_max,tcmin=gett(0.2)*2,corrQ=False)
             fits_band=[fit for fit in fits_band if sum(fit[0][1])==sum(tcmin)]
             
@@ -125,7 +126,7 @@ def run(task):
                 'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[None,fit_const_MA,None,None],
                 'rainbow:[tfmin,tfmax,tcmin,dt]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),2,dt],
                 'fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),None,None,dt,None],
-                'fit_const:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[None,tfmin_max,None,tcmin_max,None,None],
+                'fit_const:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[gett(rainbow_tfphy_min),gett(0.9),None,tcmin_max,None,None],
                 'fit_sum:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[None,tfmin_max,None,tcmin_max,None,None],
                 'xunit':yu.ens2a[ens]
             }
@@ -139,7 +140,7 @@ def run(task):
         
         def createDic2(ind,case):
             rainbow_tfphy_min=0.5
-            rainbow_tfphy_max=1.1       
+            rainbow_tfphy_max=1.0    
             sum_tfphy_max=0.7
             dt=2
             # print(ens,case)
@@ -168,7 +169,7 @@ def run(task):
             tcmin=fits_const[ind][0][1]
             fits_const=[fit for fit in fits_const if sum(fit[0][1])==sum(tcmin)]
             
-            fits_band=yu.doFits_3pt_band(tf2ratio,tcmins_1st,corrQ=False,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_band',overwrite=True)
+            fits_band=yu.doFits_3pt_band(tf2ratio,tcmins_1st,corrQ=False,unicutQ=True,label=f'{n2qpp1}_{ff}_{j}_{ens}_{case}_band',overwrite=overwrite)
             # fit_band_WA=yu.doWA_band(fits_band,tf_min=gett(0.8),tf_max=tf_max,tcmin=gett(0.2)*2,corrQ=False)
             fits_band=[fit for fit in fits_band if sum(fit[0][1])==sum(tcmin)]
             
@@ -186,7 +187,7 @@ def run(task):
                 'WAMA:[fit_band_WA,fit_const_MA,fit_sum_MA,fit_2st_MA]':[None,fit_const_MA,None,None],
                 'rainbow:[tfmin,tfmax,tcmin,dt]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),2,dt],
                 'fit_band:[tfmin,tfmax,tcmin_min,tcmin_max,dtf,dtc]':[gett(rainbow_tfphy_min),gett(rainbow_tfphy_max),None,None,dt,None],
-                'fit_const:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[None,tfmin_max,None,tcmin_max,None,None],
+                'fit_const:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[gett(rainbow_tfphy_min),gett(0.9),None,tcmin_max,None,None],
                 'fit_sum:[tfmin_min,tfmin_max,tcmin_min,tcmin_max,dtf,dtc]':[None,tfmin_max,None,tcmin_max,None,None],
                 'xunit':yu.ens2a[ens]
             }
@@ -204,25 +205,22 @@ def run(task):
     list_dic=[ele[0] for ele in t]
     list_dic_sum=[ele[1] for ele in t]
 
-    fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const'],noLegendQ=True,colHeaders=None,fullband='fit_const')
+    fig,axs=yu.makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const'],noLegendQ=True,colHeaders=None,fullband='fit_const',sharey=True)
     jstr=j[1]
     jstr='u+d' if jstr=='+' else jstr
     for i in range(len(enss)):
-        axs[i,0].set_ylabel(rf'$\tilde{{B}}_{{20}}^{{{jstr}}}(Q_2^2)$')
+        axs[i,0].set_ylabel(rf'${{B}}_{{20}}^{{{jstr}}}(Q_2^2)$')
         axs[i,0].set_ylim(axs[i,0].get_ylim())
     fig,axs=yu.makePlot_3pt(list_dic_sum,shows=['rainbow','rainbow','fit_sum'],figAxs=(fig,axs),colors_fit=['g'],fmts_fit=['o'],colHeaders=None)
     axs[-1,0].set_xticks([-0.3,0,0.3])
-    axs[-1,1].set_xticks([0.7,1.0])
-    axs[-1,2].set_xticks([0.7,1.0])
+    axs[-1,1].set_xticks([0.5,0.8])
+    axs[-1,2].set_xticks([0.5,0.8])
     # fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')
     
     # axs[-1,0].set_xlim([-0.55,0.55])
     
     yu.setpath('plot_paper')
-    if j in ['j-;conn']:
-        yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
-    else:
-        yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_tilde',mkdirQ=True,closeQ=True)
+    yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)
     yu.setpath('analysis_B20_2')
 
     print('flag_done: ' + task)
