@@ -1,4 +1,4 @@
-import os,h5py,warnings,pickle,functools,json
+import os,h5py,warnings,pickle,functools,json,re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -691,7 +691,12 @@ if True:
                 return result1
         except:
             return f'{x}({xe})'
-        
+    def me2mes(me, syst):
+        v, e, p = re.match(r'([+-]?\d+(?:\.\d+)?)(\(\d+\))(e[+-]?\d+)?$', me).groups()
+        n = len(v.split('.')[1]) if '.' in v else 0
+        if isinstance(syst, tuple) and len(syst)==2:
+            return f"{v}{e}({round(syst[0] * 10**n):g})({round(syst[1] * 10**n):g}){p or ''}"
+        return f"{v}{e}({round(syst * 10**n):g}){p or ''}"
     def chi2Ndof2pval(chi2, Ndof):
         pval = 1 - chi2_dist.cdf(chi2, Ndof)
         return pval

@@ -165,6 +165,8 @@ def run(task):
             axs[i,0].set_ylabel(r'${B}_{20}^{u-d}(Q_1^2)$')
         else:
             axs[i,0].set_ylabel(r'${B}_{20}^{u+d}(Q_2^2)$')
+            
+    axs[0,0].yaxis.set_major_locator(yu.MaxNLocator(nbins=4))
         
     # axs[-1,2].set_xlim([0.35,1.45])
     # axs[-1,2].set_xticks(np.arange(0.4,1.5,0.2))

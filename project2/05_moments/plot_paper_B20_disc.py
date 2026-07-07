@@ -218,6 +218,7 @@ def run(task):
     # fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')
     
     # axs[-1,0].set_xlim([-0.55,0.55])
+    axs[0,0].yaxis.set_major_locator(yu.MaxNLocator(nbins=4))
     
     yu.setpath('plot_paper')
     yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)

@@ -169,6 +169,8 @@ def run(task):
             axs[i,0].set_ylabel(r'${A}_{20}^{u-d}(Q_1^2)$')
         else:
             axs[i,0].set_ylabel(r'${A}_{20}^{u+d}(Q_2^2)$')
+            
+    axs[0,0].yaxis.set_major_locator(yu.MaxNLocator(nbins=4))
         
     # yu.addRowHeader(axs,[yu.ens2label[ens][0] for ens in enss])
     # axs[-1,2].set_xlim([0.35,1.45])

@@ -10,7 +10,7 @@
     "tftcphy_B20_discg": {
         "default": [0.6,0.3]
     },
-    "stouts_jointlinear": [5,7,10,13,15,20],
+    "stouts_jointlinear": [7,10,13,15,20],
 
     "tftcphy_A20_conn_sum": [1.0,"None"],
     "tftcphy_A20_discq_sum": [0.3,"None"],
