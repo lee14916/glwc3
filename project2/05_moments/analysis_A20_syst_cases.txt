@@ -9,3 +9,5 @@ case3: sum; const disc; Q2 fit
 
 case4: 2st conn; const disc; Q2 fit up to 0.7 GeV
 case5: sum conn; sum disc; Q2 fit
+
+case6: 2st conn; const disc; Q2 fit; dipole up to 0.8, const up to 0.4

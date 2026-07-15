@@ -213,8 +213,10 @@ def run(task):
         axs[i,0].set_ylim(axs[i,0].get_ylim())
     fig,axs=yu.makePlot_3pt(list_dic_sum,shows=['rainbow','rainbow','fit_sum'],figAxs=(fig,axs),colors_fit=['g'],fmts_fit=['o'],colHeaders=None)
     axs[-1,0].set_xticks([-0.3,0,0.3])
-    axs[-1,1].set_xticks([0.5,0.8])
-    axs[-1,2].set_xticks([0.5,0.8])
+    axs[-1,1].set_xlim([0.4,1])
+    axs[-1,1].set_xticks([0.5,0.7,0.9])
+    axs[-1,2].set_xlim([0.4,1])
+    axs[-1,2].set_xticks([0.5,0.7,0.9])
     # fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')
     
     # axs[-1,0].set_xlim([-0.55,0.55])

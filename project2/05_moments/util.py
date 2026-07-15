@@ -694,9 +694,10 @@ if True:
     def me2mes(me, syst):
         v, e, p = re.match(r'([+-]?\d+(?:\.\d+)?)(\(\d+\))(e[+-]?\d+)?$', me).groups()
         n = len(v.split('.')[1]) if '.' in v else 0
-        if isinstance(syst, tuple) and len(syst)==2:
-            return f"{v}{e}({round(syst[0] * 10**n):g})({round(syst[1] * 10**n):g}){p or ''}"
-        return f"{v}{e}({round(syst * 10**n):g}){p or ''}"
+        if not isinstance(syst, tuple):
+            syst=tuple([syst])
+        t=''.join([f"({round(sys * 10**n):g})" for sys in syst])
+        return f"{v}{e}{t}{p or ''}"
     def chi2Ndof2pval(chi2, Ndof):
         pval = 1 - chi2_dist.cdf(chi2, Ndof)
         return pval
@@ -981,9 +982,10 @@ if True:
             means=np.array([m for m,e in t]); errs=np.array([e for m,e in t])
         
         fits=[]
-        for fitlabel in ['const','const-1','const-2','linear','linear-1']:
-            if fitlabel not in fitlabels:
-                continue 
+        fitlabels_all=['const','const-1','const-2','linear','linear-1']
+        for fitlabel in fitlabels:
+            assert(fitlabel in fitlabels_all)
+        for fitlabel in fitlabels:
             Ncut = 1 if '-1' in fitlabel else 2 if '-2' in fitlabel else 0
             fitfunc = fitfunc_const if 'const' in fitlabel else fitfunc_linear if 'linear' in fitlabel else 1/0
             
