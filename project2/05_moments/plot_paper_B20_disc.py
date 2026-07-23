@@ -223,7 +223,7 @@ def run(task):
     axs[0,0].yaxis.set_major_locator(yu.MaxNLocator(nbins=4))
     
     yu.setpath('plot_paper')
-    yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)
+    yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}'.translate(str.maketrans({'+':'p','-':'m',',':'_',';':'_'})),mkdirQ=True,closeQ=True)
     yu.setpath('analysis_B20_2')
 
     print('flag_done: ' + task)

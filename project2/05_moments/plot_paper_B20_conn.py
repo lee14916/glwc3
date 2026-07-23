@@ -173,7 +173,7 @@ def run(task):
     # fig.suptitle(rf'{yu.ens2label[ens]}; n2qpp1={n2qpp1}; $Q^2$={yum.n2qpp12Q2(n2qpp1,ens):.4f} GeV$^2$')
     
     yu.setpath('plot_paper')
-    yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}',mkdirQ=True,closeQ=True)
+    yu.finalizePlot(f'rainbow_B20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}'.translate(str.maketrans({'+':'p','-':'m',',':'_',';':'_'})),mkdirQ=True,closeQ=True)
     yu.setpath('analysis_B20')
     
     print('flag_done: ' + task)

@@ -176,7 +176,7 @@ def run(task):
     # for i in range(len(axs)):
         # axs[i,0].set_ylabel(cases_do[i])
     yu.setpath('plot_paper')
-    yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_unequal',mkdirQ=True,closeQ=True)
+    yu.finalizePlot(f'rainbow_A20/{j}_{yu.n2qpp12str(n2qpp1)}_{ff}_unequal'.translate(str.maketrans({'+':'p','-':'m',',':'_',';':'_'})),mkdirQ=True,closeQ=True)
     yu.setpath('analysis_A20')
 
     print('flag_done: ' + task)
