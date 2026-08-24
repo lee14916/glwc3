@@ -94,7 +94,7 @@ if True:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             res=fsolve(func, x0)[0]
-        return res if res!=x0 else np.nan
+        return res if res!=x0 else np.NaN
     
     cfg2old=lambda cfg: cfg[1:]+'_r'+{'a':'0','b':'1','c':'2','d':'3'}[cfg[0]]
     cfg2new=lambda cfg: {'0':'a','1':'b','2':'c','3':'d'}[cfg[-1]] + cfg[:4]
@@ -1914,7 +1914,7 @@ if True:
                 plt_x=(tf+mid_tfshift+shift*0.1)*xunit; plt_y=mean[tf//2]*yunit; plt_yerr=err[tf//2]*yunit
                 ax_mid.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
     
-    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders=None,colors_rainbow=colors16,colors_fit=colors8,fmts_rainbow=fmts16,fmts_fit=fmts8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,fullband=False,oddmidQ=False,**kwargs):
+    def makePlot_3pt(list_dic,shows=['rainbow','fit_band','fit_const','fit_sum','fit_2st'],Lrow=4,Lcol=6,colHeaders='auto',colors_rainbow=colors16,colors_fit=colors8,fmts_rainbow=fmts16,fmts_fit=fmts8,sharey='row',indicativeErrorBandQ=False,noLegendQ=False,fontsize_colHeaders=None,figAxs=None,fullband=False,oddmidQ=False,**kwargs):
         '''
         show in ['rainbow','midpoint','fit_#','fit_#_prob'] \\
         base:[tf2ratio,fits_band,fits_const,fits_sum,fits_2st] \\
@@ -1925,7 +1925,6 @@ if True:
         fit_2st_rainbow_midpoint:[fittype,pars_jk_meff2st] \\
         
         mfc:[global] \\
-        fillstyle:[global] \\
         shift:[rainbow,midpoint,fit] \\
         '''
         if type(list_dic)==dict:
@@ -2073,12 +2072,10 @@ if True:
             
             [mfc_global]=setParameter(['not set'],'mfc:[global]')
             mfc_global=mfc_global if mfc_global!='None' else None
-            [fillstyle_global]=setParameter(['full'],'fillstyle:[global]')
             [shift_rainbow,shift_midpoint,shift_fit]=setParameter([0,0,0],'shift:[rainbow,midpoint,fit]')
             
             show='rainbow'
             mfc=mfc_global if mfc_global!='not set' else None
-            fillstyle=fillstyle_global
             if show in shows:
                 ax=axs[irow,shows.index(show)]          
                 for itf,tf in enumerate(tfs_rainbow):
@@ -2086,11 +2083,10 @@ if True:
                     tcs=np.arange(tcmin_rainbow,tf-tcmin_rainbow+1)
                     plt_x=(tcs-tf/2+0.05*(itf-len(tfs_rainbow)/2)+shift_rainbow)*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
                     itf_color=tfs_color.index(tf)
-                    errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts_rainbow[itf_color%16],mfc=mfc,fillstyle=fillstyle)
+                    errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts_rainbow[itf_color%16],mfc=mfc)
                     
             show='midpoint'
             mfc=mfc_global if mfc_global!='not set' else None
-            fillstyle=fillstyle_global
             if show in shows:
                 ax=axs[irow,shows.index(show)]  
                 for itf,tf in enumerate(tfs_mid):
@@ -2103,7 +2099,7 @@ if True:
                         mean,err=jackme(tf2ratio[tf][:,tf//2])
                     plt_x=(tf+shift_midpoint)*xunit; plt_y=mean*yunit; plt_yerr=err*yunit
                     itf_color=tfs_color.index(tf)
-                    errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts_rainbow[itf_color%16],mfc=mfc,fillstyle=fillstyle) 
+                    errorbar(ax,plt_x,plt_y,plt_yerr,color=colors_rainbow[itf_color%16],fmt=fmts_rainbow[itf_color%16],mfc=mfc) 
             show='fit_band'
             if show in shows and fits_band is not None:
                 ax=axs[irow,shows.index(show)]   
