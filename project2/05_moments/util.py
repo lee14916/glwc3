@@ -425,12 +425,28 @@ if True:
         dat_ens=np.random.multivariate_normal(mean,cov*n,n)
         dat_jk=jackknife(dat_ens)
         mean1,_,cov1=jackmec(dat_jk)
-        C=np.linalg.cholesky(cov)
-        C1=np.linalg.cholesky(cov1)
-        L=C@np.linalg.inv(C1)
+        
+        evals,evecs=np.linalg.eigh((cov+cov.T)/2)
+        evals=np.clip(evals,0,None)
+        C=evecs@np.diag(np.sqrt(evals))@evecs.T
+        
+        evals1,evecs1=np.linalg.eigh((cov1+cov1.T)/2)
+        tol=np.max(evals1)*1e-12
+        evals1_inv_sqrt=np.where(evals1>tol,1/np.sqrt(evals1),0)
+        C1_inv=evecs1@np.diag(evals1_inv_sqrt)@evecs1.T
+
+        L=C@C1_inv
+
         B=mean-L@mean1
         dat_jk=dat_jk@L.T+B[None,:]
         return dat_jk
+        
+        # C=np.linalg.cholesky(cov)
+        # C1=np.linalg.cholesky(cov1)
+        # L=C@np.linalg.inv(C1)
+        # B=mean-L@mean1
+        # dat_jk=dat_jk@L.T+B[None,:]
+        # return dat_jk
     
     def jackknife2(in_dat,in_func=lambda dat:np.mean(np.real(dat),axis=0),minNcfg:int=600,d:int=0):
         '''
@@ -761,6 +777,7 @@ if True:
                     return np.array([pars_mean]),np.array([chi2]),Ndof,'getFilterInfo=True'
                 if flag_fast == "FastFit": # Generate pseudo jackknife resamples from the single fit rather than doing lots of fits
                     pars_jk=jackknife_pseudo(pars_mean,pars_cov,Njk)
+                    chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
                 else:    
                     def func(yp):
                         if parsExtra_jk is None:
@@ -775,11 +792,13 @@ if True:
                             else:
                                 fitfunc_wrapper2=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(list(pars)+list(p))-y),[(pars[ind]-mean)/width for ind,mean,width in priors]])
                         pars=leastsq(fitfunc_wrapper2,pars_mean,**kargs)[0]
-                        return pars
+                        chi2=np.sum(fitfunc_wrapper2(pars)**2)
+                        return pars,chi2
                     if parsExtra_jk is not None:
                         y_jk=zip(y_jk,parsExtra_jk)
-                    pars_jk=jackmap(func,y_jk)
-                chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
+                    pars_jk,chi2_jk=jackmap(func,y_jk)
+                    chi2_jk=chi2_jk[:,None]
+
             else:
                 Njk,Ndata=y_jk(pars0[-1]).shape; Npar=len(pars0); Ndof=Ndata-Npar
                 def fitfunc_wrapper(pars):
@@ -800,6 +819,7 @@ if True:
                     return np.array([pars_mean]),np.array([chi2]),Ndof,'getFilterInfo=True'
                 if flag_fast == "FastFit": # Generate pseudo jackknife resamples from the single fit rather than doing lots of fits
                     pars_jk=jackknife_pseudo(pars_mean,pars_cov,Njk)
+                    chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
                 else:
                     def func(i):
                         def fitfunc_wrapper2(pars):
@@ -813,10 +833,11 @@ if True:
                             cho_L_Inv = np.linalg.inv(cholesky(y_cov, lower=True))
                             return cho_L_Inv@(fitfunc(pars[:-1])-t_yjk[i])
                         pars=leastsq(fitfunc_wrapper2,pars_mean,**kargs)[0]
-                        return pars
-                    pars_jk=jackmap(func,range(Njk))
-                chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
-                
+                        chi2=np.sum(fitfunc_wrapper2(pars)**2)
+                        return pars,chi2
+                    pars_jk,chi2_jk=jackmap(func,range(Njk))
+                    chi2_jk=chi2_jk[:,None]
+                    
             Nwarning = len(list_warnings)
             for w in list_warnings:
                 warnings.showwarning(message=w.message,category=w.category,filename=w.filename,lineno=w.lineno,file=w.file,line=w.line)
@@ -831,12 +852,12 @@ if True:
         fitmax=temp[0][0]-1 if len(temp)!=0 else len(mean)-1
         return fitmax
     
-    def doSimpleFit(fitfunc, xdata, ydata, sigma=None, p0=None, xdata_extra=None, jackQ=True, Ndof_moreQ=False, **kargs):
+    def doSimpleFit(fitfunc, xdata, ydata, sigma=None, p0=None, xdata_extra=None, jackQ=True, Ndof_moreQ=False, corrQ=True, **kargs):
         xdata=np.asarray(xdata); ydata=np.asarray(ydata)
         if jackQ:
             assert(sigma is None)
             pars,cov=curve_fit(fitfunc, xdata, np.mean(ydata,axis=0), p0=p0, absolute_sigma=True)
-            pars_jk,chi2_jk,Ndof,Nwarning=jackfit(lambda p:fitfunc(xdata,*p),ydata,pars, Ndof_moreQ=Ndof_moreQ,**kargs)
+            pars_jk,chi2_jk,Ndof,Nwarning=jackfit(lambda p:fitfunc(xdata,*p),ydata,pars, Ndof_moreQ=Ndof_moreQ, mask=None if corrQ else 'uncorrelated',**kargs)
             if xdata_extra is not None:
                 pars_jk_extra=np.array([fitfunc(xdata_extra,*pars) for pars in pars_jk])
                 return pars_jk,chi2_jk,Ndof, pars_jk_extra
@@ -967,7 +988,7 @@ if True:
         return fits
 
     @decorator_fits
-    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None,fitlabels=['const','linear'],supjackQ=True,Ndof_moreQ=False):
+    def doFits_continuumExtrapolation(ens2dat,lat_a2s_plt=None,fitlabels=['const','linear'],supjackQ=True,Ndof_moreQ=False,corrQ=True):
         enss=list(ens2dat.keys()); enss.sort(key=lambda ens:-ens2a[ens])
         lat_a2s=[ens2a[ens]**2 for ens in enss]
         dat=[ens2dat[ens][:,None] for ens in enss]
@@ -990,10 +1011,10 @@ if True:
             fitfunc = fitfunc_const if 'const' in fitlabel else fitfunc_linear if 'linear' in fitlabel else 1/0
             
             if supjackQ:
-                pars_jk,chi2_jk,Ndof, pars_jk_extra = doSimpleFit(fitfunc,lat_a2s[Ncut:],t[:,Ncut:], xdata_extra=lat_a2s_plt, jackQ=True, Ndof_moreQ=Ndof_moreQ)
+                pars_jk,chi2_jk,Ndof, pars_jk_extra = doSimpleFit(fitfunc,lat_a2s[Ncut:],t[:,Ncut:], xdata_extra=lat_a2s_plt, jackQ=True, Ndof_moreQ=Ndof_moreQ, corrQ=corrQ)
                 fits.append([fitlabel,pars_jk_extra,chi2_jk,Ndof])
             else:
-                pars,err,cov,chi2,Ndof, m,e,c = doSimpleFit(fitfunc,lat_a2s[Ncut:],means[Ncut:], sigma=errs[Ncut:], xdata_extra=lat_a2s_plt, jackQ=False, Ndof_moreQ=Ndof_moreQ)
+                pars,err,cov,chi2,Ndof, m,e,c = doSimpleFit(fitfunc,lat_a2s[Ncut:],means[Ncut:], sigma=errs[Ncut:], xdata_extra=lat_a2s_plt, jackQ=False, Ndof_moreQ=Ndof_moreQ, corrQ=corrQ)
                 fits.append([fitlabel,m,e,chi2,Ndof])
         return fits
 
