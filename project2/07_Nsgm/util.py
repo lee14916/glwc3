@@ -737,7 +737,7 @@ if True:
                 Njk,Ndata=y_jk.shape; Npar=len(pars0); Ndof=Ndata-Npar
                 y_mean,_,y_cov=jackmec(y_jk)
                 if mask is not None:
-                    if mask == 'uncorrelated':
+                    if isinstance(mask,str) and mask == 'uncorrelated':
                         y_cov=np.diag(np.diag(y_cov))
                     else:
                         y_cov=y_cov*mask
@@ -753,7 +753,9 @@ if True:
                         fitfunc_wrapper=lambda pars: cho_L_Inv@(fitfunc(list(pars)+parsExtra_mean)-y_mean)
                     else:
                         fitfunc_wrapper=lambda pars: np.concatenate([cho_L_Inv@(fitfunc(list(pars)+parsExtra_mean)-y_mean),[(pars[ind]-mean)/width for ind,mean,width in priors]])
-                pars_mean,pars_cov=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)[:2]
+                pars_mean,pars_cov,_,message,status=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)
+                if status not in [1,2,3,4]:
+                    warnings.warn(f'Central fit did not converge: {message}',RuntimeWarning)
                 if getFilterInfoQ:
                     chi2=np.sum(fitfunc_wrapper(pars_mean)**2)
                     if Ndof_moreQ:
@@ -786,13 +788,15 @@ if True:
                     t_yjk=y_jk(pars[-1])
                     y_mean,_,y_cov=jackmec(t_yjk)
                     if mask is not None:
-                        if mask == 'uncorrelated':
+                        if isinstance(mask,str) and mask == 'uncorrelated':
                             y_cov=np.diag(np.diag(y_cov))
                         else:
                             y_cov=y_cov*mask
                     cho_L_Inv = np.linalg.inv(cholesky(y_cov, lower=True))
                     return cho_L_Inv@(fitfunc(pars[:-1])-y_mean)
-                pars_mean,pars_cov=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)[:2]
+                pars_mean,pars_cov,_,message,status=leastsq(fitfunc_wrapper,pars0,full_output=True,**kargs)
+                if status not in [1,2,3,4]:
+                    warnings.warn(f'Central fit did not converge: {message}',RuntimeWarning)
                 if getFilterInfoQ:
                     chi2=np.sum(fitfunc_wrapper(pars_mean)**2)
                     if Ndof_moreQ:
@@ -806,7 +810,7 @@ if True:
                             t_yjk=y_jk(pars[-1])
                             _,_,y_cov=jackmec(t_yjk)
                             if mask is not None:
-                                if mask == 'uncorrelated':
+                                if isinstance(mask,str) and mask == 'uncorrelated':
                                     y_cov=np.diag(np.diag(y_cov))
                                 else:
                                     y_cov=y_cov*mask
@@ -818,8 +822,8 @@ if True:
                 chi2_jk=np.array([[np.sum(fitfunc_wrapper(pars)**2)] for pars in pars_jk])
                 
             Nwarning = len(list_warnings)
-            for w in list_warnings:
-                warnings.showwarning(message=w.message,category=w.category,filename=w.filename,lineno=w.lineno,file=w.file,line=w.line)
+        for w in list_warnings:
+            warnings.showwarning(message=w.message,category=w.category,filename=w.filename,lineno=w.lineno,file=w.file,line=w.line)
         if Ndof_moreQ:
             Ndof=(Ndof,Ndata,Npar)
         return pars_jk,chi2_jk,Ndof,Nwarning
@@ -1234,6 +1238,9 @@ if True:
         return pars_jk,chi2_jk,Ndof,Nwarning
         '''
         symQ = isinstance(tcmin, instance_int)
+        if symmetrizeQ:
+            assert(symQ)
+            tf2ratio=symmetrizeRatio(tf2ratio)
         tfs=list(tf2ratio.keys()); tfs.sort()
         
         if pars0 is None:
@@ -1326,13 +1333,16 @@ if True:
             return list(pars)*Ndata
         def lbd2y(lbd):
             tf2ratio=lbd2tf2ratio(lbd)
+            if symmetrizeQ:
+                assert(symQ)
+                tf2ratio=symmetrizeRatio(tf2ratio)
             y_jk=np.concatenate([tf2ratio[tf][:,tf2tcs_fit[tf]] for tf in tfs_fit],axis=1)
             return y_jk
         pars_jk,chi2_jk,Ndof,Nwarning=jackfit(fitfunc,lbd2y,pars0=pars0,mask=None if corrQ else 'uncorrelated')
         return pars_jk,chi2_jk,Ndof,Nwarning
 
     @decorator_fits
-    def doFits_3pt(fittype,tf2ratio_para,tfmins,tcmins,tfmin2tcmins=None,pars_jk_meff2st=None,pars0=None,downSampling=[1,1],symmetrizeQ=False,unicutQ=False,corrQ=True,fastQ=False,verbose=0):
+    def doFits_3pt(fittype,tf2ratio_para,tfmins,tcmins,tfmin2tcmins=None,pars_jk_meff2st=None,pars_fixed=None,pars0=None,downSampling=[1,1],symmetrizeQ=False,unicutQ=False,corrQ=True,fastQ=False,verbose=0):
         '''
         fittype in ['const','sum','2st2step_SYM','2st2step_SYMshare','2st2step_SQRTshare','2st2step_EFITshare', \\
         '2st2step_SYM_0ra11','2st2step_SYM_0rc1_0ra11','2st2step_SYM_share11'] \\
@@ -1375,6 +1385,8 @@ if True:
                 '2st2step_SQRTshare':[g,ra01,ra10,ra11], '2st2step_EFITshare':[g,ra01,ra10,ra11], 
                 '2st2step_SYM_0ra11':[g,dE1,ra01],'2st2step_SYM_0rc1_0ra11':[g,dE1,ra01],'2st2step_SYM_share11':[g,dE1,ra01,ra11]
             }[fittype]
+            if pars_fixed is not None:
+                pars0.pop(pars_fixed[0])
         if verbose>=3:
             print(f'[verbose3] pars0={formatList(pars0,".2f")}')
                 
@@ -1390,7 +1402,7 @@ if True:
                 if verbose>=2:
                     print(f'[verbose2] tfmin={tfmin}, tcmin={tcmin};')
                     
-                res=doFit_3pt(fittype,tf2ratio,tfmin,tcmin,pars_jk_meff2st=pars_jk_meff2st,pars0=pars0,corrQ=corrQ,downSampling=downSampling,fastFlag=fastFlag,symmetrizeQ=symmetrizeQ)
+                res=doFit_3pt(fittype,tf2ratio,tfmin,tcmin,pars_jk_meff2st=pars_jk_meff2st,pars_fixed=pars_fixed,pars0=pars0,corrQ=corrQ,downSampling=downSampling,fastFlag=fastFlag,symmetrizeQ=symmetrizeQ)
                 if res is None:
                     continue
                 pars_jk,chi2_jk,Ndof,Nwarning=res
@@ -1412,7 +1424,7 @@ if True:
                 tfmin2tcmins[tfmin].append(tcmin)
             if verbose>0:
                 print('[verbose] ============================ FULL RUNS FROM HERE ============================')
-            return doFits_3pt(fittype,tf2ratio_para,tfmins,None,tfmin2tcmins=tfmin2tcmins,pars_jk_meff2st=pars_jk_meff2st,pars0=pars0Initial,downSampling=downSampling,symmetrizeQ=symmetrizeQ,unicutQ=False,corrQ=corrQ,fastQ=fastQ,verbose=verbose)
+            return doFits_3pt(fittype,tf2ratio_para,tfmins,None,tfmin2tcmins=tfmin2tcmins,pars_jk_meff2st=pars_jk_meff2st,pars_fixed=pars_fixed,pars0=pars0Initial,downSampling=downSampling,symmetrizeQ=symmetrizeQ,unicutQ=False,corrQ=corrQ,fastQ=fastQ,verbose=verbose)
         
         return fits
     
@@ -1896,18 +1908,19 @@ if True:
         return fig,axd,result           
 #!============== plot (3pt) ==============#
 if True:
-    def plot_rainbow(ax,tf2ratio,tfmin=None,tfmax=None,dt=1,tcmin=1,xunit=1,yunit=1,shift=0,mid_tfshift=0,colors=colors16,mfc=None,ax_mid=None):
+    def plot_rainbow(ax,tf2ratio,tfmin=None,tfmax=None,dt=1,tcmin=1,xunit=1,yunit=1,shift=0,mid_tfshift=0,colors=colors16,mfc=None,ax_mid=None,tfs_reference=None):
         tfs=list(tf2ratio.keys())
         tfmin = min(tfs) if tfmin is None else tfmin
         tfmax = max(tfs) if tfmax is None else tfmax
         tfs=[tf for tf in tfs if tfmin<=tf<=tfmax]
+        tfs_reference = tfs if tfs_reference is None else list(tfs_reference)
         for itf,tf in enumerate(tfs):
             if tf%dt!=0:
                 continue
             mean,err=jackme(tf2ratio[tf])
             tcs=np.arange(tcmin,tf-tcmin+1)
             plt_x=(tcs-tf/2+0.05*(itf-len(tfs)/2)+shift*0.1)*xunit; plt_y=mean[tcs]*yunit; plt_yerr=err[tcs]*yunit
-            itf_color=tfs.index(tf)
+            itf_color=tfs_reference.index(tf)
             ax.errorbar(plt_x,plt_y,plt_yerr,color=colors[itf_color%16],fmt=fmts16[itf_color%16],mfc=mfc)
             
             if ax_mid is not None:
@@ -2319,8 +2332,9 @@ if True:
 if True:
     ens2full={'a24':'cA211.53.24','a':'cA2.09.48','b':'cB211.072.64','c':'cC211.060.80','d':'cD211.054.96','e':'cE211.044.112'}
     ens2label={'a24':'A24','a':'A48','b':'B64','c':'C80','d':'D96','e':'E112'}
-    # ens2a={'a24':0.0908,'a':0.0938,'b':0.07957,'c':0.06821,'d':0.05692,'e':0.04892} # fm
-    ens2a={'a24':0.0908,'a':0.0938,'b':0.07948,'c':0.06819,'d':0.056850,'e':0.04892} # fm; isoQCD arXiv:2411.08852 for BCDE
+    # A24 uses the updated f_pi scale from arXiv:2206.15084.
+    ens2a={'a24':0.09076,'a':0.0938,'b':0.07948,'c':0.06819,'d':0.056850,'e':0.04892} # fm; isoQCD arXiv:2411.08852 for BCDE
+    ens2mpi={'a24':361.6,'a':130.6,'b':140.2} # MeV; quoted ensemble values used in the N-sigma analysis
     
     ens2NL={'a24':24,'a':48,'b':64,'c':80,'d':96,'e':112}
     ens2NT={'a24':24*2,'a':48*2,'b':64*2,'c':80*2,'d':96*2,'e':112*2}
