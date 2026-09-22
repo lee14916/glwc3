@@ -25,18 +25,14 @@ GROUPS = {
         'Rstd_RGEVP', 'caseIII_excited_matrix_element', 'Rd_compare_w_v2',
         'Rstd_RLap', 'energy_scales', 'RLG_RL2G', 'RLap_delta_dependence'],
     'cB211.072.64/analysis_3pt_strange_charm_codex': [
-        'sigma_s_W_vs_full', 'sigma_s_Rstd_RGEVP', 'sigma_s_Rstd_RLap', 'sigma_c_W_vs_full', 'sigma_c_Rstd_RGEVP'],
-    'cA211.530.24/analysis_2pt_codex': [
-        'C2pt_N_GEVP_compare', 'C2pt_Nsgm_GEVP_compare', 'C2pt_overlap_compare',
-        'GEVP_vw'],
-    'cA211.530.24/analysis_3pt_light_codex': [
-        'Rstd_RGEVP_light_A24', 'Laplace_summary_light_A24', 'energy_scales'],
-    'cA2.09.48/analysis_2pt_codex': [
-        'C2pt_N_GEVP_compare', 'C2pt_Nsgm_GEVP_compare', 'C2pt_overlap_compare',
-        'GEVP_vw'],
-    'cA2.09.48/analysis_3pt_light_codex': [
-        'Rstd_RGEVP_light_A48', 'Laplace_summary_light_A48', 'energy_scales'],
+        'sigma_s_W_vs_full', 'sigma_s_Rstd_RGEVP', 'sigma_s_Rstd_RLap', 'sigma_c_ratios'],
+    'cA211.530.24/analysis_2pt_codex': [],
+    'cA211.530.24/analysis_3pt_light_codex': [],
+    'cA2.09.48/analysis_2pt_codex': [],
+    'cA2.09.48/analysis_3pt_light_codex': [],
+    'analysis_3pt_appendix_codex': ['appendix_standard_gevp', 'appendix_gevp_laplace'],
     'analysis_3pt_topologies_codex': ['gevp_midpoint_differences'],
+    'analysis_sigma_literature_codex': ['sigma_s_literature'],
 }
 DIAGRAMS = {
     'diags_2pt': 'diags_2pt_codex.tex',
@@ -85,7 +81,9 @@ def main(paper, diagrams=None):
     if set(included) != set(figures):
         raise ValueError(f'Figure-map mismatch: {set(included) ^ set(figures)}')
     sources = {item['source'] for item in figures.values()}
+    sources.update(ROOT / (group + '.ipynb') for group in GROUPS)
     sources.update(ROOT / name for name in ['util.py', 'util_codex.py', 'util_Nsgm.py'])
+    sources.add(ROOT / 'sigma_literature_codex.json')
     sources.update(ROOT / ensemble / 'processData_codex.ipynb'
                    for ensemble in ['cA211.530.24', 'cA2.09.48', 'cB211.072.64'])
     for ensemble in ['cA211.530.24', 'cA2.09.48', 'cB211.072.64']:
@@ -142,19 +140,25 @@ def main(paper, diagrams=None):
         shutil.copy2(item['output'], work / 'fig' / name)
         images = []
         for tag, pdf in [('before', before / 'fig' / name), ('after', work / 'fig' / name)]:
+            if not pdf.is_file():
+                images.append(None)
+                continue
             prefix = work / 'render' / (Path(name).stem + '_' + tag)
             subprocess.run(['pdftoppm', '-r', '120', '-singlefile', '-png', str(pdf), str(prefix)], check=True, capture_output=True)
             with Image.open(str(prefix) + '.png') as image:
                 images.append(image.convert('RGB'))
-        identical = images[0].size == images[1].size and ImageChops.difference(*images).getbbox() is None
+        identical = (images[0].size == images[1].size and ImageChops.difference(*images).getbbox() is None
+                     if images[0] is not None else None)
         report.append({'figure': name, 'source': str(item['source']),
-                       'pixels_identical': identical, 'before_sha256': file_hash(before / 'fig' / name),
+                       'pixels_identical': identical,
+                       'before_sha256': file_hash(before / 'fig' / name) if images[0] is not None else None,
                        'after_sha256': file_hash(work / 'fig' / name)})
-        print(f'{name}: {"IDENTICAL" if identical else "DIFFERENT"}', flush=True)
+        status = 'NEW' if identical is None else ('IDENTICAL' if identical else 'DIFFERENT')
+        print(f'{name}: {status}', flush=True)
     (work / 'figure_report.json').write_text(json.dumps(report, indent=2) + '\n')
     source_hashes = {str(path): file_hash(path) for path in sources}
     (work / 'source_hashes.json').write_text(json.dumps(source_hashes, indent=2) + '\n')
-    print(f'Regenerated {len(report)} figures. Pixel-identical: {sum(row["pixels_identical"] for row in report)}.', flush=True)
+    print(f'Regenerated {len(report)} figures. Pixel-identical: {sum(row["pixels_identical"] is True for row in report)}.', flush=True)
 
 
 if __name__ == '__main__':

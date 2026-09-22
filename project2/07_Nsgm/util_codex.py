@@ -38,6 +38,112 @@ def apply_paper_style(overrides=None):
     mpl.rcParams.update(paper_style(overrides))
 
 
+def sigma_literature_values(study, channel):
+    """Convert a quoted measurement to MeV without merging distinct studies."""
+    entry = study['values'][channel]
+    scale = entry.get('scale', 1.0)
+    value = entry['value'] * scale
+    if 'error_total' in entry:
+        minus = plus = entry['error_total'] * scale
+    elif 'errors' in entry:
+        error = np.linalg.norm(entry['errors']) * scale
+        minus, plus = error, error
+    else:
+        minus = entry['error_minus'] * scale
+        plus = entry['error_plus'] * scale
+    if not np.all(np.isfinite([value, minus, plus])) or min(minus, plus) < 0:
+        raise ValueError(f"Invalid uncertainty in {study['id']}: {channel}")
+    return value, minus, plus
+
+
+def plot_sigma_literature(studies, channel, groups):
+    """Group by extraction method; marker fill encodes lattice-spacing status."""
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    by_id = {study['id']: study for study in studies}
+    ids = [key for group in groups for key in group['ids']]
+    if len(set(ids)) != len(ids) or len(by_id) != len(studies):
+        raise ValueError('Duplicate literature IDs')
+    styles = {
+        'direct': ('green', 'o'),
+        'fh': ('blue', 's'),
+        'chiral': ('orange', 'D'),
+        'phenomenology': ('#555555', '^'),
+        'photoproduction': ('#555555', '^'),
+    }
+    labels = {'piN': r'$\sigma_{\pi N}$ [MeV]', 's': r'$\sigma_s$ [MeV]',
+              'c': r'$\sigma_c$ [MeV]'}
+    limits = {'piN': (28, 72), 's': (10, 75), 'c': (40, 120)}
+    with mpl.rc_context(paper_style({'text.usetex': False, 'font.family': 'serif'})):
+        width = 5.3 if channel == 'piN' else 3.5
+        # Model-dependent photoproduction extractions need their own linear scale.
+        panels = [[group for group in groups if group['method'] != 'photoproduction']]
+        photo = [group for group in groups if group['method'] == 'photoproduction']
+        if photo:
+            panels.append(photo)
+        heights = [.65 + .23 * (sum(len(g['ids']) for g in panel) + 1.5 * len(panel))
+                   for panel in panels]
+        figure, axes = plt.subplots(len(panels), 1, figsize=(width, sum(heights)),
+                                    gridspec_kw={'height_ratios': heights}, squeeze=False)
+        for panel_index, (panel, axis) in enumerate(zip(panels, axes[:, 0])):
+            positions, names, headers = [], [], []
+            position = 0
+            for group in panel:
+                headers.append(len(names))
+                positions.append(position)
+                names.append(group['label'])
+                color, marker = styles[group['method']]
+                if position and channel != 's':
+                    axis.axhline(position - .55, color='.85', lw=.5, ls='-', marker='')
+                for key in group['ids']:
+                    position += 1
+                    row = by_id[key]
+                    value, minus, plus = sigma_literature_values(row, channel)
+                    point_color = 'red' if key == 'this_work' else row.get('plot_color', color)
+                    face = 'white' if row['category'] in ['finite_a', 'this_work'] else point_color
+                    if key == 'this_work':
+                        axis.axvspan(value - minus, value + plus, color=point_color, alpha=.13)
+                    entry = row['values'][channel]
+                    if 'error_stat' in entry:
+                        stat = entry['error_stat'] * entry.get('scale', 1.0)
+                        if not np.isfinite(stat) or not 0 <= stat <= min(minus, plus):
+                            raise ValueError(f"Invalid statistical uncertainty in {key}: {channel}")
+                        axis.errorbar(value, position, xerr=stat, fmt='none',
+                                      ecolor=point_color, elinewidth=.7, capsize=2.5,
+                                      capthick=.7, zorder=2.5)
+                    axis.errorbar(value, position, xerr=[[minus], [plus]], fmt=marker,
+                                  color=point_color, mfc=face, ms=4, elinewidth=.7,
+                                  capsize=2.5, capthick=.7, zorder=3)
+                    positions.append(position)
+                    name = row['values'][channel].get('label', row['label'])
+                    names.append(name.replace('chiQCD', r'$\chi$QCD').replace('N pi', r'$N\pi$'))
+                position += 1.6
+            axis.set_yticks(positions, names, fontsize=7.5)
+            for index in headers:
+                axis.get_yticklabels()[index].set_fontweight('bold')
+                axis.get_yticklabels()[index].set_fontsize(7)
+            axis.set_ylim(positions[-1] + .7, -.7 if channel == 's' else -1.8)
+            axis.set_xlim(*(limits[channel] if panel_index == 0 else (200, 550)))
+            ticks = {'piN': [30, 40, 50, 60, 70], 's': [20, 40, 60],
+                     'c': [40, 60, 80, 100, 120]}[channel]
+            axis.set_xticks(ticks if panel_index == 0 else [200, 300, 400, 500])
+            axis.set_xlabel(labels[channel])
+            axis.tick_params(direction='in', top=True, right=False, axis='x')
+            axis.tick_params(axis='y', length=0, pad=5)
+            axis.set_axisbelow(True)
+            axis.grid(False)
+            if channel != 's':
+                axis.grid(axis='x', color='.90', linewidth=.5)
+                handles = [Line2D([], [], color='black', marker='o', mfc=face,
+                                  ls='', label=label) for face, label in
+                           [('white', r'Lattice: $a>0$'), ('black', r'Lattice: $a\to0$')]]
+                axis.legend(handles=handles, loc='upper center', ncol=2, fontsize=7,
+                            frameon=False, handletextpad=.4, columnspacing=.8)
+        figure.tight_layout(pad=.7)
+    return figure, axes[:, 0] if photo else axes[0, 0]
+
+
 def ratio_legend_handles(labels):
     """Representative open/filled circles for a baseline/transformed ratio pair."""
     return [mpl.lines.Line2D([], [], color="black", marker="o", ls="",
@@ -518,6 +624,50 @@ def plot_laplace_midpoints(reduced, filtered_reduced, xunit, yunit, config, outp
     yu.finalizePlot(output_name, tightQ=False)
 
 
+def plot_appendix_ratios(datasets, filtered=False):
+    """Compare A24/A48 ratios and midpoints without repeating their fit scans."""
+    from matplotlib.lines import Line2D
+
+    kinds = ["gevp", "rlg"] if filtered else ["standard", "gevp"]
+    labels = ([r"$R_{\rm GEVP}^{d}$", r"$R_{\rm LG}$"] if filtered
+              else [r"$R_{\rm std}$", r"$R_{\rm GEVP}^{d}$"])
+    cuts = [2, 4] if filtered else [1, 1]
+    with mpl.rc_context(paper_style({"lines.markersize": 3.6, "errorbar.capsize": 2.5})):
+        figure, axes = plt.subplots(2, 2, figsize=(7.1, 4.2), sharey="row",
+                                   gridspec_kw={"width_ratios": [1.6, 1]})
+        for row, data in enumerate(datasets):
+            ensemble, ratios = data["ensemble"], data["ratios"]
+            rainbow, midpoint = axes[row]
+            spacing, scale = data["spacing"], data["yunit"]
+            tfs = sorted(ratios[kinds[0]])
+            for kind, cut, face, shift in zip(kinds, cuts, ["white", None], [0, .1]):
+                yu.plot_rainbow(rainbow, yu.symmetrizeRatio(ratios[kind]), tcmin=cut,
+                                xunit=spacing, yunit=scale, mfc=face, shift=shift,
+                                ax_mid=midpoint, mid_tfshift=3 * shift, tfs_reference=tfs)
+            rainbow.legend(handles=ratio_legend_handles(labels), loc="upper center", ncols=2,
+                           fontsize=8, columnspacing=1, handletextpad=.35, framealpha=1)
+            rainbow.text(.035, .06, yu.ens2label[ensemble], transform=rainbow.transAxes, fontsize=10)
+            handles = [Line2D([], [], color=yu.colors16[i], marker=yu.fmts16[i], linestyle="none",
+                              markersize=4, label=str(ts)) for i, ts in enumerate(tfs)]
+            midpoint.legend(handles=handles, title=r"$t_s/a$", title_fontsize=8, fontsize=7.5,
+                            ncols=len(tfs), loc="upper center", framealpha=1,
+                            handletextpad=.2, columnspacing=.5, borderpad=.35)
+            extent = (max(tfs) / 2 - cuts[0] + .65) * spacing
+            rainbow.set(xlim=(-extent, extent), xlabel=r"$t_{\rm ins}-t_s/2$ [fm]",
+                        ylabel=r"$\sigma_{\pi N}$ [MeV]",
+                        ylim=(80, 260) if ensemble == "a24" else (0, 80))
+            rainbow.xaxis.set_major_locator(mpl.ticker.MultipleLocator(.3))
+            rainbow.yaxis.set_major_locator(mpl.ticker.MultipleLocator(40 if ensemble == "a24" else 20))
+            midpoint.set(xlabel=r"$t_s$ [fm]",
+                         xlim=((min(tfs)-.7)*spacing, (max(tfs)+1)*spacing))
+            midpoint.xaxis.set_major_locator(mpl.ticker.MultipleLocator(.2))
+            for axis in axes[row]:
+                axis.tick_params(which="both", direction="in", top=True, right=True)
+        finish_shared_y_panels(figure, axes, wspace=.09)
+        name = "appendix_gevp_laplace" if filtered else "appendix_standard_gevp"
+        yu.finalizePlot(name, tightQ=False)
+
+
 def plot_double_laplace(ratio_gevp, ratio_double_laplace, double_cut, xunit, yunit, config):
     figure, axes = plt.subplots(1, 2, figsize=(3.4, 1.75), sharey=True,
                                 gridspec_kw={"width_ratios": [1.3, 1]})
@@ -628,7 +778,7 @@ def file_sha256(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def read_scalar_contractions(path, block_size, separations):
+def read_scalar_contractions(path, block_size, separations, current="j+"):
     """Read only needed operators/current, preserving raw configuration order."""
     data = {"2pt": {}, "3pt": {}, "VEV": {"j": {}, "pi0f": {}}}
     with h5py.File(path) as source:
@@ -649,14 +799,14 @@ def read_scalar_contractions(path, block_size, separations):
             for flavor, dataset in group["data"].items():
                 fields = flavor.split("_")
                 three_point = "_deltat_" in flavor
-                if three_point and (fields[1] != "j+" or int(fields[-1]) not in separations):
+                if three_point and (fields[1] != current or int(fields[-1]) not in separations):
                     continue
                 if dataset.shape[0] != len(cfgs):
                     raise ValueError(f"Configuration count mismatch: {dataset.name}")
                 if three_point:
                     scalar = group["inserts"].asstr()[:].tolist().index("id")
                     samples = yu.jackknife(dataset[:, :, selected, scalar], d=block_size)
-                    sink_flavor, current, source_flavor, _, tf = fields
+                    sink_flavor, insertion_current, source_flavor, _, tf = fields
                     if samples.shape[1] != int(tf) + 1:
                         raise ValueError(f"Insertion-time extent mismatch: {dataset.name}")
                 else:
@@ -668,13 +818,13 @@ def read_scalar_contractions(path, block_size, separations):
                     origin = origin.rsplit(";", 1)[0] + ";" + source_flavor
                     target = data["3pt" if three_point else "2pt"].setdefault(sink + "_" + origin, {})
                     if three_point:
-                        target = target.setdefault(f"id_{current}_{tf}", {})
+                        target = target.setdefault(f"id_{insertion_current}_{tf}", {})
                     if diagram in target:
                         raise ValueError(f"Duplicate operator/diagram: {pair}, {flavor}, {diagram}")
                     target[diagram] = samples[:, :, index]
         data["VEV"]["pi0f"]["sgm"] = yu.jackknife(source["VEV/pi0f/data/sgm"][:], d=block_size)
-        # The original processing fixes the VEV gamma ordering with id first.
-        data["VEV"]["j"]["id_j+"] = yu.jackknife(source["VEV/j/data/j+"][:, 0], d=block_size)
+        # Match production's float32 reduction order before selecting the id gamma.
+        data["VEV"]["j"][f"id_{current}"] = yu.jackknife(source[f"VEV/j/data/{current}"][:], d=block_size)[:, 0]
     return data, cfgs
 
 
@@ -756,8 +906,9 @@ class ScalarContractions:
         if "j" in parts:
             reduced = "-".join(p for p in parts if p != "j")
             tf = int(insertion.split("_")[-1])
+            current_key = "_".join(insertion.split("_")[:2])
             result -= (self.two_diagram(sink, origin, reduced)[:, tf]
-                       * self.data["VEV"]["j"]["id_j+"])[:, None]
+                       * self.data["VEV"]["j"][current_key])[:, None]
         return result
 
     def three(self, sink, origin, insertion, diagrams):
@@ -776,10 +927,10 @@ class ScalarContractions:
         result += partner[:, ::-1].conj()  # gtCj['id'] = +1
         return result
 
-    def three_matrix(self, tf, diagrams=yn.diags_all):
+    def three_matrix(self, tf, diagrams=yn.diags_all, current="j+"):
         matrices = []
         for ops in [OPS, [yn.op_flipl(op) for op in OPS]]:
-            matrix = np.transpose([[self.three(a, b, f"id_j+_{tf}", diagrams)
+            matrix = np.transpose([[self.three(a, b, f"id_{current}_{tf}", diagrams)
                                     for b in ops] for a in ops], (2, 3, 0, 1))
             matrices.append((matrix + matrix[:, ::-1].swapaxes(2, 3).conj()) / 2)
         # Both operators have the same row: row-sign product and fourCPTstar['id'] are +1.

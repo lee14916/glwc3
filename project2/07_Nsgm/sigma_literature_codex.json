@@ -1,0 +1,458 @@
+{
+  "checked_on": "2026-09-17",
+  "scope": "Representative expansion/update of Fig.17 of arXiv:2412.01535. Not an exhaustive world average.",
+  "error_rule": "Prefer a source-quoted total when provided; otherwise combine all quoted symmetric components in quadrature. Preserve asymmetric total intervals. Inner bars use only explicitly verified error_stat fields, with the same scale as the central value. Never combine results across studies.",
+  "units": "MeV after optional source scale",
+  "plot_groups": {
+    "piN": [
+      {"method": "direct", "label": "Direct matrix elements", "ids": ["pndme25", "pndme25_standard", "etmc25", "mainz23", "chiqcd16"]},
+      {"method": "fh", "label": "Feynman-Hellmann", "ids": ["bmw20"]},
+      {"method": "chiral", "label": "Chiral reanalysis", "ids": ["liang25"]},
+      {"method": "phenomenology", "label": "Phenomenology", "ids": ["rs23"]}
+    ],
+    "s": [
+      {"method": "direct", "label": "Direct matrix elements", "ids": ["this_work", "pndme25", "etmc25", "mainz23", "chiqcd16"]},
+      {"method": "fh", "label": "Feynman-Hellmann", "ids": ["bmw20", "copeland23"]}
+    ],
+    "c": [
+      {"method": "direct", "label": "Direct matrix elements", "ids": ["etmc25"]},
+      {"method": "fh", "label": "Feynman-Hellmann", "ids": ["bmw20"]}
+    ]
+  },
+  "selection_notes": "Show recent representative results, not a world average. Omit superseded ETMC/PNDME results, the very uncertain RQCD strange result, and the nonphysical single-spacing chiQCD charm result. Historical records remain below for provenance. The two PNDME light analyses share data. Copeland fits published baryon masses and takes FH derivatives, without a continuum extrapolation. Liang instead reanalyzes Mainz sigma-term data using an FH-derived two-loop formula, and remains a separate chiral-reanalysis category in the light preview.",
+  "collected_not_plotted": [],
+  "studies": [
+    {
+      "id": "kou24_exp",
+      "label": "Kou-Chen (2024), exp.",
+      "category": "phenomenology",
+      "source": "https://doi.org/10.1103/PhysRevD.109.036034",
+      "locator": "Abstract and Sec. III.A, paragraph following Fig. 2",
+      "bibkey": "Kou:2023zko",
+      "method": "Model-dependent extraction from J/psi photoproduction, exponential fit",
+      "convention": "As quoted, three-flavor mass decomposition",
+      "notes": "Same data as kou24_dipole, not an independent determination. Quoted error is the spread over photon energies, not a full statistical/systematic budget. Model and parameter uncertainties are excluded. Retained for reference but excluded from the publication comparison because these theoretical uncertainties are not fully quantified.",
+      "values": {"s": {"value": 455.62, "errors": [64.60]}}
+    },
+    {
+      "id": "kou24_dipole",
+      "label": "Kou-Chen (2024), dipole",
+      "category": "phenomenology",
+      "source": "https://doi.org/10.1103/PhysRevD.109.036034",
+      "locator": "Abstract and Sec. III.A, paragraph following Fig. 2",
+      "bibkey": "Kou:2023zko",
+      "method": "Model-dependent extraction from J/psi photoproduction, dipole fit",
+      "convention": "As quoted, three-flavor mass decomposition",
+      "notes": "Alternative fit to same data as kou24_exp. Quoted error is the spread over photon energies and excludes model/parameter uncertainties. Retained for reference but excluded from the publication comparison because these theoretical uncertainties are not fully quantified.",
+      "values": {"s": {"value": 337.74, "errors": [106.79]}}
+    },
+    {
+      "id": "etmc25_b64",
+      "label": "ETMC (2025), B64",
+      "category": "finite_a",
+      "source": "https://arxiv.org/abs/2412.01535v1",
+      "locator": "Table VIII, B64 row",
+      "bibkey": "Alexandrou:2024ozj",
+      "method": "Direct matrix element on B64, finite lattice spacing",
+      "convention": "Source's published B64 normalization",
+      "notes": "Same ensemble as this work; also an input to etmc25's continuum result, not independent of it. Source-quoted number, not reprocessed with our masses or fit strategy.",
+      "values": {"s": {"value": 56, "errors": [12]}}
+    },
+    {
+      "id": "this_work",
+      "label": "This work",
+      "category": "this_work",
+      "source": "Current manuscript, Eq. (sigma-s-result)",
+      "locator": "AIC constant-fit average",
+      "method": "Reduced GEVP, single a=0.07948 fm",
+      "convention": "B64 isoQCD bare strange mass",
+      "notes": "No continuum or finite-volume uncertainty included. Shares ensemble with ETMC determinations.",
+      "values": {
+        "s": {
+          "value": 43.9,
+          "errors": [
+            2.6
+          ]
+        }
+      }
+    },
+    {
+      "id": "pndme25",
+      "label": "PNDME (2025)",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/2503.07100v3",
+      "locator": "Eq. (10), final published version 19 December 2025",
+      "bibkey": "Park:2025rxi",
+      "method": "Direct matrix elements, Nf=2+1+1, continuum/chiral extrapolation",
+      "convention": "Published physical-point convention",
+      "notes": "Replaces v1 values 62(6), 34(18). Two light strategies share data; not independent estimates.",
+      "values": {
+        "piN": {
+          "value": 61,
+          "errors": [
+            6
+          ],
+          "label": "PNDME (2025), N pi"
+        },
+        "s": {
+          "value": 35,
+          "errors": [
+            13
+          ]
+        }
+      }
+    },
+    {
+      "id": "pndme25_standard",
+      "label": "PNDME (2025), standard",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/2503.07100v3",
+      "locator": "Eq. (10)",
+      "bibkey": "Park:2025rxi",
+      "method": "Alternative standard excited-state strategy on same data as pndme25",
+      "convention": "Same as pndme25",
+      "notes": "Alternative, not an additional independent calculation.",
+      "values": {
+        "piN": {
+          "value": 42,
+          "errors": [
+            6
+          ]
+        }
+      }
+    },
+    {
+      "id": "etmc25",
+      "label": "ETMC (2025)",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/2412.01535v1",
+      "locator": "Table VIII, continuum row; comparison Fig. 17",
+      "bibkey": "Alexandrou:2024ozj",
+      "method": "Direct matrix elements, Nf=2+1+1, three lattice spacings",
+      "convention": "Published isoQCD physical-point convention",
+      "notes": "Published PRD111,054505. Related proceedings are not new independent values.",
+      "values": {
+        "piN": {
+          "value": 41.9,
+          "errors": [
+            8.1
+          ]
+        },
+        "s": {
+          "value": 30,
+          "errors": [
+            17
+          ]
+        },
+        "c": {
+          "value": 82,
+          "errors": [
+            29
+          ]
+        }
+      }
+    },
+    {
+      "id": "mainz23",
+      "label": "Mainz (2023)",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/2303.08741v2",
+      "locator": "Eq. (30)",
+      "bibkey": "Agadjanov:2023efe",
+      "method": "Direct matrix elements, Nf=2+1, continuum/chiral extrapolation",
+      "convention": "Published physical point",
+      "notes": "Use the source's quoted combined errors3.6 and9.3; separately rounded components are retained, not recombined to change the quoted total.",
+      "values": {
+        "piN": {
+          "value": 43.7,
+          "error_stat": 1.2,
+          "error_total": 3.6,
+          "errors": [
+            1.2,
+            3.4
+          ]
+        },
+        "s": {
+          "value": 28.6,
+          "error_stat": 6.2,
+          "error_total": 9.3,
+          "errors": [
+            6.2,
+            7
+          ]
+        }
+      }
+    },
+    {
+      "id": "rqcd23",
+      "label": "RQCD (2023)",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/2211.03744v2",
+      "locator": "Table 10, nucleon row, sigma (not tilde sigma) columns",
+      "bibkey": "RQCD:2022xux",
+      "method": "Feynman-Hellmann, Nf=2+1 baryon-mass analysis, continuum",
+      "convention": "Isosymmetric QCD",
+      "notes": "Strange errors are asymmetric total errors, not separate statistical/systematic components. Correct primary reference is the baryon-spectrum paper.",
+      "values": {
+        "piN": {
+          "value": 43.9,
+          "errors": [
+            4.7
+          ]
+        },
+        "s": {
+          "value": 16,
+          "error_minus": 68,
+          "error_plus": 58
+        }
+      }
+    },
+    {
+      "id": "pndme21",
+      "label": "PNDME (2021)",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/2105.12095v2",
+      "locator": "Abstract, preferred N pi analysis",
+      "bibkey": "Gupta:2021ahb",
+      "method": "Direct matrix elements, Nf=2+1+1, N pi motivated treatment",
+      "convention": "Published physical point",
+      "notes": "Historical row from starting Fig.17, updated by PNDME2025; not independent.",
+      "values": {
+        "piN": {
+          "value": 59.6,
+          "errors": [
+            7.4
+          ]
+        }
+      }
+    },
+    {
+      "id": "bmw20",
+      "label": "BMW (2020)",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/2007.03319v1",
+      "locator": "Table 1, f_ud^N, f_s^N, f_c^N; nucleon mass SM Sec.3",
+      "bibkey": "Borsanyi:2020bpd",
+      "method": "Feynman-Hellmann; continuum light/strange and direct charm-mass response",
+      "convention": "Mpi=134.8 MeV; sigma=f_q^N times MN=938.919 MeV",
+      "notes": "Use lattice charm .0734, not heavy-quark expansion .0732. Conversion uses the source's fixed normalization, not a new mass error.",
+      "values": {
+        "piN": {
+          "value": 0.0398,
+          "error_stat": 0.0032,
+          "errors": [
+            0.0032,
+            0.0044
+          ],
+          "scale": 938.919
+        },
+        "s": {
+          "value": 0.0577,
+          "error_stat": 0.0046,
+          "errors": [
+            0.0046,
+            0.0033
+          ],
+          "scale": 938.919
+        },
+        "c": {
+          "value": 0.0734,
+          "error_stat": 0.0045,
+          "errors": [
+            0.0045,
+            0.0055
+          ],
+          "scale": 938.919
+        }
+      }
+    },
+    {
+      "id": "etmc20",
+      "label": "ETMC (2020)",
+      "category": "finite_a",
+      "source": "https://arxiv.org/abs/1909.00485v2",
+      "locator": "Table XII",
+      "bibkey": "Alexandrou:2019brg",
+      "method": "Direct, Nf=2+1+1, one lattice spacing a about .08 fm",
+      "convention": "Published near-physical point",
+      "notes": "Called ETM19 in starting Fig.17. Uses B64, overlapping current work and ETMC2025.",
+      "values": {
+        "piN": {
+          "value": 41.6,
+          "errors": [
+            3.8
+          ]
+        },
+        "s": {
+          "value": 45.6,
+          "errors": [
+            6.2
+          ]
+        },
+        "c": {
+          "value": 107,
+          "errors": [
+            22
+          ]
+        }
+      }
+    },
+    {
+      "id": "chiqcd16",
+      "label": "chiQCD (2016)",
+      "category": "continuum",
+      "source": "https://arxiv.org/abs/1511.09089v3",
+      "locator": "Abstract and final results",
+      "bibkey": "Yang:2015uis",
+      "method": "Overlap valence on Nf=2+1 domain-wall sea, joint physical/continuum extrapolation",
+      "convention": "Published physical point",
+      "notes": "Statistical/systematic errors combined in quadrature.",
+      "values": {
+        "piN": {
+          "value": 45.9,
+          "error_stat": 7.4,
+          "errors": [
+            7.4,
+            2.8
+          ]
+        },
+        "s": {
+          "value": 40.2,
+          "error_stat": 11.7,
+          "errors": [
+            11.7,
+            3.5
+          ]
+        }
+      }
+    },
+    {
+      "id": "chiqcd13",
+      "label": "chiQCD (2013), heavy sea",
+      "category": "finite_a",
+      "source": "https://arxiv.org/abs/1304.1194v4",
+      "locator": "Abstract and charm conclusion",
+      "bibkey": "XQCD:2013odc",
+      "method": "Single a about .11 fm, sea pion about331 MeV, valence extrapolation",
+      "convention": "Source quotes sigma_c=94(31) MeV",
+      "notes": "Not a continuum result and sea mass remains heavy. Do not reconstruct from rounded f_c with a different nucleon mass.",
+      "values": {
+        "c": {
+          "value": 94,
+          "errors": [
+            31
+          ]
+        }
+      }
+    },
+    {
+      "id": "copeland23",
+      "label": "Copeland et al. (2023)",
+      "category": "finite_a",
+      "plot_color": "orange",
+      "source": "https://arxiv.org/abs/2112.03198v2",
+      "locator": "Table I, nucleon row and caption; Sec. III on absence of a continuum limit",
+      "bibkey": "Copeland:2021qni",
+      "method": "Feynman-Hellmann derivatives of SU(3) chiral fits with finite-range regularization to published lattice baryon masses",
+      "convention": "Published physical point",
+      "notes": "Reanalysis of PACS-CS and QCDSF-UKQCD mass data, not a new ensemble calculation or a continuum extrapolation. Errors in Table I: statistical, scale-setting prescription, higher-order theoretical uncertainty (10% for light, 20% for strange). All three belong in the total bar.",
+      "values": {
+        "piN": {
+          "value": 44,
+          "error_stat": 3,
+          "errors": [
+            3,
+            3,
+            4
+          ]
+        },
+        "s": {
+          "value": 50,
+          "error_stat": 6,
+          "errors": [
+            6,
+            1,
+            10
+          ]
+        }
+      }
+    },
+    {
+      "id": "liang25",
+      "label": "Liang et al. (2025), neutral",
+      "category": "chiral",
+      "source": "https://arxiv.org/abs/2508.11435v1",
+      "locator": "After Fig.4, neutral-pion total error; Table S2, neutral-pion statistical error",
+      "bibkey": "Liang:2025adz",
+      "method": "Leading-two-loop chiral reanalysis of lattice sigma-term data",
+      "convention": "Neutral pion",
+      "notes": "Source charged-pion result55.9(2.5) differs from displayed neutral53.1(2.4); the two are not independent.",
+      "values": {
+        "piN": {
+          "value": 53.1,
+          "error_stat": 1.8,
+          "errors": [
+            2.4
+          ]
+        }
+      }
+    },
+    {
+      "id": "rs23",
+      "label": "Roy-Steiner (2023), isoQCD",
+      "category": "phenomenology",
+      "source": "https://arxiv.org/abs/2305.07045v2",
+      "locator": "Updated sigma term and isospin correction",
+      "bibkey": "Hoferichter:2023ptl",
+      "method": "Dispersive Roy-Steiner equations and pionic H/D input",
+      "convention": "Neutral-pion/isoQCD result after source correction",
+      "notes": "59.0(3.5) in charged convention, downward correction3.1(.1)(.4); displayed55.9(3.5). Not an independent second RS determination.",
+      "values": {
+        "piN": {
+          "value": 55.9,
+          "errors": [
+            3.5
+          ]
+        }
+      }
+    },
+    {
+      "id": "ruiz18",
+      "label": "Scattering (2018), charged",
+      "category": "phenomenology",
+      "source": "https://arxiv.org/abs/1706.01465v2",
+      "locator": "Abstract",
+      "bibkey": "RuizdeElvira:2017stg",
+      "method": "Low-energy pion-nucleon scattering and Roy-Steiner representation",
+      "convention": "Charged pion; not converted in this plot",
+      "notes": "Related dispersive inputs to rs23; no independent averaging.",
+      "values": {
+        "piN": {
+          "value": 58,
+          "errors": [
+            5
+          ]
+        }
+      }
+    },
+    {
+      "id": "friedman19",
+      "label": "Pionic atoms (2019), quoted",
+      "category": "phenomenology",
+      "source": "https://arxiv.org/abs/1901.03130v2",
+      "locator": "Abstract",
+      "bibkey": "Friedman:2019zhc",
+      "method": "Nuclear pionic-atom optical-potential analysis",
+      "convention": "As quoted by the source; no isoQCD conversion applied",
+      "notes": "Extraction assumes the relation of the in-medium amplitude to the condensate.",
+      "values": {
+        "piN": {
+          "value": 57,
+          "errors": [
+            7
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -32,7 +32,10 @@ Current operational rules. This is not a chronological change log. Read agents_p
 4. analysis_3pt_light_codex.ipynb reads those selections and computes light-current results. A notebooks must not independently refit the selected nucleon input.
 5. B64 analysis_3pt_strange_charm_codex.ipynb reads the two-point and selected light outputs.
 6. Parent analysis_3pt_topologies_codex.ipynb uses compact pickles and current eigenvector pickles only.
-7. reproduce_figures_codex.py owns the exact manuscript inventory and runs eight analysis notebooks in dependency order. Processing notebooks are a separate, one-time raw-data stage, not rerun when making figures. The inventory currently has 35 figures; verify the map against the current manuscript rather than hard-coding this count elsewhere.
+7. Parent analysis_3pt_appendix_codex.ipynb plots the A24/A48 standard/GEVP and GEVP/Laplace comparisons from the ensemble-exported appendix_ratios.pkl files; it performs no fits.
+8. reproduce_figures_codex.py owns the exact manuscript inventory and runs ten analysis notebooks in dependency order. Processing notebooks are a separate, one-time raw-data stage, not rerun when making figures. The inventory currently has 23 figures; verify the map against the current manuscript rather than hard-coding this count elsewhere.
+9. Parent analysis_sigma_literature_codex.ipynb supplies the strange comparison in the Conclusions and separate light/charm previews, not a combined fit. Its primary-source inputs and explicit method-group selections live in sigma_literature_codex.json, included in reproduction hashes, and its shared renderer in util_codex.py. Preserve asymmetric source errors, conversion factors, and alternative-study labels; do not average across publications. Marker shape identifies extraction method and open/filled lattice markers distinguish finite-spacing/continuum results. Historical unplotted records remain in the JSON.
+- Literature inner bars use explicit source-verified error_stat metadata, scaled with the central value; never assume the first component of an arbitrary errors array is statistical. Outer bars retain source-quoted totals or combine all quoted components in quadrature. Classify Copeland's baryon-mass derivative as FH without a continuum extrapolation, not as a continuum determination or a separate sigma-term fitting method.
 
 ## Code Style and Execution
 
@@ -124,7 +127,8 @@ Current operational rules. This is not a chronological change log. Read agents_p
 - Ordinary single-filter comparison: original insertion cut2, displacement2, filtered cut4. Equality of ORIGINAL input support is what matters.
 - Two-point displacement study holds original inclusive endpoints7..28 (N) and4..16 (projected N-sigma), accounting for the adjacent-time mass. For displacement d use trimmed effective-mass indices range(first,last-2*d), with at least three masses. Show only d=1..4. Fixed endpoints do not imply equal numbers of filtered points.
 - Double-filtered light ratios are displayed with (delta1,delta2)=(2,3), original cut1 and filtered cut6. Do not fit them or restore the removed displacement-fit plot.
-- A-ensemble removed diagnostics are no longer executed by maintained publication notebooks. Their retained figure types are eigenvectors/W, N two-point, N-sigma two-point, overlaps, standard/reduced light ratio, Laplace summary, energy comparison.
+- The A-ensemble analyses retain their existing two-point inputs and fits for reproducibility, but Appendix C displays only two combined data-only ratio/midpoint figures. Do not restore the separate two-point, eigenvector, overlap, fit-scan, or energy-summary figures to the paper. The ensemble light notebooks export their paired ratios and filter metadata as appendix_ratios.pkl.
+- Appendix C legends and A24/A48 labels sit inside axes without covering points. A48 uses 0..80 MeV, matching B64; A24 has its own scale. Preserve all available separations and the existing sample-aligned filter gaps and displacement 2.
 - A24 energy comparison omits physical-resonance markers AND their rows/spacing. A48/B64 retain the PDG-based references.
 
 ## Strange and Charm
@@ -154,7 +158,7 @@ Current operational rules. This is not a chronological change log. Read agents_p
 - Usual widths are7.1in for full page and3.4--3.55in for column figures. Keep line widths near.8pt axes and1pt errorbars, with visible caps.
 - Never let legends cover data/error bars/ticks. Check rendered paper-size figures. Keep fit/display support separate; do not discard data from a fit to improve visual appearance.
 - Numerical implementation ranges and horizontal display offsets belong in code, not captions. Follow paper-writing guide for what enters prose.
-- Split strange/charm method legends between left/right panels for the three-panel comparisons. Keep the combined legend for the overlaid strange standard/W panel.
+- Split strange method legends between left/right panels for the three-panel comparison. Keep the combined legend for the overlaid strange standard/W panel. Charm uses one rainbow-only figure with standard, reduced, and full ratios in three equal panels, internal method legends, matching separations, and common axes; omit midpoints.
 - No headers on Appendix D panels. Show paired midpoint differences in physical units with distinct ensemble symbols and small offsets.
 
 ## Cross-Checks Outside the Publication Pipeline
