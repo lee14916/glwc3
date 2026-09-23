@@ -9,7 +9,11 @@ from sympy.combinatorics import Permutation
 inserts_1DV=['tt', 'tx', 'ty', 'tz', 'xx', 'xy', 'xz', 'yy', 'yz', 'zz']
 inserts_1DA=['tt', 'tx', 'ty', 'tz', 'xx', 'xy', 'xz', 'yy', 'yz', 'zz']
 inserts_local=['id','gx','gy','gz','gt','g5','g5gx','g5gy','g5gz','g5gt','sgmyz','sgmzx','sgmxy','sgmtx','sgmty','sgmtz']
-inserts_1DT=[]
+# Same 36 index triples as Giannis (his 0 is our t); no trace subtraction.
+# Here sigma_mn=[gamma_m,gamma_n]/2, as defined by pre2post_j.py.
+# This is an explicit sigma basis, not an assumed gamma5-sigma conversion.
+inserts_1DT=[m+n+r for m in 'txyz' for i,n in enumerate('txyz')
+             for r in 'txyz'[i:] if not m==n==r]
 
 Psgn={'id':1,'gx':-1,'gy':-1,'gz':-1,'gt':1,'g5':-1,'g5gx':1,'g5gy':1,'g5gz':1,'g5gt':-1,'sgmxy':1,'sgmyz':1,'sgmzx':1,'sgmtx':-1,'sgmty':-1,'sgmtz':-1}
 PTsgn={'id':1,'gx':-1,'gy':-1,'gz':-1,'gt':-1,'g5':1,'g5gx':-1,'g5gy':-1,'g5gz':-1,'g5gt':-1,'sgmxy':1,'sgmyz':1,'sgmzx':1,'sgmtx':1,'sgmty':1,'sgmtz':1} # PT transformation acting on insertion
@@ -145,8 +149,8 @@ input='p1=0'
 
 ens='cC211.060.80'
 
-case='1DA'
-assert(case in ['local','1DV','1DA'])
+case='1DT'
+assert(case in ['local','1DV','1DA','1DT'])
 folder=f'05_moments_run5_{case}'
 inserts={'local':inserts_local,'1DV':inserts_1DV,'1DA':inserts_1DA,'1DT':inserts_1DT}[case]
 
@@ -160,7 +164,7 @@ if case=='1DV':
         jqs=['j+','js','jc'] # disc
         stouts=range(40+1) # gluon
         
-if case=='1DA':
+if case in ['1DA','1DT']:
     if input=='q=0':
         moms_target=get_moms(0,0)
         jqs=['j+','js','jc'] # disc
@@ -233,7 +237,8 @@ def extractLoop(basepath,mom):
     gnus={
         'local':inserts_local,
         '1DV':['gt','gx','gy','gz'],
-        '1DA':['g5gt','g5gx','g5gy','g5gz']
+        '1DA':['g5gt','g5gx','g5gy','g5gz'],
+        '1DT':['sgmyz','sgmzx','sgmxy','sgmtx','sgmty','sgmtz']
     }[case]
     
     path=f'{basepath}/j.h5'
@@ -280,6 +285,27 @@ def extractLoop(basepath,mom):
                         t_transformed *= -1
                     t = (t + t_transformed)/2
                     
+            elif case=='1DT':
+                # Unsymmetrized sigma_mn D_r from the six antisymmetric pairs.
+                raw={(gnu,r):f[f'data/{j};{Dmu}'][:,:,gms.index(gnu)][:,inds_moms]
+                     for r,Dmu in zip(txyz,Dmus) for gnu in gnus}
+                zero=np.zeros_like(next(iter(raw.values())))
+                def get(m,n,r):
+                    if m==n:
+                        return zero
+                    if 'sgm'+m+n in gnus:
+                        return raw[('sgm'+m+n,r)]
+                    return -raw[('sgm'+n+m,r)]
+                # S_mnr=(sigma_mn D_r + sigma_mr D_n)/2, including repeated indices.
+                t=np.stack([(get(m,n,r)+get(m,r,n))/2 for m,n,r in inserts],axis=-1)
+                if flags['g5H']:
+                    dic={tuple(m[3:]):i for i,m in enumerate(moms)}
+                    moms_map=[dic[(-m[3],-m[4],-m[5])] for m in moms]
+                    # the tensor insertion contributes -1, and conjugating i contributes -1
+                    t_transformed=np.conj(t[:,moms_map,:])
+                    if 'j-' in j:
+                        t_transformed *= -1
+                    t=(t+t_transformed)/2
             else:
                 1/0
             
@@ -318,13 +344,13 @@ def correlate(srcs_all,dat2pt,dat2pt_bw,dat2pt_m,dat2pt_bw_m,j2datLoop,mom):
     for i,m in enumerate(moms):
         dic[tuple(m)]=i
     inds_negmom=[dic[tuple(-np.array(m))] for m in moms]
-    signs=(-1)*np.array([1,-1,-1,-1])[None,None,:,None]
     
     sgns_PT_proj=(-1)*np.array([1,-1,-1,-1])[None,None,:,None]
     sgns_PT_insert={
         'local':np.array([1,-1,-1,-1,-1, 1,-1,-1,-1,-1, 1,1,1,1,1,1])[None,None,None,:],
         '1DV':1,
-        '1DA':1
+        '1DA':1,
+        '1DT':-1 # Tensor is PT-even; the one derivative is PT-odd.
     }[case]
     
     phases=np.array([[get_phase(src,m[3:]) for m in moms] for src in srcs_all])[:,None,:,None]
@@ -413,6 +439,13 @@ def avgmore(jtf2dat3pt,mom):
             e2signs_insert[e]=np.array([signs[xyzt.index(insert[0])]*signs[xyzt.index(insert[1])] for insert in inserts]) * {'1DV':1,'1DA':det}[case]
             e2inds_insert[e]=[xyzt2[insert[0]]+xyzt2[insert[1]] for insert in inserts]
             e2inds_insert[e]=[inserts.index(ele) if ele in inserts else inserts.index(ele[1]+ele[0]) for ele in e2inds_insert[e]]
+        elif case=='1DT':
+            # Ordinary rank-three tensor: no axial determinant factor.
+            e2signs_insert[e]=np.array([np.prod([signs[xyzt.index(a)] for a in ins]) for ins in inserts])
+            mapped=[''.join(xyzt2[a] for a in ins) for ins in inserts]
+            # Only the final pair is symmetric; do not reorder the first index.
+            mapped=[ins[0]+''.join(sorted(ins[1:],key='txyz'.index)) for ins in mapped]
+            e2inds_insert[e]=[inserts.index(ins) for ins in mapped]
         else:
             1/0
     
