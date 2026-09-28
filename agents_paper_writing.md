@@ -14,6 +14,7 @@ This guide contains reusable writing and citation practices. It does not define 
 - Treat editorial comments phrased as questions as requests for judgment. Explain the recommendation and uncertainty, then revise consistently with the best-supported interpretation.
 - Prefer direct, precise wording. Avoid rhetorical questions and semicolons in prose unless there is a clear technical or grammatical need.
 - Use the conventions of the target journal and relevant field papers as style references, not as substitutes for checking the science.
+- Do not make manuscript-wide punctuation or typographic normalizations during a focused revision. Preserve the source style and review history unless the user explicitly requests a separate copy-editing pass; fix the requested figure labels independently.
 
 ## Figures and Tables
 

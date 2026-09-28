@@ -21,6 +21,8 @@ This guide contains reusable engineering practices. It does not define repositor
 
 ## Verification and Handoff
 
+- When plotting under repository-specific Matplotlib defaults, use the established reference-line helper or set both the line style and marker explicitly. Check the rendered figure: an inherited empty line style can leave only endpoint markers. Offset estimates sharing a plot row enough to distinguish their markers and error bars.
+
 - Scale tests to the risk and reach of the change. Run relevant existing tests or checks; do not add new tests unless requested or necessary to validate risky behavior.
 - Report what changed, why, what verification ran, and any important limitation. Do not claim tests or checks passed if they were not run.
 - Keep generated outputs, caches, and diagnostics out of source directories unless the project explicitly requires them there.

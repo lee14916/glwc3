@@ -32,7 +32,7 @@ GROUPS = {
     'cA2.09.48/analysis_3pt_light_codex': [],
     'analysis_3pt_appendix_codex': ['appendix_standard_gevp', 'appendix_gevp_laplace'],
     'analysis_3pt_topologies_codex': ['gevp_midpoint_differences'],
-    'analysis_sigma_literature_codex': ['sigma_s_literature'],
+    'analysis_sigma_literature_codex': ['sigma_piN_literature', 'sigma_s_literature'],
 }
 DIAGRAMS = {
     'diags_2pt': 'diags_2pt_codex.tex',

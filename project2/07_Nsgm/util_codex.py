@@ -76,7 +76,7 @@ def plot_sigma_literature(studies, channel, groups):
               'c': r'$\sigma_c$ [MeV]'}
     limits = {'piN': (28, 72), 's': (10, 75), 'c': (40, 120)}
     with mpl.rc_context(paper_style({'text.usetex': False, 'font.family': 'serif'})):
-        width = 5.3 if channel == 'piN' else 3.5
+        width = 3.5
         # Model-dependent photoproduction extractions need their own linear scale.
         panels = [[group for group in groups if group['method'] != 'photoproduction']]
         photo = [group for group in groups if group['method'] == 'photoproduction']
@@ -134,7 +134,6 @@ def plot_sigma_literature(studies, channel, groups):
             axis.set_axisbelow(True)
             axis.grid(False)
             if channel != 's':
-                axis.grid(axis='x', color='.90', linewidth=.5)
                 handles = [Line2D([], [], color='black', marker='o', mfc=face,
                                   ls='', label=label) for face, label in
                            [('white', r'Lattice: $a>0$'), ('black', r'Lattice: $a\to0$')]]
@@ -142,6 +141,69 @@ def plot_sigma_literature(studies, channel, groups):
                             frameon=False, handletextpad=.4, columnspacing=.8)
         figure.tight_layout(pad=.7)
     return figure, axes[:, 0] if photo else axes[0, 0]
+
+
+def plot_sigma_compact(studies, rows, channel):
+    """One row per study; marker shape separates alternative analyses."""
+    import matplotlib.pyplot as plt
+
+    by_id = {study['id']: study for study in studies}
+    colors = {'direct': 'red', 'fh': 'green', 'phenomenology': 'blue'}
+    group_names = {'direct': 'Direct', 'fh': 'F-H', 'phenomenology': 'Pheno.'}
+    alternatives = {'this_work_piN_lg', 'this_work_A48_lg', 'pndme25',
+                    'pndme21', 'mainz23_two_state', 'liang25',
+                    'this_work_piN_standard', 'this_work_A48_standard',
+                    'this_work_s_light_gap'}
+    gevp_fits = {'this_work_piN_lg', 'this_work_A48_lg', 'this_work'}
+    alternatives.difference_update(gevp_fits)
+    with mpl.rc_context(paper_style({'text.usetex': False, 'font.family': 'serif'})):
+        figure, axis = plt.subplots(figsize=(3.5, 3.1 if channel == 'piN' else 2.1))
+        previous_group = None
+        for index, row in enumerate(rows):
+            group = row['group']
+            if group != previous_group:
+                if index:
+                    yu.addRefLine(axis, index - .5, color='.55', ls='-', lw=.55, zorder=1)
+                axis.text(72 if channel == 's' else 92, index - .34,
+                          group_names[group], color='black',
+                          fontsize=7, ha='right', va='top')
+                previous_group = group
+            count = len(row['ids'])
+            offsets = np.linspace(-.28 if count == 3 else -.20,
+                                  .28 if count == 3 else .20, count) if count > 1 else [0]
+            for key, offset in zip(row['ids'], offsets):
+                study = by_id[key]
+                mean, minus, plus = sigma_literature_values(study, channel)
+                entry = study['values'][channel]
+                color = colors[group]
+                if key in ('this_work_piN_lg', 'this_work'):
+                    axis.axvspan(mean - minus, mean + plus, color=color,
+                                 alpha=.10, zorder=.5, linewidth=0)
+                marker = ('D' if group == 'phenomenology' else
+                          '*' if key in gevp_fits else
+                          'o' if len(row['ids']) > 1 and key in alternatives else 's')
+                face = 'white' if study['category'] in ('finite_a', 'this_work') else color
+                if 'error_stat' in entry:
+                    stat = entry['error_stat'] * entry.get('scale', 1.0)
+                    axis.errorbar(mean, index + offset, xerr=stat, fmt='none', color=color,
+                                  elinewidth=.8, capsize=2, capthick=.8, zorder=3)
+                axis.errorbar(mean, index + offset, xerr=[[minus], [plus]], fmt=marker,
+                              color=color, mfc=face, ms=7 if marker == '*' else 3.5, elinewidth=.8,
+                              capsize=2, capthick=.8, zorder=4)
+        axis.set(xlim=(15, 95) if channel == 'piN' else (10, 75),
+                 ylim=(len(rows) - .35, -.7),
+                 xlabel=r'$\sigma_{\pi N}$ [MeV]' if channel == 'piN' else r'$\sigma_s$ [MeV]')
+        axis.set_yticks(range(len(rows)), [row['label'] for row in rows], fontsize=7)
+        axis.set_xticks([20, 40, 60, 80] if channel == 'piN' else [20, 40, 60])
+        axis.tick_params(direction='in', top=True, right=True)
+        axis.tick_params(axis='y', direction='in', length=3, width=.8,
+                         left=True, right=False, pad=4)
+        figure.subplots_adjust(left=.31, right=.98, top=.97, bottom=.16)
+    return figure, axis
+
+
+def plot_sigma_piN_compact(studies, rows):
+    return plot_sigma_compact(studies, rows, 'piN')
 
 
 def ratio_legend_handles(labels):

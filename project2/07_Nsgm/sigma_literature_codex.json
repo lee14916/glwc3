@@ -5,6 +5,7 @@
   "units": "MeV after optional source scale",
   "plot_groups": {
     "piN": [
+      {"method": "direct", "label": "This work (B64)", "ids": ["this_work_piN_standard", "this_work_piN_lg"]},
       {"method": "direct", "label": "Direct matrix elements", "ids": ["pndme25", "pndme25_standard", "etmc25", "mainz23", "chiqcd16"]},
       {"method": "fh", "label": "Feynman-Hellmann", "ids": ["bmw20"]},
       {"method": "chiral", "label": "Chiral reanalysis", "ids": ["liang25"]},
@@ -19,9 +20,121 @@
       {"method": "fh", "label": "Feynman-Hellmann", "ids": ["bmw20"]}
     ]
   },
+  "piN_compact_rows": [
+    {"label": "This work", "group": "direct", "ids": ["this_work_piN_shared", "this_work_piN_standard", "this_work_piN_lg"]},
+    {"label": "PNDME25", "group": "direct", "ids": ["pndme25_standard", "pndme25"]},
+    {"label": "ETMC25", "group": "direct", "ids": ["etmc25"]},
+    {"label": "Mainz23", "group": "direct", "ids": ["mainz23_window", "mainz23_two_state"]},
+    {"label": "PNDME21", "group": "direct", "ids": ["pndme21_standard", "pndme21"]},
+    {"label": "Liang25", "group": "fh", "ids": ["liang25_one_loop", "liang25"]},
+    {"label": "RQCD23", "group": "fh", "ids": ["rqcd23"]},
+    {"label": "BMW20", "group": "fh", "ids": ["bmw20"]},
+    {"label": "Copeland23", "group": "fh", "ids": ["copeland23"]},
+    {"label": "Hoferichter23", "group": "phenomenology", "ids": ["rs23"]},
+    {"label": "Friedman19", "group": "phenomenology", "ids": ["friedman19"]},
+    {"label": "Ruiz de Elvira18", "group": "phenomenology", "ids": ["ruiz18"]}
+  ],
+  "s_compact_rows": [
+    {"label": "This work", "group": "direct", "ids": ["this_work_s_shared", "this_work_s_light_gap", "this_work"]},
+    {"label": "PNDME25", "group": "direct", "ids": ["pndme25"]},
+    {"label": "ETMC25", "group": "direct", "ids": ["etmc25"]},
+    {"label": "Mainz23", "group": "direct", "ids": ["mainz23"]},
+    {"label": "chiQCD16", "group": "direct", "ids": ["chiqcd16"]},
+    {"label": "BMW20", "group": "fh", "ids": ["bmw20"]},
+    {"label": "Copeland23", "group": "fh", "ids": ["copeland23"]}
+  ],
   "selection_notes": "Show recent representative results, not a world average. Omit superseded ETMC/PNDME results, the very uncertain RQCD strange result, and the nonphysical single-spacing chiQCD charm result. Historical records remain below for provenance. The two PNDME light analyses share data. Copeland fits published baryon masses and takes FH derivatives, without a continuum extrapolation. Liang instead reanalyzes Mainz sigma-term data using an FH-derived two-loop formula, and remains a separate chiral-reanalysis category in the light preview.",
   "collected_not_plotted": [],
   "studies": [
+    {
+      "id": "this_work_piN_shared", "label": "This work, B64, Rstd I", "category": "finite_a",
+      "source": "Current B64 light analysis", "locator": "cB211.072.64/analysis_3pt_light_codex.ipynb, standard shared gap window (12,2)",
+      "bibkey": null, "method": "Standard ratio case I with two-point gap", "convention": "B64 light mass converted to the isoQCD point with m_pi=135 MeV",
+      "notes": "Diagnostic, correlated with the other B64 light points.",
+      "values": {"piN": {"value": 39.7, "errors": [2.4]}}
+    },
+    {
+      "id": "this_work_A48_shared", "label": "This work, A48, Rstd I", "category": "finite_a",
+      "source": "Current A48 light analysis", "locator": "cA2.09.48/analysis_3pt_light_codex.ipynb, standard case I window (14,2)",
+      "bibkey": null, "method": "Standard ratio case I with two-point gap", "convention": "A48 mass replaced at leading order to Mpi=135 MeV",
+      "notes": "Diagnostic, correlated with the other A48 light points.",
+      "values": {"piN": {"value": 37.0, "errors": [2.3]}}
+    },
+    {
+      "id": "this_work_s_shared", "label": "This work, B64, strange Rstd I", "category": "finite_a",
+      "source": "Current B64 strange analysis", "locator": "cB211.072.64/analysis_3pt_strange_charm_codex.ipynb, strange_shared window (12,2)",
+      "bibkey": null, "method": "Standard strange ratio case I with two-point gap", "convention": "B64 isoQCD bare strange mass",
+      "notes": "Diagnostic comparison, not a selected strange result; correlated with the other B64 strange points.",
+      "values": {"s": {"value": 37.8, "errors": [4.6]}}
+    },
+    {
+      "id": "this_work_s_light_gap", "label": "This work, B64, strange Rstd VI", "category": "finite_a",
+      "source": "Current B64 strange analysis", "locator": "cB211.072.64/analysis_3pt_strange_charm_codex.ipynb, strange_fixed_gap window (12,2)",
+      "bibkey": null, "method": "Standard strange ratio case VI with light-channel transition gap", "convention": "B64 isoQCD bare strange mass",
+      "notes": "Diagnostic comparison, not a selected strange result; correlated with the other B64 strange points.",
+      "values": {"s": {"value": 46.4, "errors": [6.0]}}
+    },
+    {
+      "id": "this_work_A48_standard", "label": "This work, A48, Rstd IV", "category": "finite_a",
+      "source": "Current manuscript, A48 diagnostic standard-ratio fit", "locator": "cA2.09.48/analysis_3pt_light_codex.ipynb, standard_IV window (14,2)",
+      "bibkey": null, "method": "Direct matrix element, standard ratio", "convention": "A48 mass replaced at leading order to Mpi=135 MeV",
+      "notes": "Diagnostic fit, not a selected light sigma-term determination; shares A48 data with the RLG row.",
+      "values": {"piN": {"value": 38.0, "errors": [2.4]}}
+    },
+    {
+      "id": "this_work_A48_lg", "label": "This work, A48, RLG IV", "category": "finite_a",
+      "source": "Current manuscript, A48 diagnostic Laplace-GEVP fit", "locator": "cA2.09.48/analysis_3pt_light_codex.ipynb, rlg_IV window (10,4)",
+      "bibkey": null, "method": "Direct matrix element, Laplace-filtered GEVP ratio", "convention": "A48 mass replaced at leading order to Mpi=135 MeV",
+      "notes": "Diagnostic fit, not a selected light sigma-term determination; fitted gap 700(570) MeV is poorly resolved.",
+      "values": {"piN": {"value": 40.8, "errors": [6.1]}}
+    },
+    {
+      "id": "mainz23_window", "label": "Mainz (2023), window", "category": "continuum",
+      "source": "https://arxiv.org/abs/2303.08741v2", "locator": "Table 2, window column",
+      "bibkey": "Agadjanov:2023efe", "method": "Direct, summation-window AIC analysis", "convention": "Isospin-limit physical point with Mpi=134.8 MeV",
+      "notes": "Alternative analysis of the same data as mainz23_two_state; not the authors' combined 43.7(3.6) MeV final estimate.",
+      "values": {"piN": {"value": 42.3, "errors": [2.4]}}
+    },
+    {
+      "id": "mainz23_two_state", "label": "Mainz (2023), two-state", "category": "continuum",
+      "source": "https://arxiv.org/abs/2303.08741v2", "locator": "Table 2, two-state column",
+      "bibkey": "Agadjanov:2023efe", "method": "Direct, two-state AIC analysis", "convention": "Isospin-limit physical point with Mpi=134.8 MeV",
+      "notes": "Alternative analysis of the same data as mainz23_window; not the authors' combined 43.7(3.6) MeV final estimate.",
+      "values": {"piN": {"value": 46.9, "errors": [1.7]}}
+    },
+    {
+      "id": "pndme21_standard", "label": "PNDME (2021), standard", "category": "continuum",
+      "source": "https://arxiv.org/abs/2105.12095v2", "locator": "Abstract and Sec. IV, standard analysis",
+      "bibkey": "Gupta:2021ahb", "method": "Direct, standard excited-state analysis", "convention": "Chiral-continuum extrapolation to Mpi=135 MeV",
+      "notes": "Same data as pndme21; older analysis superseded by PNDME2025 but shown for comparison.",
+      "values": {"piN": {"value": 41.9, "errors": [4.9]}}
+    },
+    {
+      "id": "this_work_piN_standard",
+      "label": "This work, B64, Rstd IV",
+      "category": "finite_a",
+      "plot_color": "red",
+      "source": "Current manuscript, selected B64 standard-ratio case IV",
+      "locator": "cB211.072.64/analysis_3pt_light_codex.ipynb, window (12,2)",
+      "bibkey": null,
+      "method": "Direct matrix element, standard ratio",
+      "convention": "B64 light mass converted to the isoQCD point with m_pi=135 MeV",
+      "notes": "Same underlying ensemble and strongly correlated with the RLG entry; neither is a continuum result.",
+      "values": {"piN": {"value": 45.9, "errors": [3.0], "label": "B64: $R_{\\rm std}$ IV"}}
+    },
+    {
+      "id": "this_work_piN_lg",
+      "label": "This work, B64, RLG IV",
+      "category": "finite_a",
+      "plot_color": "red",
+      "source": "Current B64 Laplace-on-GEVP case-IV fit for the common comparison window",
+      "locator": "cB211.072.64/analysis_3pt_light_codex.ipynb, window (12,4)",
+      "bibkey": null,
+      "method": "Direct matrix element, Laplace-filtered GEVP-improved ratio",
+      "convention": "B64 light mass converted to the isoQCD point with m_pi=135 MeV",
+      "notes": "The comparison uses t_s^low/a=12, about 1 fm. The main analysis separately selects window (10,4). Same underlying ensemble and strongly correlated with the Rstd entry; neither is a continuum result.",
+      "values": {"piN": {"value": 49.0, "errors": [6.2], "label": "B64: $R_{\\rm LG}$ IV"}}
+    },
     {
       "id": "kou24_exp",
       "label": "Kou-Chen (2024), exp.",
@@ -84,7 +197,7 @@
       "locator": "Eq. (10), final published version 19 December 2025",
       "bibkey": "Park:2025rxi",
       "method": "Direct matrix elements, Nf=2+1+1, continuum/chiral extrapolation",
-      "convention": "Published physical-point convention",
+      "convention": "Chiral-continuum-finite-volume extrapolation to Mpi=135 MeV, a=0, and infinite volume",
       "notes": "Replaces v1 values 62(6), 34(18). Two light strategies share data; not independent estimates.",
       "values": {
         "piN": {
@@ -129,7 +242,7 @@
       "locator": "Table VIII, continuum row; comparison Fig. 17",
       "bibkey": "Alexandrou:2024ozj",
       "method": "Direct matrix elements, Nf=2+1+1, three lattice spacings",
-      "convention": "Published isoQCD physical-point convention",
+      "convention": "Published isosymmetric point with Mpi=135 MeV",
       "notes": "Published PRD111,054505. Related proceedings are not new independent values.",
       "values": {
         "piN": {
@@ -160,7 +273,7 @@
       "locator": "Eq. (30)",
       "bibkey": "Agadjanov:2023efe",
       "method": "Direct matrix elements, Nf=2+1, continuum/chiral extrapolation",
-      "convention": "Published physical point",
+      "convention": "Isospin-limit physical point with Mpi=134.8 MeV",
       "notes": "Use the source's quoted combined errors3.6 and9.3; separately rounded components are retained, not recombined to change the quoted total.",
       "values": {
         "piN": {
@@ -378,6 +491,18 @@
       }
     },
     {
+      "id": "liang25_one_loop",
+      "label": "Liang et al. (2025), one loop, neutral",
+      "category": "chiral",
+      "source": "https://arxiv.org/abs/2508.11435v1",
+      "locator": "Table S2, neutral-pion one-loop result",
+      "bibkey": "Liang:2025adz",
+      "method": "One-loop chiral reanalysis of the same lattice data as liang25",
+      "convention": "Neutral pion",
+      "notes": "Quoted 1.8 MeV uncertainty is statistical only; the paper does not provide a matched total systematic error for this one-loop result. Correlated with liang25.",
+      "values": {"piN": {"value": 45.4, "error_stat": 1.8, "errors": [1.8]}}
+    },
+    {
       "id": "liang25",
       "label": "Liang et al. (2025), neutral",
       "category": "chiral",
@@ -418,38 +543,40 @@
     },
     {
       "id": "ruiz18",
-      "label": "Scattering (2018), charged",
+      "label": "Scattering (2018), corrected",
       "category": "phenomenology",
       "source": "https://arxiv.org/abs/1706.01465v2",
       "locator": "Abstract",
       "bibkey": "RuizdeElvira:2017stg",
       "method": "Low-energy pion-nucleon scattering and Roy-Steiner representation",
-      "convention": "Charged pion; not converted in this plot",
-      "notes": "Related dispersive inputs to rs23; no independent averaging.",
+      "convention": "Neutral-pion comparison after subtracting 3.1(5) MeV from the source's charged-pion result",
+      "notes": "Source quotes 58(5) MeV. The charged-to-neutral correction is taken from Hoferichter et al. (2023), not recalculated by the 2018 authors. Related dispersive inputs to rs23; no independent averaging. The correction uncertainty is combined in quadrature and rounds to the same 5 MeV error.",
       "values": {
         "piN": {
-          "value": 58,
+          "value": 54.9,
           "errors": [
-            5
+            5,
+            0.5
           ]
         }
       }
     },
     {
       "id": "friedman19",
-      "label": "Pionic atoms (2019), quoted",
+      "label": "Pionic atoms (2019), corrected",
       "category": "phenomenology",
       "source": "https://arxiv.org/abs/1901.03130v2",
       "locator": "Abstract",
       "bibkey": "Friedman:2019zhc",
       "method": "Nuclear pionic-atom optical-potential analysis",
-      "convention": "As quoted by the source; no isoQCD conversion applied",
-      "notes": "Extraction assumes the relation of the in-medium amplitude to the condensate.",
+      "convention": "Neutral-pion comparison after subtracting 3.1(5) MeV from the source's charged-pion result",
+      "notes": "Source quotes 57(7) MeV. The charged-to-neutral correction is taken from Hoferichter et al. (2023), not recalculated by the 2019 authors. This approximate convention matching does not address the nuclear-model uncertainties of the pionic-atom extraction. The correction uncertainty is combined in quadrature and rounds to the same 7 MeV error.",
       "values": {
         "piN": {
-          "value": 57,
+          "value": 53.9,
           "errors": [
-            7
+            7,
+            0.5
           ]
         }
       }
