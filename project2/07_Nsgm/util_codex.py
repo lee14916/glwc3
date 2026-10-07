@@ -386,7 +386,7 @@ def plot_correlator_comparison(channel, masses, fit_scans, selection, selected_s
     include_three_state = config.get("include_three_state", any(len(scans) > 2 and len(scans[2]) for scans in fit_scans))
     with mpl.rc_context(PLOT_STYLE):
         fig, panels = plt.subplot_mosaic(
-            [["effective", "effective"], ["ground", "excited"]], figsize=(7.1, 3.1),
+            [["effective", "effective"], ["ground", "excited"]], figsize=(7.1, 3.35),
             gridspec_kw={"height_ratios": [1, 1.05], "width_ratios": [1.6, 1]},
         )
         effective, ground, excited = panels.values()
@@ -394,7 +394,7 @@ def plot_correlator_comparison(channel, masses, fit_scans, selection, selected_s
         projection_shifts = [0, .012]
         state_shifts = [-.04, 0, .04]
         for method, masses, fits_by_state, shift, filled in zip(
-            ["standard", "GEVP projected"], masses, fit_scans,
+            ["standard", "GEVP-improved"], masses, fit_scans,
             projection_shifts, [False, True],
         ):
             mean, error = yu.jackme(masses)
@@ -447,6 +447,7 @@ def plot_correlator_comparison(channel, masses, fit_scans, selection, selected_s
                 axis.errorbar(x, values[:, 0], values[:, 1], fmt="^", color="darkorange", mfc=laplace_face)
 
         effective.set(xlabel=r"$t$ [fm]", ylabel=r"$E^{\rm eff}$ [GeV]")
+        effective.xaxis.labelpad = 1
         ground.set(xlabel=r"$t_{\rm low}$ [fm]", ylabel=r"$E_0$ [GeV]")
         excited.set(xlabel=r"$t_{\rm low}$ [fm]", ylabel=r"$E_1$ [GeV]")
         for name, axis in panels.items():
@@ -466,7 +467,7 @@ def plot_correlator_comparison(channel, masses, fit_scans, selection, selected_s
         ]
         ground.legend(handles=fit_handles, loc="upper right", bbox_to_anchor=(.98, .90),
                       ncols=2, fontsize=7, borderaxespad=0)
-        fig.tight_layout(w_pad=.25, h_pad=.15)
+        fig.tight_layout(w_pad=1.2, h_pad=.9)
         yu.finalizePlot(f"C2pt_{channel}_GEVP_compare", tightQ=False)
 
 
@@ -654,36 +655,27 @@ def filter_insertion_ratio(ratios, gap_samples, displacement):
 
 
 def plot_laplace_midpoints(reduced, filtered_reduced, xunit, yunit, config, output_name):
-    """Reduced/filtered rainbows and integer-separation midpoints at column width."""
-    figure, axes = plt.subplots(1, 2, figsize=(3.4, 1.95), sharey=True,
-                               gridspec_kw={"width_ratios": [1.3, 1]})
+    """Compare unfiltered and filtered midpoints at column width."""
+    figure, axis = plt.subplots(figsize=(3.4, 2.25))
     cuts = config.get("cuts", (2, 4))
     tfs = sorted(reduced)
     labels = [r"$R_{\rm GEVP}^{d}$", r"$R_{\rm LG}$"]
     handles = ratio_legend_handles(labels)
-    for values, cut, face, shift in zip(
-        [reduced, filtered_reduced], cuts, ["white", None], [0, .1]
-    ):
-        even = {ts: value for ts, value in yu.symmetrizeRatio(values).items() if ts % 2 == 0}
-        yu.plot_rainbow(axes[0], even, tcmin=cut, xunit=xunit, yunit=yunit,
-                        mfc=face, shift=shift, tfs_reference=tfs)
-    axes[0].legend(handles=handles, loc="upper center", ncols=2,
-                   fontsize=6.5, columnspacing=.5, handletextpad=.2, framealpha=1)
-    axes[0].set(xlabel=r"$t_{\rm ins}-t_s/2$ [fm]", **config["rainbow"])
     for index, ts in enumerate(tfs):
         for values, cut, face, shift in zip([reduced, filtered_reduced], cuts, ["white", None], [0, .3]):
             if ts // 2 < cut:
                 continue
             midpoint = .5 * (values[ts][:, ts // 2] + values[ts][:, (ts + 1) // 2])
             mean, error = yu.jackme(midpoint * yunit)
-            yu.errorbar(axes[1], (ts + shift) * xunit, mean, error,
+            yu.errorbar(axis, (ts + shift) * xunit, mean, error,
                         color=yu.colors16[index], fmt=yu.fmts16[index], mfc=face)
-    for axis in axes:
-        axis.set(**config["limits"])
-    axes[0].set_ylabel(config["ylabel"])
-    axes[1].set(xlabel=r"$t_s$ [fm]", **config["midpoint"])
-    finish_shared_y_panels(figure, axes, w_pad=.5, wspace=.06)
+    axis.legend(handles=handles, loc="upper left", ncols=2,
+                fontsize=7.5, columnspacing=.7, handletextpad=.3, framealpha=1)
+    axis.set(ylabel=config["ylabel"], xlabel=r"$t_s$ [fm]",
+             **config["limits"], **config["midpoint"])
+    figure.tight_layout(pad=.25)
     yu.finalizePlot(output_name, tightQ=False)
+    plt.close(figure)
 
 
 def plot_appendix_ratios(datasets, filtered=False):

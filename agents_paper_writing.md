@@ -9,12 +9,26 @@ This guide contains reusable writing and citation practices. It does not define 
 - Put each explanation in the section where its method or result belongs. Introduce a method before interpreting results that depend on it.
 - Define specialized terms and abbreviations before relying on them. Distinguish concepts or methods with similar names when their data, assumptions, or interpretation differ.
 - Make comparisons quantitative enough to establish the claimed scale of an effect, but do not catalogue values whose comparison is already clear from a figure.
-- Integrate revisions by rewriting the affected argument, not by appending isolated sentences. Propagate consequential changes to equations, notation, figures, captions, and conclusions.
+- When substantive rewriting is authorized, integrate revisions into the affected argument rather than appending isolated sentences. Propagate consequential changes to equations, notation, figures, captions, and conclusions.
 - Remove repetition, empty roadmap language, unsupported qualifications, and defensive claims. Keep caveats that are necessary for scientific accuracy.
 - Treat editorial comments phrased as questions as requests for judgment. Explain the recommendation and uncertainty, then revise consistently with the best-supported interpretation.
 - Prefer direct, precise wording. Avoid rhetorical questions and semicolons in prose unless there is a clear technical or grammatical need.
 - Use the conventions of the target journal and relevant field papers as style references, not as substitutes for checking the science.
 - Do not make manuscript-wide punctuation or typographic normalizations during a focused revision. Preserve the source style and review history unless the user explicitly requests a separate copy-editing pass; fix the requested figure labels independently.
+- Explain the operational meaning of a construction before using it: distinguish the formal definition from how its parameters are determined and how the resulting observable is analyzed.
+- Connect observations to decisions in a natural sequence: identify the comparison, describe the relevant behavior, explain its physical meaning, and state the resulting analysis choice. Prefer explicit causal connections over compressed lists of outcomes.
+- Discuss literature comparisons as scientific analyses, not as plot rows. Identify the cited work and its method, then explain the physical reason for the comparison; use marker descriptions only to help locate the corresponding results.
+- When a concluding summary is useful, synthesize the setup, main findings, and physical implications before the outlook. Include only numerical anchors that serve this synthesis, and avoid repeating the same results in both a summary paragraph and a list.
+
+## Collaborative Revision
+
+- Treat senior coauthors' revisions as style references. Read their changes in context and learn reusable patterns of explanation, paragraph organization, and scientific emphasis rather than automatically replacing their wording with the assistant's preferred phrasing.
+- Compare the structure before and after an edit, not just individual sentences. Notice how definitions are placed before result comparisons, fit cases are explained through their explicit assumptions, and supporting algebra is shortened when it is not needed for the physical conclusion.
+- When simplifying a technical explanation, retain the physical mechanism and the limits of the evidence. Prefer already defined quantities and standard terminology over new shorthand or extra notation. More equations are not automatically a clearer explanation.
+- Keep coauthor comments and replies brief and focused on the remaining question or requested action. Correct an understood problem directly rather than adding a redundant reply. Preserve unresolved comments and ask the relevant coauthor to review the revised passage without repeating its detailed edit history.
+- Preserve coauthor language and organization unless the user explicitly requests rewriting. During a correctness check, distinguish factual errors, inconsistent notation, broken references, and obvious typos from optional stylistic preferences. Make only the smallest authorized corrections.
+- Editorial authority does not replace scientific verification. Learn from the writing without adopting an accidental typo or an unsupported claim as a general rule, and flag substantive concerns separately.
+- Record transferable lessons in this general guide, not project-specific results, numerical choices, or a history of individual edits. Reconcile new guidance with existing rules instead of adding contradictory instructions.
 
 ## Figures and Tables
 
