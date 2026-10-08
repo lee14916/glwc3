@@ -79,7 +79,11 @@ if True:
             N=len(datasets)
             for i,dataset in enumerate(datasets):
                 if 'data' in dataset:
-                    data_load[dataset]=yu.jackknife(f[dataset][()],d=d,nmin=nmin)
+                    # data_load[dataset]=yu.jackknife(f[dataset][()],d=d,nmin=nmin)
+                    raw = f[dataset][()]
+                    dtype = np.complex128 if np.iscomplexobj(raw) else np.float64
+                    raw = np.asarray(raw, dtype=dtype)
+                    data_load[dataset] = yu.jackknife(raw, d=d, nmin=nmin)
                 else:
                     data_load[dataset]=f[dataset][()]
                 print(str(i+1)+'/'+str(N)+': '+dataset,end='                           \r')
