@@ -1,6 +1,8 @@
 """Shared processing, analysis, and plotting helpers for the N-sigma paper."""
 
 import hashlib
+import inspect
+import json
 
 import h5py
 import matplotlib as mpl
@@ -143,7 +145,7 @@ def plot_sigma_literature(studies, channel, groups):
     return figure, axes[:, 0] if photo else axes[0, 0]
 
 
-def plot_sigma_compact(studies, rows, channel):
+def plot_sigma_compact(studies, rows, channel, *, reference_id='default', height=None):
     """One row per study; marker shape separates alternative analyses."""
     import matplotlib.pyplot as plt
 
@@ -153,18 +155,24 @@ def plot_sigma_compact(studies, rows, channel):
     alternatives = {'this_work_piN_lg', 'this_work_A48_lg', 'pndme25',
                     'pndme21', 'mainz23_two_state', 'liang25',
                     'this_work_piN_standard', 'this_work_A48_standard',
-                    'this_work_s_light_gap'}
+                    'this_work_s_light_gap', 'this_work_s_standard',
+                    'this_work_s_selected', 'this_work_piN_selected'}
     gevp_fits = {'this_work_piN_lg', 'this_work_A48_lg', 'this_work'}
     alternatives.difference_update(gevp_fits)
     with mpl.rc_context(paper_style({'text.usetex': False, 'font.family': 'serif'})):
-        figure, axis = plt.subplots(figsize=(3.5, 3.1 if channel == 'piN' else 2.1))
+        figure, axis = plt.subplots(figsize=(3.5, height if height is not None else
+                                            3.1 if channel == 'piN' else 2.1))
+        if reference_id not in (None, 'default'):
+            center, minus, plus = sigma_literature_values(by_id[reference_id], channel)
+            axis.axvspan(center - minus, center + plus, color='red',
+                         alpha=.10, zorder=.5, linewidth=0)
         previous_group = None
         for index, row in enumerate(rows):
             group = row['group']
             if group != previous_group:
                 if index:
                     yu.addRefLine(axis, index - .5, color='.55', ls='-', lw=.55, zorder=1)
-                axis.text(72 if channel == 's' else 92, index - .34,
+                axis.text(155 if channel == 'c' else 72 if channel == 's' else 92, index - .34,
                           group_names[group], color='black',
                           fontsize=7, ha='right', va='top')
                 previous_group = group
@@ -176,34 +184,188 @@ def plot_sigma_compact(studies, rows, channel):
                 mean, minus, plus = sigma_literature_values(study, channel)
                 entry = study['values'][channel]
                 color = colors[group]
-                if key in ('this_work_piN_lg', 'this_work'):
+                if reference_id == 'default' and key in ('this_work_piN_lg', 'this_work'):
                     axis.axvspan(mean - minus, mean + plus, color=color,
                                  alpha=.10, zorder=.5, linewidth=0)
                 marker = ('D' if group == 'phenomenology' else
                           '*' if key in gevp_fits else
-                          'o' if len(row['ids']) > 1 and key in alternatives else 's')
+                          '^' if key == 'liang25_one_loop_p4' else
+                          'o' if key in alternatives else 's')
                 face = 'white' if study['category'] in ('finite_a', 'this_work') else color
+                marker_size = 7 if marker == '*' else 3.5
+                if key == 'mainz23' and channel == 'piN':
+                    marker_size = 2.5  # Keep the small statistical interval distinct from the square.
                 if 'error_stat' in entry:
                     stat = entry['error_stat'] * entry.get('scale', 1.0)
-                    axis.errorbar(mean, index + offset, xerr=stat, fmt='none', color=color,
-                                  elinewidth=.8, capsize=2, capthick=.8, zorder=3)
+                    if not np.isfinite(stat) or not 0 <= stat <= min(minus, plus):
+                        raise ValueError(f"Invalid statistical uncertainty in {key}: {channel}")
+                    if not (np.isclose(stat, minus, rtol=1e-12, atol=0)
+                            and np.isclose(stat, plus, rtol=1e-12, atol=0)):
+                        axis.errorbar(mean, index + offset, xerr=stat, fmt='none', color=color,
+                                      elinewidth=.8, capsize=2, capthick=.8, zorder=3)
                 axis.errorbar(mean, index + offset, xerr=[[minus], [plus]], fmt=marker,
-                              color=color, mfc=face, ms=7 if marker == '*' else 3.5, elinewidth=.8,
+                              color=color, mfc=face, ms=marker_size, elinewidth=.8,
                               capsize=2, capthick=.8, zorder=4)
-        axis.set(xlim=(15, 95) if channel == 'piN' else (10, 75),
+        axis.set(xlim=(20, 160) if channel == 'c' else (15, 95) if channel == 'piN' else (10, 75),
                  ylim=(len(rows) - .35, -.7),
-                 xlabel=r'$\sigma_{\pi N}$ [MeV]' if channel == 'piN' else r'$\sigma_s$ [MeV]')
+                 xlabel=r'$\sigma_c$ [MeV]' if channel == 'c' else r'$\sigma_{\pi N}$ [MeV]' if channel == 'piN' else r'$\sigma_s$ [MeV]')
         axis.set_yticks(range(len(rows)), [row['label'] for row in rows], fontsize=7)
-        axis.set_xticks([20, 40, 60, 80] if channel == 'piN' else [20, 40, 60])
+        axis.set_xticks([40, 80, 120] if channel == 'c' else [20, 40, 60, 80] if channel == 'piN' else [20, 40, 60])
         axis.tick_params(direction='in', top=True, right=True)
         axis.tick_params(axis='y', direction='in', length=3, width=.8,
                          left=True, right=False, pad=4)
-        figure.subplots_adjust(left=.31, right=.98, top=.97, bottom=.16)
+        axis.grid(False)
+        figure.subplots_adjust(left=.31, right=.98, top=.97,
+                               bottom=max(.16, .40 / figure.get_figheight()))
     return figure, axis
 
 
 def plot_sigma_piN_compact(studies, rows):
     return plot_sigma_compact(studies, rows, 'piN')
+
+
+def validate_sigma_piN_selection(literature, root):
+    """Check static literature entries against the paired, verified B64 fit caches."""
+    from pathlib import Path
+
+    base = Path(root) / '__codex_ignore/cB211.072.64/pkl/analysis_3pt_light_codex'
+    provenance = literature['piN_fit_provenance']
+    assert yu.load_pkl(base / 'internal_ignore/verified_input_samples_codex.pkl') == provenance['input_sample_guard']
+    studies = {study['id']: study for study in literature['studies']}
+    unit = yu.ens2amul_iso['b'] * yu.ens2aInv['b']
+    samples = {}
+    for key, record in provenance['fits'].items():
+        fits = yu.load_pkl(base / 'internal_ignore' / (record['cache'] + '.pkl'))
+        fit = next(fit for fit in fits if tuple(fit[0]) == tuple(record['window']))
+        assert hashlib.sha256(fit[1].tobytes()).hexdigest() == record['sample_sha256'], key
+        samples[key] = fit[1][:, 0] * unit
+        assert samples[key].shape == (732,)
+        mean, error = yu.jackme(samples[key])
+        quoted = studies[key]['values']['piN']
+        assert np.allclose([mean, error], [quoted['value'], quoted['error_stat']], atol=1e-10, rtol=0), key
+    selected = yu.load_pkl(base / 'reg_ignore/standard_ratio_selected.pkl')
+    assert selected['case'] == 'IV' and tuple(selected['window']) == (12, 2)
+    assert np.array_equal(selected['fit'][1][:, 0] * unit, samples['this_work_piN_standard'])
+    central, stat = yu.jackme(samples['this_work_piN_standard'])
+    difference = samples['this_work_piN_lg'] - samples['this_work_piN_standard']
+    systematic = abs(yu.jackme(difference)[0])
+    quoted = studies['this_work_piN_selected']['values']['piN']
+    assert np.allclose([central, stat, systematic, np.hypot(stat, systematic)],
+                       [quoted['value'], quoted['error_stat'], quoted['error_systematic'], quoted['error_total']],
+                       atol=1e-10, rtol=0)
+    return dict(mean=float(central), stat=float(stat), systematic=float(systematic),
+                total=float(np.hypot(stat, systematic)))
+
+
+def validate_sigma_s_selection(literature, root):
+    """Validate the strange methods and quoted result against full cached samples."""
+    from pathlib import Path
+
+    base = Path(root) / '__codex_ignore/cB211.072.64/pkl/analysis_3pt_strange_charm_codex'
+    provenance = literature['s_fit_provenance']
+    assert yu.load_pkl(base / 'internal_ignore/verified_input_samples_full_tfs2to22_codex.pkl') == provenance['input_sample_guard']
+    studies = {study['id']: study for study in literature['studies']}
+    unit = .018267 * yu.ens2aInv['b']
+    samples = {}
+    for key, record in provenance['fits'].items():
+        fits = yu.load_pkl(base / 'internal_ignore' / (record['cache'] + '.pkl'))
+        fit = next(fit for fit in fits if tuple(fit[0]) == tuple(record['window']))
+        assert hashlib.sha256(fit[1].tobytes()).hexdigest() == record['sample_sha256'], key
+        samples[key] = fit[1][:, 0] * unit
+        assert samples[key].shape == (732,)
+        quoted = studies[key]['values']['s']
+        assert np.allclose(yu.jackme(samples[key]), [quoted['value'], quoted['error_stat']], atol=1e-10, rtol=0), key
+    selection = yu.load_pkl(base / 'reg_ignore/strange_comparison_selected_codex.pkl')
+    assert tuple(selection['standard_window']) == (10, 2)
+    assert tuple(selection['gevp_window']) == (10, 1)
+    assert selection['separations'] == list(range(2, 23))
+    assert selection['gevp_ratio'] == 'full R_GEVP'
+    assert selection['standard_correlated'] and not selection['gevp_correlated']
+    for case, key in [('I', 'this_work_s_shared'), ('IV', 'this_work_s_standard'), ('GEVP', 'this_work')]:
+        assert np.array_equal(selection['samples'][case], samples[key])
+    central, stat = yu.jackme(samples['this_work_s_standard'])
+    systematic = abs(yu.jackme(samples['this_work'] - samples['this_work_s_standard'])[0])
+    quoted = studies['this_work_s_selected']['values']['s']
+    assert np.allclose([central, stat, systematic, np.hypot(stat, systematic)],
+                       [quoted['value'], quoted['error_stat'], quoted['error_systematic'], quoted['error_total']],
+                       atol=1e-10, rtol=0)
+    return dict(mean=float(central), stat=float(stat), systematic=float(systematic),
+                total=float(np.hypot(stat, systematic)))
+
+
+def validate_sigma_c_selection(literature, root):
+    """Validate the charm comparison against aligned constant-fit samples."""
+    from pathlib import Path
+
+    base = Path(root) / '__codex_ignore/cB211.072.64/pkl/analysis_3pt_strange_charm_codex'
+    selection = yu.load_pkl(base / 'reg_ignore/charm_comparison_selected_codex.pkl')
+    assert tuple(selection['window']) == (12, 4)
+    assert selection['separations'] == list(range(2, 25))
+    assert not selection['correlated'] and selection['gevp_ratio'] == 'full R_GEVP'
+    assert selection['input_guard'] == yu.load_pkl(base / 'internal_ignore/verified_charm_full_inputs_tfs2to24_cut4_codex.pkl')
+    provenance = literature['c_fit_provenance']
+    assert selection['gevp_ratio'] == provenance['gevp_ratio']
+    assert selection['input_guard'] == provenance['input_sample_guard']
+    for name, samples in selection['samples'].items():
+        assert samples.shape == (732,)
+        assert hashlib.sha256(samples.tobytes()).hexdigest() == provenance['sample_sha256'][name]
+    central, stat = yu.jackme(selection['samples']['standard'])
+    systematic = abs(yu.jackme(selection['samples']['gevp_full'] - selection['samples']['standard'])[0])
+    quoted = next(s for s in literature['studies'] if s['id'] == 'this_work_c_selected')['values']['c']
+    assert np.allclose([central, stat, systematic, np.hypot(stat, systematic)],
+                       [quoted['value'], quoted['error_stat'], quoted['error_systematic'], quoted['error_total']],
+                       rtol=0, atol=1e-10)
+    return dict(mean=float(central), stat=float(stat), systematic=float(systematic),
+                total=float(np.hypot(stat, systematic)))
+
+
+def plot_strange_selected_fit_scan(fits, unit, spacing, standard_window, gevp_window):
+    """Show the extended standard and GEVP scans on independent vertical scales."""
+    import matplotlib.pyplot as plt
+
+    specifications = [
+        [('strange_shared', 2, 'red', 's', r'$R_{\rm std}$, I', None),
+         ('strange_iv', 2, 'purple', 'o', r'$R_{\rm std}$, IV', standard_window)],
+        [('strange_gevp_const', 1, 'darkorange', 'D', r'$R_{\rm GEVP}^{d}$, const.', gevp_window)],
+    ]
+    with mpl.rc_context(paper_style({'text.usetex': False, 'font.family': 'serif'})):
+        figure, axes = plt.subplots(1, 2, figsize=(7.1, 2.5))
+        for axis, methods in zip(axes, specifications):
+            limits = []
+            for offset, (key, cut, color, marker, label, window) in zip([-.07, .07], methods):
+                scan = sorted((fit for fit in fits[key] if fit[0][1] == cut), key=lambda fit: fit[0])
+                x = np.array([fit[0][0] for fit in scan]) * spacing + offset * spacing
+                values = np.array([yu.jackme(fit[1][:, 0] * unit) for fit in scan])
+                assert np.isfinite(values).all(), key
+                selected = None if window is None else next(i for i, fit in enumerate(scan) if fit[0] == window)
+                unresolved = np.zeros(len(scan), dtype=bool)
+                if key == 'strange_iv':
+                    # Keep these points visible, but flag a gap or amplitude consistent with zero.
+                    for i, fit in enumerate(scan):
+                        means, errors = yu.jackme(fit[1][:, 1:3])
+                        unresolved[i] = np.any(np.abs(means) <= errors)
+                resolved = ~unresolved
+                chosen = None
+                if selected is not None:
+                    assert resolved[selected], 'The selected Case-IV fit is poorly constrained.'
+                    chosen = int(np.count_nonzero(resolved[:selected]))
+                errorbar_with_selected(axis, x[resolved], values[resolved, 0], values[resolved, 1], chosen,
+                                       color=color, fmt=marker, mfc='white', label=label)
+                if unresolved.any():
+                    axis.errorbar(x[unresolved], values[unresolved, 0], values[unresolved, 1],
+                                  color='.45', fmt='x', label='IV, poorly constrained')
+                limits.extend((values[:, 0] - values[:, 1]).tolist())
+                limits.extend((values[:, 0] + values[:, 1]).tolist())
+            margin = .10 * max(max(limits) - min(limits), 10)
+            axis.set(xlabel=r'$t_s^{\rm low}$ [fm]', ylabel=r'$\sigma_s$ [MeV]',
+                     xlim=(.4, 2.2), xticks=[.5, 1, 1.5, 2],
+                     ylim=(min(limits) - margin, max(limits) + margin))
+            axis.tick_params(direction='in', top=True, right=True)
+            axis.grid(False)
+            axis.legend(loc='lower left' if axis is axes[0] else 'upper left',
+                        fontsize=7, frameon=False)
+        figure.tight_layout(w_pad=1.2)
+    return figure, axes
 
 
 def ratio_legend_handles(labels):
@@ -324,9 +486,38 @@ def sample_cache_tag(*arrays):
         digest.update(values.tobytes())
     return digest.hexdigest()[:16]
 
-def guard_fit_cache(*inputs):
+def cached_fit_scan(fitter, *args, label, cache_inputs=(), overwrite=False, **kwargs):
+    """Key the user's fit cache by its bound arguments and any callback inputs."""
+    def signature(value):
+        if isinstance(value, np.ndarray):
+            return {"samples": sample_cache_tag(value)}
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, dict):
+            return {str(key): signature(item) for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))}
+        if isinstance(value, (list, tuple, range)):
+            return [signature(item) for item in value]
+        if callable(value):
+            code = value.__code__
+            return {"callback": value.__qualname__, "code": code.co_code.hex(),
+                    "constants": repr(code.co_consts), "names": code.co_names}
+        return value
+
+    bound = inspect.signature(fitter).bind(*args, **kwargs)
+    bound.apply_defaults()
+    setup = {"fitter": fitter.__name__, "arguments": signature(bound.arguments),
+             "callback_inputs": signature(cache_inputs)}
+    encoded = json.dumps(setup, sort_keys=True, allow_nan=False).encode("utf-8")
+    tag = hashlib.sha256(encoded).hexdigest()[:16]
+    result = fitter(*args, label=label + "_" + tag, overwrite=overwrite, **kwargs)
+    # Legacy names are current exports for downstream notebooks, not cache keys.
+    yu.save_pkl_internal(label, result)
+    yu.save_pkl_internal(label + "_setup", setup)
+    return result
+
+
+def guard_fit_cache(*inputs, label="verified_input_samples_codex"):
     """Stop legacy label-only cache reuse after an analysis input changes."""
-    label = "verified_input_samples_codex"
     current = sample_cache_tag(*inputs)
     previous = yu.load_pkl_internal(label)
     if previous is not None and previous != current:
@@ -659,7 +850,7 @@ def plot_laplace_midpoints(reduced, filtered_reduced, xunit, yunit, config, outp
     figure, axis = plt.subplots(figsize=(3.4, 2.25))
     cuts = config.get("cuts", (2, 4))
     tfs = sorted(reduced)
-    labels = [r"$R_{\rm GEVP}^{d}$", r"$R_{\rm LG}$"]
+    labels = config.get("labels", [r"$R_{\rm GEVP}^{d}$", r"$R_{\rm LG}$"])
     handles = ratio_legend_handles(labels)
     for index, ts in enumerate(tfs):
         for values, cut, face, shift in zip([reduced, filtered_reduced], cuts, ["white", None], [0, .3]):
@@ -859,12 +1050,12 @@ def read_scalar_contractions(path, block_size, separations, current="j+"):
                     raise ValueError(f"Configuration count mismatch: {dataset.name}")
                 if three_point:
                     scalar = group["inserts"].asstr()[:].tolist().index("id")
-                    samples = yu.jackknife(dataset[:, :, selected, scalar], d=block_size)
+                    samples = yu.jackknife(dataset[:, :, selected, scalar].astype(np.complex128), d=block_size)
                     sink_flavor, insertion_current, source_flavor, _, tf = fields
                     if samples.shape[1] != int(tf) + 1:
                         raise ValueError(f"Insertion-time extent mismatch: {dataset.name}")
                 else:
-                    samples = yu.jackknife(dataset[:, :, selected], d=block_size)
+                    samples = yu.jackknife(dataset[:, :, selected].astype(np.complex128), d=block_size)
                     sink_flavor, source_flavor = fields
                 for index, pair in enumerate(pairs[selected]):
                     sink, origin = pair.split("_")
@@ -876,9 +1067,9 @@ def read_scalar_contractions(path, block_size, separations, current="j+"):
                     if diagram in target:
                         raise ValueError(f"Duplicate operator/diagram: {pair}, {flavor}, {diagram}")
                     target[diagram] = samples[:, :, index]
-        data["VEV"]["pi0f"]["sgm"] = yu.jackknife(source["VEV/pi0f/data/sgm"][:], d=block_size)
-        # Match production's float32 reduction order before selecting the id gamma.
-        data["VEV"]["j"][f"id_{current}"] = yu.jackknife(source[f"VEV/j/data/{current}"][:], d=block_size)[:, 0]
+        # Promote before blocking/resampling, not after large vacuum terms cancel.
+        data["VEV"]["pi0f"]["sgm"] = yu.jackknife(source["VEV/pi0f/data/sgm"][:].astype(np.complex128), d=block_size)
+        data["VEV"]["j"][f"id_{current}"] = yu.jackknife(source[f"VEV/j/data/{current}"][:].astype(np.complex128), d=block_size)[:, 0]
     return data, cfgs
 
 

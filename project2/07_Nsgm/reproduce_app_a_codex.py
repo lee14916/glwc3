@@ -1,8 +1,8 @@
-"""Reproduce Appendix A's ChPT pion-mass corrections with shared uncertainties.
+"""Reproduce Appendix B's ChPT pion-mass corrections with shared uncertainties.
 
 Run with the glwc3 virtual environment. All masses and decay constants below
 are in GeV. Generated reports go under __codex_ignore, not into the manuscript.
-The formulas follow Appendix A and NST_ChPT.nb. The chiral-limit nucleon mass
+The formulas follow Appendix B and NST_ChPT.nb. The chiral-limit nucleon mass
 is fixed to the paper's 0.8696 GeV, while e1 is derived from the same uncertain
 inputs used in every subsequent evaluation.
 """
@@ -180,11 +180,11 @@ def main():
     labels, values = evaluate(inputs)
     verify(names, means, covariance, inputs, values)
     matched_mass = matched_nucleon_mass(inputs)
-    lines = ["Appendix A: ChPT pion-mass corrections",
+    lines = ["Appendix B: ChPT pion-mass corrections",
              "Shared inputs retain their correlations at every evaluation.",
              "Units: GeV internally; shifts below are in MeV.",
              f"Central mass matching: m_N^(0) = {1000*matched_mass:.6f} MeV",
-             f"Fixed value used in Appendix A: {1000*CHIRAL_NUCLEON_MASS:.1f} MeV",
+             f"Fixed value used in Appendix B: {1000*CHIRAL_NUCLEON_MASS:.1f} MeV",
              f"Derived e1 = {matched_e1(inputs)} GeV^-3",
              "",
              "Initial Order   Shift [MeV]       Ratio          Paper shift / ratio"]

@@ -3,7 +3,7 @@
 Run with the repository Python and --paper <paper directory>. Existing fit caches
 are reused. Each run keeps a paper backup, fresh figures, and a pixel comparison
 under __codex_ignore. Notebook order preserves the B64 analysis dependencies.
-Topology sources stay in the OneDrive diagrams_Nsgm folder beside the paper.
+Topology sources stay in the authoritative OneDrive diagrams_Nsgm folder.
 """
 
 import argparse
@@ -25,20 +25,24 @@ GROUPS = {
         'Rstd_RGEVP', 'caseIII_excited_matrix_element', 'Rd_compare_w_v2',
         'Rstd_RLap', 'energy_scales', 'RLG_RL2G', 'RLap_delta_dependence'],
     'cB211.072.64/analysis_3pt_strange_charm_codex': [
-        'sigma_s_W_vs_full', 'sigma_s_Rstd_RGEVP', 'sigma_s_Rstd_RLap', 'sigma_c_ratios'],
+        'sigma_s_W_vs_full', 'sigma_s_Rstd_RGEVP', 'sigma_s_Rstd_RLap',
+        'sigma_c_W_vs_full', 'sigma_c_Rstd_RGEVP'],
     'cA211.530.24/analysis_2pt_codex': [],
     'cA211.530.24/analysis_3pt_light_codex': [],
     'cA2.09.48/analysis_2pt_codex': [],
     'cA2.09.48/analysis_3pt_light_codex': [],
     'analysis_3pt_appendix_codex': ['appendix_standard_gevp', 'appendix_gevp_laplace'],
     'analysis_3pt_topologies_codex': ['gevp_midpoint_differences'],
-    'analysis_sigma_literature_codex': ['sigma_piN_literature', 'sigma_s_literature'],
+    'analysis_sigma_literature_codex': ['sigma_piN_methods', 'sigma_piN_literature', 'sigma_s_literature', 'sigma_c_literature'],
 }
 DIAGRAMS = {
     'diags_2pt': 'diags_2pt_codex.tex',
     'diags_3pt_Id': 'diags_3pt_Id_codex.tex',
     'diags_3pt_NsgmJNsgm_codex': 'diags_3pt_NsgmJNsgm_codex.tex',
 }
+
+
+DEFAULT_DIAGRAMS = Path.home() / 'OneDrive/sync/coding/latex/papers/diagrams_Nsgm'
 
 
 def file_hash(path):
@@ -50,8 +54,22 @@ def publication_name(group, name):
     return name + ('_' + suffix if suffix and not name.endswith('_' + suffix) else '') + '.pdf'
 
 
+def publication_cells(notebook, group):
+    if not group.startswith(('cA211.530.24/', 'cA2.09.48/')):
+        return notebook.cells
+    ids = notebook.metadata['codex_publication_cells']
+    cells = {cell.id: cell for cell in notebook.cells}
+    if len(set(ids)) != len(ids) or any(key not in cells for key in ids):
+        raise ValueError(f'Invalid publication-input cells: {group}')
+    selected = [cells[key] for key in ids]
+    if 'analysis_2pt' in group:
+        import nbformat
+        selected.insert(0, nbformat.v4.new_code_cell('PUBLICATION_ONLY = True', id='publication-mode'))
+    return selected
+
+
 def main(paper, diagrams=None):
-    diagrams = paper.parent / 'diagrams_Nsgm' if diagrams is None else diagrams
+    diagrams = DEFAULT_DIAGRAMS if diagrams is None else diagrams
     work = ROOT / '__codex_ignore' / datetime.now().strftime('regenerate_paper_%Y%m%d_%H%M%S')
     work.mkdir()
     print(f'RUN DIRECTORY: {work}', flush=True)
@@ -77,6 +95,7 @@ def main(paper, diagrams=None):
                                 'output': work / 'diagrams' / (name + '.pdf')}
 
     text = (paper / 'main.tex').read_text(encoding='utf-8')
+    text = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('%'))
     included = re.findall(r'\\includegraphics(?:\[[^]]*\])?\{([^}]+)\}', text)
     if set(included) != set(figures):
         raise ValueError(f'Figure-map mismatch: {set(included) ^ set(figures)}')
@@ -112,15 +131,24 @@ def main(paper, diagrams=None):
     for group in GROUPS:
         path = ROOT / (group + '.ipynb')
         notebook = nbformat.read(path, as_version=4)
+        execution = nbformat.v4.new_notebook(cells=publication_cells(notebook, group),
+                                           metadata=notebook.metadata)
         print(f'EXECUTE {group}', flush=True)
-        client = NotebookClient(notebook, timeout=600, kernel_name='python3',
+        client = NotebookClient(execution, timeout=600, kernel_name='python3',
                                 resources={'metadata': {'path': str(path.parent)}})
         try:
             client.execute()
         finally:
             executed = work / 'executed' / path.parent.name / path.name
             executed.parent.mkdir(parents=True, exist_ok=True)
-            nbformat.write(notebook, executed)
+            nbformat.write(execution, executed)
+        refreshed = {cell.id: cell for cell in execution.cells}
+        notebook.cells = [refreshed.get(cell.id, cell) for cell in notebook.cells]
+        if group.startswith(('cA211.530.24/', 'cA2.09.48/')):
+            for cell in notebook.cells:
+                if cell.cell_type == 'code' and cell.id not in refreshed:
+                    cell.outputs = []
+                    cell.execution_count = None
         nbformat.write(notebook, path)
         print(f'FINISHED {group}', flush=True)
 
