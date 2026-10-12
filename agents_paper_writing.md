@@ -24,6 +24,7 @@ This guide contains reusable writing and citation practices. It does not define 
 ## Collaborative Revision
 
 - Distinguish agreement to implement proposed wording from approval to remove its review markings. Keep new edits marked until the user explicitly accepts them into the review baseline; do not advance approval checkpoints merely because the user says to add a proposed sentence.
+- Compare the current working manuscript against the latest explicitly approved snapshot, not an accumulating older draft. Keep that snapshot frozen until approval. When pure figure moves are normalized to avoid duplicate floats in a review, disclose the normalization and show the revised placement; preserve the original artwork for figures whose contents changed.
 - Treat senior coauthors' revisions as style references. Read their changes in context and learn reusable patterns of explanation, paragraph organization, and scientific emphasis rather than automatically replacing their wording with the assistant's preferred phrasing.
 - Compare the structure before and after an edit, not just individual sentences. Notice how definitions are placed before result comparisons, fit cases are explained through their explicit assumptions, and supporting algebra is shortened when it is not needed for the physical conclusion.
 - After moving or splitting discussion, recheck every contextual explanation, comparison, and figure reference in its new location. Keep convention conversions attached to the results they concern, rather than carrying over an introduction that no longer matches the figure.
@@ -41,6 +42,7 @@ This guide contains reusable writing and citation practices. It does not define 
 - Explain shared visual conventions at their first appearance. Later captions can refer back and describe only what changes.
 - Identify the plotted quantity and explain panels in reading order. Define meaningful symbols, colors, lines, and bands, but do not narrate obvious visual facts.
 - Keep captions for related figures consistent in terminology, notation, and explanation order. Check captions against the rendered figure and the analysis it represents.
+- Distinguish the displayed subset from the data used in fits. Recheck statements such as "all separations are shown" after thinning a plot, and do not let a channel-specific display convention become an incorrect blanket statement for other channels.
 - Table captions should identify the quantities and define non-obvious headers or symbols.
 - Discuss a figure near its first substantive use. Keep figure and table numbering in order of first discussion, and inspect the compiled document because float placement can differ from source order.
 
