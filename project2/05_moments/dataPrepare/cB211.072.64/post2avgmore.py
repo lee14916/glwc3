@@ -145,11 +145,11 @@ def get_moms(max_mom2_pc,max_mom2_pf):
 # Input
 # -------------------------
 
-input='p1=0'
+input='GFF'
 
 ens='cB211.072.64'
 
-case='1DT'
+case='1DV'
 assert(case in ['local','1DV','1DA','1DT'])
 folder=f'05_moments_run5_{case}'
 inserts={'local':inserts_local,'1DV':inserts_1DV,'1DA':inserts_1DA,'1DT':inserts_1DT}[case]
@@ -161,6 +161,10 @@ if case=='1DV':
         stouts=range(40+1) # gluon
     if input=='p1=0':
         moms_target=get_moms(16,0)
+        jqs=['j+','js','jc'] # disc
+        stouts=range(40+1) # gluon
+    if input=='GFF':
+        moms_target=get_moms(25,5)
         jqs=['j+','js','jc'] # disc
         stouts=range(40+1) # gluon
         
