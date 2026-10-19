@@ -32,4 +32,5 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 ## Existing kinematic preview
 
 - The earlier `project2/05_moments/general.ipynb` contains `getRank`, `getRanks`, and `ranks2fillstyle`, followed by the `momDistribution` plot.
-- That preview distinguishes diagonal (`equal`), off-diagonal (`unequal`), and combined (`all`) tensor-component rank. It is a kinematic rank diagnostic; measured-data combinations also need the appropriate renormalization and mixing for each tensor sector.
+- The current project analyzes diagonal (`equal`, mu=nu) and off-diagonal (`unequal`, mu!=nu) tensor components separately. Do not use the earlier preview's combined (`all`) sector for the current momentum study. Any later combination must account for the sector-specific renormalization and mixing; its stage remains a scientific choice.
+- These previews diagnose kinematic rank, not statistical precision. Preserve the oriented sink momentum when applying a sink cut, and distinguish exact-Q-squared stacking from approximate binning across different Q-squared values.
