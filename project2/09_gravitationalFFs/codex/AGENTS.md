@@ -7,10 +7,10 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 
 ## File locations and ownership
 
-- Put well-organized, reusable assistant-written code in `codex/` or suitable subdirectories.
+- Keep `codex/` focused on production entry points and analysis adopted by the user. The current production entry point is `disconnected_3pt.py`.
 - Put disposable scripts, one-off diagnostics, small exploratory tests, and their temporary outputs in `codex/_ignore/`.
 - Keep exploratory momentum, rank, and coverage investigations in `codex/_ignore/` unless the user adopts them as maintained project code; these investigations are not GitHub-maintained sources.
-- Maintained validation code can live with the reusable implementation; it is not automatically disposable.
+- Put supporting validation scripts, tests, launcher examples and extra notes in `codex/_ignore/` unless the user explicitly adopts them as maintained files. Do not create several top-level support files for one production script.
 - Preserve the existing lowercase directory names `codex` and `_ignore`.
 - Files outside `codex/` are primarily the user's working area. Modify or move them only when the user's requested task calls for it; do not reorganize them as part of routine Codex work.
 - The user may move adopted code outside `codex/`. Respect that organization and avoid creating competing maintained copies.
@@ -22,6 +22,7 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 - Scratch runners in `_ignore/` may orchestrate maintained code. Essential reproduction logic must not remain only in disposable scratch files.
 - Reuse the user's established utilities and scientific conventions, including the earlier `project2/05_moments/` implementation where relevant.
 - Run large data-production tasks on the HPC and keep bulk datasets there. Keep temporary diagnostics and logs in `_ignore/` unless a task specifies another location.
+- In `/p/project1/ngff/li47/code/scratch/run/09_gravitationalFFs/`, reserve ensemble directories for production output. Put temporary run output under the separate `_tests/` directory, then remove completed intermediate bulk test data after verification; small reports can remain in `codex/_ignore/`.
 - Record confirmed project conventions here as they develop. Keep proposed momentum cuts, fit choices, and other unsettled scientific decisions separate from established rules.
 
 ## Local and HPC work
@@ -29,6 +30,12 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 - Synchronize maintained project sources through the existing `glwc3` GitHub repository so the local and HPC checkouts can both be used.
 - Use local work for source editing and lightweight diagnostics. Keep bulk production data and large computations on the HPC.
 - Check both working-tree states before synchronizing and preserve unrelated edits. Stage and publish only changes belonging to the current task.
+
+## Current production command
+
+- In an allocated CPU job, run `python3 -u disconnected_3pt.py -c CFG`; the user's `xargs -P` pattern can launch separate configurations.
+- Only this production Python file is required. It reads the existing `05_moments` scientific helpers and source-resolved inputs; the extra notes, checks and job example in `_ignore/` are optional.
+- The default output is one HDF5 file per configuration under the scratch root's `<ensemble>/K16_stout10/data_avgmore/`; `avgsrc` is disabled unless requested.
 
 ## Existing kinematic preview
 
