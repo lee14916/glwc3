@@ -1,7 +1,27 @@
-"""Bounded-memory 1DV disconnected C3 production, one HDF5 file per cfg.
+"""run001: preliminary B64 gluon GFF study, stout level 10, common 725 configs.
 
-Scientific geometry/projectors are loaded from the established 05_moments
-script without executing its CLI. See disconnected_3pt.md for the data layout.
+Launch inside an allocated CPU job with at least ten CPU cores:
+
+    module load Stages/2026 GCCcore/14.3.0
+    module load h5py/3.14.0 sympy/1.14.0 SciPy-bundle/2025.07
+    cd /p/project1/ngff/li47/code/glwc3/project2/09_gravitationalFFs/codex
+    CFGS=../../05_moments/dataPrepare/cB211.072.64/data_aux/cfgs_run
+    OUT=/p/project1/ngff/li47/code/scratch/run/09_gravitationalFFs/cB211.072.64/run001_gluon_stout_level10
+    mkdir -p "$OUT"
+    cat "$CFGS" | xargs -I @ -P 10 python3 -u run001_post2avgmore.py -c @ > "$OUT/run001.out" 2>&1
+
+One configuration: python3 -u run001_post2avgmore.py -c a0500
+
+Procedure run001 uses gluon loops at stout level 10 only, with integer squared
+sink/insertion momenta <=16, separations 2..22 and the original common725
+cohort. Its ordered configuration list is checked against a fixed hash.
+Each output is data_avgmore/CFG.h5 with arrays (time,momentum,projector,insert).
+Only avgmore is saved by default; progress goes to stdout, optionally redirected
+above to one console-output file. Matrix-library threads are limited to one
+per configuration process. See runs.md for this procedure and its dependencies.
+
+Scientific geometry/projectors are reused from the established 05_moments
+script without executing its CLI.
 """
 from __future__ import annotations
 
@@ -30,6 +50,10 @@ from sympy.combinatorics import Permutation
 from threadpoolctl import threadpool_info, threadpool_limits
 
 HERE = Path(__file__).resolve().parent
+RUN_ID = "run001"
+RUN_LABEL = "run001_gluon_stout_level10"
+DEFAULT_CFG_LIST = HERE.parents[1] / "05_moments/dataPrepare/cB211.072.64/data_aux/cfgs_run"
+COHORT_SHA256 = "7b340fef3af0f7d12aa12b8b7fb63e0597bb00f35a6861b259e751f4b1ccdaf7"
 DEFAULT_REFERENCE = HERE.parents[1] / "05_moments/dataPrepare/cB211.072.64/post2avgmore.py"
 DATA_ROOT = Path("/p/project1/ngff/li47/code/projectData/02_discNJN_1D")
 OUTPUT_ROOT = Path("/p/project1/ngff/li47/code/scratch/run/09_gravitationalFFs")
@@ -39,6 +63,22 @@ SCHEMA = "gff-disconnected-1dv-v1"
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def load_run_cohort(path=DEFAULT_CFG_LIST):
+    """Freeze the original connected/disconnected common set, including order."""
+    path = Path(path)
+    cfgs = path.read_text(encoding="utf-8").split()
+    # Normalize line endings and the optional final newline across checkouts.
+    sha = hashlib.sha256("\n".join(cfgs).encode()).hexdigest()
+    if len(cfgs) != 725 or len(set(cfgs)) != 725 or sha != COHORT_SHA256:
+        raise ValueError(f"Procedure run001 requires the original ordered 725-configuration cohort: {path}")
+    return dict(source=str(path.resolve()), count=len(cfgs), sha256=sha, cfgs=cfgs)
+
+
+def validate_run_selection(args):
+    if args.ensemble != "cB211.072.64" or selections(args.stouts) != [10] or args.currents.split():
+        raise ValueError("Procedure run001 is B64 gluon-only at stout level 10; use a new procedure ID for another channel selection")
 
 
 def load_reference(path, ensemble="cB211.072.64", tfs=(2, 22), currents=(), stouts=()):
@@ -367,19 +407,20 @@ def peak_mib():
 
 
 def build_parser():
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("-c", "--cfg", required=True)
+    p.add_argument("--cfg-list", type=Path, default=DEFAULT_CFG_LIST, help="original common725 list; checked against its fixed ordered-name hash")
     p.add_argument("--ensemble", default="cB211.072.64")
     p.add_argument("--sink-n2-max", type=int, default=16)
     p.add_argument("--transfer-n2-max", type=int, default=16)
     p.add_argument("--initial-n2-max", type=int)
-    p.add_argument("--stouts", default="5,7,10,13,15,20,25,30,35,40")
-    p.add_argument("--currents", default="j+,js,jc", help="comma-separated; empty selects gluon only")
+    p.add_argument("--stouts", default="10", help="procedure run001 fixes this to level10 only")
+    p.add_argument("--currents", default="", help="procedure run001 excludes quark currents")
     p.add_argument("--tfs", default="2:22", help="inclusive low:high or comma-separated list")
     p.add_argument("--c2-root", type=Path)
     p.add_argument("--loop-root", type=Path)
     p.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
-    p.add_argument("--run-label", default="K16_stout10")
+    p.add_argument("--run-label", default=RUN_LABEL)
     p.add_argument("--reference-script", type=Path, default=DEFAULT_REFERENCE)
     p.add_argument("--momentum-block", type=int, default=4)
     p.add_argument("--memory-mib", type=int, default=1024, help="conservative working-array budget, checked before reading payloads")
@@ -426,6 +467,10 @@ def configuration_lock(path):
 
 def produce(args):
     validate_names(args)
+    validate_run_selection(args)
+    args._cohort = load_run_cohort(args.cfg_list)
+    if args.cfg not in args._cohort["cfgs"]:
+        raise ValueError(f"Configuration {args.cfg} is outside procedure run001's fixed common725 cohort")
     lock = args.output_root/args.ensemble/args.run_label/"locks"/(args.cfg+".lock")
     with configuration_lock(lock):
         _produce(args)
@@ -481,7 +526,7 @@ def _produce(args):
     if block_size < 1:
         raise MemoryError("Requested working-memory budget is too small; reduce cuts/tfs or raise --memory-mib")
     block_count = math.ceil(len(moms)/block_size)
-    settings = dict(ensemble=args.ensemble, cfg=args.cfg, sink_n2_max=args.sink_n2_max,
+    settings = dict(procedure_id=RUN_ID, ensemble=args.ensemble, cfg=args.cfg, sink_n2_max=args.sink_n2_max,
                     transfer_n2_max=args.transfer_n2_max, initial_n2_max=args.initial_n2_max,
                     tfs=tfs, stouts=stouts, currents=currents, block_size=block_size,
                     threads=args.threads, working_memory_mib=args.memory_mib,
@@ -489,6 +534,7 @@ def _produce(args):
                     channel_contraction="fused direct" if args.kernel == "direct" else "per-channel fft",
                     dtype="complex128", g5H=True, spatial_average="48 group elements; no source/sink exchange")
     identity = dict(schema=SCHEMA, settings=settings, implementation_sha256=digest(__file__),
+                    cohort=args._cohort,
                     reference_sha256=digest(args.reference_script), inputs=manifests,
                     source_records=[(path, label, xyz) for path, label, xyz in records],
                     moms=moms.tolist(), numpy=np.__version__, h5py=h5py.__version__)

@@ -7,7 +7,7 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 
 ## File locations and ownership
 
-- Keep `codex/` focused on production entry points and analysis adopted by the user. The current production entry point is `disconnected_3pt.py`.
+- Keep `codex/` focused on production entry points and analysis adopted by the user. The current production entry point is `run001_post2avgmore.py`.
 - Put disposable scripts, one-off diagnostics, small exploratory tests, and their temporary outputs in `codex/_ignore/`.
 - Keep exploratory momentum, rank, and coverage investigations in `codex/_ignore/` unless the user adopts them as maintained project code; these investigations are not GitHub-maintained sources.
 - Put supporting validation scripts, tests, launcher examples and extra notes in `codex/_ignore/` unless the user explicitly adopts them as maintained files. Do not create several top-level support files for one production script.
@@ -31,11 +31,18 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 - Use local work for source editing and lightweight diagnostics. Keep bulk production data and large computations on the HPC.
 - Check both working-tree states before synchronizing and preserve unrelated edits. Stage and publish only changes belonging to the current task.
 
+## Analysis procedure IDs
+
+- Prefix code files and output folders with `run` plus a three-digit procedure ID (`run001_`, `run002_`, ...), followed by a descriptive name.
+- An ID identifies a whole analysis procedure, which may contain several codes and datasets. It is not an individual code version or a one-file run number.
+- A procedure may depend on codes or results with the same or an earlier ID. Record its purpose, settings, cohort, codes, dependencies, outputs and status in the user-requested `runs.md` registry.
+
 ## Current production command
 
-- In an allocated CPU job, run `python3 -u disconnected_3pt.py -c CFG`; the user's `xargs -P` pattern can launch separate configurations.
+- In an allocated CPU job, run `python3 -u run001_post2avgmore.py -c CFG`; copyable one-configuration and `xargs -P` commands are in the script header.
 - Only this production Python file is required. It reads the existing `05_moments` scientific helpers and source-resolved inputs; the extra notes, checks and job example in `_ignore/` are optional.
-- The default output is one HDF5 file per configuration under the scratch root's `<ensemble>/K16_stout10/data_avgmore/`; `avgsrc` is disabled unless requested.
+- Procedure run001 is B64, gluon only at stout level 10, using the original common725 cohort without superjackknife. The script verifies cohort membership before writing output.
+- Its default output is one HDF5 file per configuration under the scratch root's `<ensemble>/run001_gluon_stout_level10/data_avgmore/`; `avgsrc` is disabled unless requested.
 
 ## Existing kinematic preview
 
