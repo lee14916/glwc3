@@ -35,11 +35,12 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 
 - Prefix code files and output folders with `run` plus a three-digit procedure ID (`run001_`, `run002_`, ...), followed by a descriptive name.
 - An ID identifies a whole analysis procedure, which may contain several codes and datasets. It is not an individual code version or a one-file run number.
-- A procedure may depend on codes or results with the same or an earlier ID. Record its purpose, settings, cohort, codes, dependencies, outputs and status in the user-requested `runs.md` registry.
+- A procedure may depend on codes or results with the same or an earlier ID. Keep `runs.md` as a short change history: name the earlier run(s) it builds on and explain the meaningful changes. Do not repeat defaults, launch instructions, validation details or long dependency mappings. The first entry can simply say "Initial version."
 
 ## Current production command
 
-- In an allocated CPU job, run `python3 -u run001_post2avgmore.py -c CFG`; copyable one-configuration and `xargs -P` commands are in the script header.
+- In an allocated CPU job, run `python3 -u run001_post2avgmore.py -c CFG`; the familiar one-line `xargs -P` launch command is in the script header.
+- Use the user's existing HPC virtual environment at `/p/project1/ngff/li47/code/.venv`. Keep the header launch command in the familiar one-line `cat ... | xargs ...` form; do not add repeated module-loading or environment-setup blocks.
 - Only this production Python file is required. It reads the existing `05_moments` scientific helpers and source-resolved inputs; the extra notes, checks and job example in `_ignore/` are optional.
 - Procedure run001 is B64, gluon only at stout level 10, using the original common725 cohort without superjackknife. The script verifies cohort membership before writing output.
 - Its default output is one HDF5 file per configuration under the scratch root's `<ensemble>/run001_gluon_stout_level10/data_avgmore/`; `avgsrc` is disabled unless requested.

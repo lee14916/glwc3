@@ -1,24 +1,15 @@
 """run001: preliminary B64 gluon GFF study, stout level 10, common 725 configs.
 
-Launch inside an allocated CPU job with at least ten CPU cores:
+From this directory, using your usual activated HPC virtual environment:
 
-    module load Stages/2026 GCCcore/14.3.0
-    module load h5py/3.14.0 sympy/1.14.0 SciPy-bundle/2025.07
-    cd /p/project1/ngff/li47/code/glwc3/project2/09_gravitationalFFs/codex
-    CFGS=../../05_moments/dataPrepare/cB211.072.64/data_aux/cfgs_run
-    OUT=/p/project1/ngff/li47/code/scratch/run/09_gravitationalFFs/cB211.072.64/run001_gluon_stout_level10
-    mkdir -p "$OUT"
-    cat "$CFGS" | xargs -I @ -P 10 python3 -u run001_post2avgmore.py -c @ > "$OUT/run001.out" 2>&1
-
-One configuration: python3 -u run001_post2avgmore.py -c a0500
+    cat ../../05_moments/dataPrepare/cB211.072.64/data_aux/cfgs_run | xargs -I @ -P 10 python3 -u run001_post2avgmore.py -c @ > _ignore/run001.out 2>&1 &
 
 Procedure run001 uses gluon loops at stout level 10 only, with integer squared
 sink/insertion momenta <=16, separations 2..22 and the original common725
 cohort. Its ordered configuration list is checked against a fixed hash.
 Each output is data_avgmore/CFG.h5 with arrays (time,momentum,projector,insert).
-Only avgmore is saved by default; progress goes to stdout, optionally redirected
-above to one console-output file. Matrix-library threads are limited to one
-per configuration process. See runs.md for this procedure and its dependencies.
+Only avgmore is saved by default. The command redirects progress to one output
+file. Numerical-library threads are limited to one per configuration process.
 
 Scientific geometry/projectors are reused from the established 05_moments
 script without executing its CLI.
@@ -44,10 +35,16 @@ try:
 except ImportError:  # Lightweight checks also run in the local Windows checkout.
     resource = None
 
+# Set these before numerical imports so the user's existing virtual environment
+# needs no extra thread-control package for configuration-level parallel jobs.
+THREAD_ENV = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "BLIS_NUM_THREADS")
+if __name__ == "__main__":
+    for variable in THREAD_ENV:
+        os.environ[variable] = "1"
+
 import h5py
 import numpy as np
 from sympy.combinatorics import Permutation
-from threadpoolctl import threadpool_info, threadpool_limits
 
 HERE = Path(__file__).resolve().parent
 RUN_ID = "run001"
@@ -424,7 +421,6 @@ def build_parser():
     p.add_argument("--reference-script", type=Path, default=DEFAULT_REFERENCE)
     p.add_argument("--momentum-block", type=int, default=4)
     p.add_argument("--memory-mib", type=int, default=1024, help="conservative working-array budget, checked before reading payloads")
-    p.add_argument("--threads", type=int, default=1, help="BLAS threads per configuration process")
     p.add_argument("--kernel", choices=("direct", "fft"), default="direct")
     p.add_argument("--compression", choices=("none", "lzf", "gzip"), default="gzip")
     p.add_argument("--save-avgsrc", action="store_true")
@@ -479,8 +475,8 @@ def produce(args):
 def _produce(args):
     started = time.monotonic()
     validate_names(args)
-    if min(args.sink_n2_max, args.transfer_n2_max) < 0 or min(args.momentum_block, args.threads) < 1:
-        raise ValueError("Invalid momentum cut, block size or thread count")
+    if min(args.sink_n2_max, args.transfer_n2_max) < 0 or args.momentum_block < 1:
+        raise ValueError("Invalid momentum cut or block size")
     tfs, stouts = parse_tfs(args.tfs), selections(args.stouts)
     currents = [j for j in args.currents.split(",") if j]
     if not tfs or min(tfs) < 1 or len(set(tfs)) != len(tfs) or any(j not in ("j+", "js", "jc") for j in currents):
@@ -529,7 +525,7 @@ def _produce(args):
     settings = dict(procedure_id=RUN_ID, ensemble=args.ensemble, cfg=args.cfg, sink_n2_max=args.sink_n2_max,
                     transfer_n2_max=args.transfer_n2_max, initial_n2_max=args.initial_n2_max,
                     tfs=tfs, stouts=stouts, currents=currents, block_size=block_size,
-                    threads=args.threads, working_memory_mib=args.memory_mib,
+                    threads=1, working_memory_mib=args.memory_mib,
                     kernel=args.kernel, compression=args.compression, save_avgsrc=args.save_avgsrc,
                     channel_contraction="fused direct" if args.kernel == "direct" else "per-channel fft",
                     dtype="complex128", g5H=True, spatial_average="48 group elements; no source/sink exchange")
@@ -591,7 +587,7 @@ def _produce(args):
             output.attrs["initialized"] = True
             output.flush()
         done = output["status/completed_blocks"][:]
-        log(f"cfg={args.cfg} sources={len(records)} mom={len(moms)} raw_pairs={len(all_raw)} block={block_size} cache_MiB={cache_bytes/1024**2:.1f} threads={args.threads} resumed={int(done.sum())}/{block_count}")
+        log(f"cfg={args.cfg} sources={len(records)} mom={len(moms)} raw_pairs={len(all_raw)} block={block_size} cache_MiB={cache_bytes/1024**2:.1f} threads=1 resumed={int(done.sum())}/{block_count}")
         coordinates = np.asarray([r[2] for r in records])
         c2f, c2b = read_c2(files, records, pvec, tfs, ref)
         loops = read_loops(loop_root/args.cfg, qvec, channels)
@@ -631,7 +627,7 @@ def _produce(args):
         if manifests != [file_manifest(Path(m["path"])) for m in manifests]:
             raise RuntimeError("An input file changed during production; output remains partial")
         output.attrs.update(complete=True, elapsed_seconds=time.monotonic()-started, peak_rss_mib=peak_mib(),
-                            threadpools=json.dumps(threadpool_info(), sort_keys=True))
+                            thread_limits=json.dumps({name: os.environ.get(name) for name in THREAD_ENV}, sort_keys=True))
         output.flush()
     os.rename(partial, final)
     log(f"flag_cfg_done: {args.cfg} elapsed_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f} file={final}")
@@ -639,8 +635,7 @@ def _produce(args):
 
 def main():
     args = build_parser().parse_args()
-    with threadpool_limits(limits=args.threads):
-        produce(args)
+    produce(args)
 
 
 if __name__ == "__main__":
