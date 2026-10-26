@@ -225,6 +225,34 @@ class LegacyNumericalEquivalence(unittest.TestCase):
                             np.testing.assert_allclose(core.cubic_average(direct, block), expected_avg, rtol=2e-12, atol=2e-13)
                             np.testing.assert_allclose(core.cubic_average(fft, block), expected_avg, rtol=2e-12, atol=2e-13)
 
+    def test_fused_channel_contraction_matches_single_channel(self):
+        forward, backward = core.read_c2(self.paths, self.records, self.pvec, self.tfs, self.ref)
+        available = core.read_loops(self.directory, self.qvec, self.channels)
+        # A deliberately reversed order catches channel-axis reshaping mistakes.
+        loops = {ch: available[ch] for ch in reversed(self.channels)}
+        stacked = np.stack(list(loops.values()), axis=-1)
+        for block_size in (1, 3, len(self.moms)):
+            for first in range(0, len(self.moms), block_size):
+                block = core.orbit_block(self.ref, self.moms[first:first+block_size])
+                wf, wb = core.time_weights(forward, backward, self.coordinates, block,
+                                            self.pvec, self.temporal, 64, source_batch=2)
+                for fi, tf in enumerate(self.tfs):
+                    with self.subTest(block_size=block_size, first=first, tf=tf):
+                        expected = np.stack([core.contract(wf, wb, loop, block.raw, self.qvec,
+                                                           fi, tf, len(self.records), "direct")
+                                             for loop in loops.values()], axis=-1)
+                        actual = core.contract_channels(wf, wb, loops, block.raw, self.qvec,
+                                                        fi, tf, len(self.records), "direct", stacked)
+                        np.testing.assert_allclose(actual, expected, rtol=2e-12, atol=2e-13)
+                        without_cache = core.contract_channels(wf, wb, loops, block.raw, self.qvec,
+                                                               fi, tf, len(self.records), "direct")
+                        np.testing.assert_allclose(without_cache, expected, rtol=2e-12, atol=2e-13)
+                        fft_loops = {ch: np.fft.fft(loop, axis=0) for ch, loop in loops.items()}
+                        fft = core.contract_channels(np.fft.ifft(wf, axis=0)*self.temporal,
+                                                     np.fft.fft(wb, axis=0), fft_loops,
+                                                     block.raw, self.qvec, fi, tf, len(self.records), "fft")
+                        np.testing.assert_allclose(fft, expected, rtol=2e-12, atol=2e-13)
+
     def test_compact_production_save_avgsrc_skip_and_identity(self):
         args = self.production_args("fresh")
         with redirect_stdout(io.StringIO()):
@@ -249,16 +277,16 @@ class LegacyNumericalEquivalence(unittest.TestCase):
         with redirect_stdout(io.StringIO()):
             core.produce(fresh)
         resumed = self.production_args("interrupted_fft", kernel="fft")
-        original_contract = core.contract
+        original_contract = core.contract_channels
         calls = 0
-        per_block = len(self.channels)*len(self.tfs)
+        per_block = len(self.tfs)
         def stop_after_first_block(*args, **kwargs):
             nonlocal calls
             calls += 1
             if calls == per_block+1:
                 raise RuntimeError("Injected interruption after completed first block")
             return original_contract(*args, **kwargs)
-        with mock.patch.object(core, "contract", side_effect=stop_after_first_block):
+        with mock.patch.object(core, "contract_channels", side_effect=stop_after_first_block):
             with self.assertRaisesRegex(RuntimeError, "Injected interruption"):
                 with redirect_stdout(io.StringIO()):
                     core.produce(resumed)

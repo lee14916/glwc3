@@ -289,6 +289,56 @@ def contract(weights_f, weights_b, loop, raw_moms, qvec, tf_index, tf, source_co
     return result
 
 
+def contract_channels(weights_f, weights_b, loops, raw_moms, qvec, tf_index, tf,
+                      source_count, kernel="direct", stacked_loops=None):
+    """Contract ordered channels; return (time,raw_mom,proj,insert,channel).
+
+    The direct kernel fuses channels into each GEMM's right-hand matrix.
+    Production supplies a stack cached once for the run. Small callers may omit
+    it and supply just the ordered loop dictionary. The FFT path retains the
+    independently validated single-channel implementation and its preprocessing.
+    """
+    if not loops:
+        raise ValueError("No loop channels selected")
+    if kernel == "fft":
+        return np.stack([contract(weights_f, weights_b, loop, raw_moms, qvec,
+                                  tf_index, tf, source_count, kernel)
+                         for loop in loops.values()], axis=-1)
+    if kernel != "direct":
+        raise ValueError(kernel)
+    if stacked_loops is None:
+        stacked_loops = np.stack(list(loops.values()), axis=-1)
+    temporal = len(stacked_loops)
+    channel_count = len(loops)
+    if stacked_loops.shape != (temporal, len(qvec), 10, channel_count):
+        raise ValueError("Stacked loops must have axes (time,q,insert,channel)")
+    lookup = {tuple(q): i for i, q in enumerate(qvec)}
+    groups = {}
+    for i, mom in enumerate(raw_moms):
+        groups.setdefault(tuple(mom[3:]), []).append(i)
+    result = np.empty((tf+1, len(raw_moms), 4, 10, channel_count), complex)
+    times = np.arange(temporal)[:, None]
+    tau = np.arange(tf+1)[None, :]
+    positive_times, negative_times = (times+tau) % temporal, (times-tau) % temporal
+    pt_sign = np.asarray([-1, 1, 1, 1])[None, None, :, None, None]
+    for q, indices in groups.items():
+        qi, qn = lookup[q], lookup[tuple(-np.asarray(q))]
+        wf = weights_f[:, tf_index][:, indices]
+        wb = weights_b[:, tf_index][:, indices]
+        lf = stacked_loops[positive_times, qi].reshape(temporal, -1)
+        fw = (wf.transpose(1, 2, 0).reshape(-1, temporal)@lf)
+        fw = fw.reshape(len(indices), 4, tf+1, 10, channel_count).transpose(2, 0, 1, 3, 4)
+        del lf
+        lb = stacked_loops[negative_times, qn].reshape(temporal, -1)
+        bw = (wb.transpose(1, 2, 0).reshape(-1, temporal)@lb)
+        bw = bw.reshape(len(indices), 4, tf+1, 10, channel_count).transpose(2, 0, 1, 3, 4)
+        bw *= pt_sign
+        fw += bw
+        fw /= 2*source_count
+        result[:, indices] = fw
+    return result
+
+
 def selections(text):
     return [int(x) for x in text.split(",") if x]
 
@@ -420,11 +470,14 @@ def _produce(args):
     cache_bytes = 2*len(records)*len(tfs)*len(pvec)*4*16
     loop_bytes = temporal*len(qvec)*10*len(channels)*16
     pair_bytes = (2*temporal*len(tfs)*4*16 + 2*16*len(tfs)*4*16
-                  + max(max(tfs)+1, temporal if args.kernel == "fft" else 0)*4*10*16*4)
+                  + max(max(tfs)+1, temporal if args.kernel == "fft" else 0)*4*10*len(channels)*16*4)
     overhead = 192*1024**2+inventory_stats["input_read_reserve_bytes"]
     budget = args.memory_mib*1024**2
     multiplier = 2 if args.kernel == "fft" else 1
-    block_size = min(args.momentum_block, max(0, int((budget-cache_bytes-multiplier*loop_bytes-overhead)/(48*pair_bytes*multiplier))))
+    # Raw loop-read temporaries are already covered by inventory_stats. Stacking
+    # briefly retains both the converted cache and its new channel-major stack.
+    loop_reserve = 2*loop_bytes
+    block_size = min(args.momentum_block, max(0, int((budget-cache_bytes-loop_reserve-overhead)/(48*pair_bytes*multiplier))))
     if block_size < 1:
         raise MemoryError("Requested working-memory budget is too small; reduce cuts/tfs or raise --memory-mib")
     block_count = math.ceil(len(moms)/block_size)
@@ -433,6 +486,7 @@ def _produce(args):
                     tfs=tfs, stouts=stouts, currents=currents, block_size=block_size,
                     threads=args.threads, working_memory_mib=args.memory_mib,
                     kernel=args.kernel, compression=args.compression, save_avgsrc=args.save_avgsrc,
+                    channel_contraction="fused direct" if args.kernel == "direct" else "per-channel fft",
                     dtype="complex128", g5H=True, spatial_average="48 group elements; no source/sink exchange")
     identity = dict(schema=SCHEMA, settings=settings, implementation_sha256=digest(__file__),
                     reference_sha256=digest(args.reference_script), inputs=manifests,
@@ -495,8 +549,13 @@ def _produce(args):
         coordinates = np.asarray([r[2] for r in records])
         c2f, c2b = read_c2(files, records, pvec, tfs, ref)
         loops = read_loops(loop_root/args.cfg, qvec, channels)
+        stacked_loops = None
         if args.kernel == "fft":
             loops = {ch: np.fft.fft(a, axis=0) for ch, a in loops.items()}
+        else:
+            stacked_loops = np.stack([loops[ch] for ch in channels], axis=-1)
+            # Keep dictionary order/API without retaining a second loop cache.
+            loops = {ch: stacked_loops[..., ci] for ci, ch in enumerate(channels)}
         log(f"cfg={args.cfg} inputs_loaded_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f}")
         for bi, start in enumerate(range(0, len(moms), block_size)):
             stop = min(start+block_size, len(moms))
@@ -507,13 +566,16 @@ def _produce(args):
             if args.kernel == "fft":
                 wf = np.fft.ifft(wf, axis=0)*temporal
                 wb = np.fft.fft(wb, axis=0)
-            for ch in channels:
-                for fi, tf in enumerate(tfs):
-                    raw = contract(wf, wb, loops[ch], block.raw, qvec, fi, tf, len(records), args.kernel)
+            for fi, tf in enumerate(tfs):
+                raw_channels = contract_channels(wf, wb, loops, block.raw, qvec, fi, tf,
+                                                 len(records), args.kernel, stacked_loops)
+                for ci, ch in enumerate(channels):
+                    raw = raw_channels[..., ci]
                     output[f"data/{channel_name(ch)}_{tf}"][:, start:stop] = cubic_average(raw, block)
                     if args.save_avgsrc:
                         a, b = output["avgsrc/orbit_offsets"][[start, stop]]
                         output[f"avgsrc/data/{channel_name(ch)}_{tf}"][:, a:b] = raw
+                del raw, raw_channels
             output.flush()
             output["status/completed_blocks"][bi] = True
             output.flush()
