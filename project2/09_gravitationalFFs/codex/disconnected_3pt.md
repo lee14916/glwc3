@@ -43,8 +43,8 @@ For configuration `CFG`, the default input directories are:
 The producer checks selected sink/loop momentum and channel coverage before
 reading payloads. `--currents ''` selects gluons only; `--stouts ''` selects
 quarks only. `--kernel fft` is an alternative checked against the same legacy
-estimator. Direct BLAS is the default selected by synthetic kernel studies;
-real-data throughput and peak memory still require a representative pilot.
+estimator. Direct BLAS fuses the selected currents into each matrix contraction.
+The real-data pilot measurements below use this default implementation.
 
 ## Run and resume
 
@@ -80,7 +80,7 @@ corruption or an unclean filesystem failure.
 `run_disconnected_3pt.slurm` is an example, not a submitted job. It requests one
 48-core CPU node in the Cluster batch partition, runs at most ten single-threaded
 configuration processes with `xargs -P 10`, and sets a 1024-MiB working-array
-budget per process. Adjust wall time after a real-data pilot. From the CPU
+budget per process and a 24-hour wall-time request. From the CPU
 login, prepare a plain text list containing one unique configuration name per
 line; blank lines and lines beginning `#` are ignored. For example:
 
@@ -98,6 +98,41 @@ override partition/time with `sbatch --partition=devel --time=00:30:00 ...`.
 JSC module environments differ between Booster and Cluster logins. The example
 uses a login Bash shell and `--export=NONE`, then loads its modules on the
 allocated compute node. Do not launch the ten-process command on a login node.
+See the [JSC batch-system guidance](https://apps.fz-juelich.de/jsc/hps/juwels/batchsystem.html)
+for node allocations and partition limits.
+
+## Measured B64 pilot, 2026-10-26
+
+The full default `a0500` run used 349 source records, 1,685 cubic representatives
+from 66,049 oriented pairs, three quark currents, ten stout steps, and all 21
+separations. On one CPU/BLAS thread it finished in **862.6 s (14.4 min)** with
+**618.5 MiB peak RSS**. Its complete output is
+`/p/project1/ngff/li47/code/scratch/run/09_gravitationalFFs/cB211.072.64/K16_stout10/data_avgmore/a0500.h5`.
+The file is 3,452,108,048 bytes (3.22 GiB), compared with 3,827,241,600 bytes of
+raw array payload; net compression saving is about 10%, including file metadata.
+
+All 275 momentum files available in the old `a0500/data_avgmore` reference set
+were compared for every selected current and separation. All 273 channel/time
+comparisons pass, with worst per-momentum normalized maximum difference
+`7.07042e-15`. Nine representative momenta were additionally checked before
+cubic averaging against `data_avgsrc`, and with both old and newly extracted
+two-point inputs. Synthetic checks cover precision, time wrapping, duplicate
+sources, all 48 rotations, channel fusion, locks and interrupted-run resume.
+
+On the same nine-momentum sample, the original functions took 169.8 s and
+1,995 MiB peak RSS, without output writes. The final producer took 20.5 s and
+278 MiB, including compressed `avgsrc` and `avgmore` writes. Filesystem caches
+and contention affect timing; ten-worker throughput has not been measured.
+
+A path-availability list of 751 configurations was saved at
+`/p/project1/ngff/li47/code/scratch/run/09_gravitationalFFs/cB211.072.64/K16_stout10/cfgs_available_20261026.txt`.
+Each configuration still receives the producer's full momentum/channel preflight.
+The completed `a0500` will be skipped when launched again with the same settings.
+At the single-process rate, ten workers need roughly 18 hours for this list
+before I/O contention; use a shorter list for initial concurrency checks.
+Ten comparable workers have about 6 GiB of summed resident memory, while each
+retains a 1-GiB working-array budget; filesystem caches use additional shared
+node memory. `xargs` does not reserve memory or create separate Slurm allocations.
 
 ## Compact HDF5 layout
 
@@ -108,6 +143,10 @@ Tables `moms`, `tfs`, `channels`, `projs` (`P0,Px,Py,Pz`) and `inserts`
 (`tt,tx,ty,tz,xx,xy,xz,yy,yz,zz`) define the axes. Metadata stores the run
 identity and producer/reference sources; file attributes include schema,
 completion status, elapsed time and peak RSS.
+
+For a momentum row `i`, `f["data/jg;stout10_12"][:, i:i+1, :, :]`
+returns the old `(time,1,projector,insertion)` shape without creating a separate
+file. Use the six-integer row in `f["moms"]` to locate `i`.
 
 `--save-avgsrc` additionally stores source/PT-averaged, spatially unaveraged
 rows under `avgsrc/`, with `avgsrc/moms` and `avgsrc/orbit_offsets`. These are

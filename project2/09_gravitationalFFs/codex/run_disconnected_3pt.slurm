@@ -9,7 +9,7 @@
 #SBATCH --hint=nomultithread
 #SBATCH --mem=0
 #SBATCH --exclusive
-#SBATCH --time=06:00:00
+#SBATCH --time=24:00:00
 #SBATCH --export=NONE
 #SBATCH --output=slurm-disconnected_3pt-%j.out
 
