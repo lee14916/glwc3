@@ -53,8 +53,18 @@ header. The user will launch the complete configuration list.
   `project2/05_moments/dataPrepare/cB211.072.64/post2avgmore.py`.
 - Pre-ID inputs: the selected configurations' source-resolved nucleon C2
   files and stout-level-10 gluon loops, as recorded in each output file.
-- C3 construction code is implemented. A separate one-configuration check
-  is required before the user's full-cohort launch; completion is not claimed.
+- C3 construction code is validated. All 725 configurations have the required
+  input paths; each receives a full momentum/operator preflight when launched.
+- `a0500` is generated and complete: one channel, 21 datasets and 1,685
+  momentum representatives. Its values match the validated pre-ID baseline
+  exactly at every momentum and separation. Nine local and HPC checks pass,
+  including fixed-cohort and fixed-channel rejection checks.
+- The `a0500` producer took 211.8 s with one BLAS thread and 434.2 MiB peak RSS;
+  its file is 265,580,956 bytes. The small validation report is retained in
+  `_ignore/disc3pt_validation/run001_check.json`.
+- Only this first configuration has been generated for `run001`; the other
+  724 are ready for the user's header-command launch. The same command skips
+  completed `a0500` when the code, inputs and settings match.
 - Ratios, matrix-element fits and the preliminary GFF signal assessment are
   planned subsequent steps of procedure `run001`.
 
