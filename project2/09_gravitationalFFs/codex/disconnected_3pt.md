@@ -78,7 +78,7 @@ the same identity is skipped. This is not a promise of recovery from HDF5
 corruption or an unclean filesystem failure.
 
 `run_disconnected_3pt.slurm` is an example, not a submitted job. It requests one
-48-core CPU node with 96-GiB memory class, runs at most ten single-threaded
+48-core CPU node in the Cluster batch partition, runs at most ten single-threaded
 configuration processes with `xargs -P 10`, and sets a 1024-MiB working-array
 budget per process. Adjust wall time after a real-data pilot. From the CPU
 login, prepare a plain text list containing one unique configuration name per

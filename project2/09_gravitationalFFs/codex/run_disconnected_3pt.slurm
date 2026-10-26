@@ -7,7 +7,6 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=48
 #SBATCH --hint=nomultithread
-#SBATCH --constraint=mem96
 #SBATCH --mem=0
 #SBATCH --exclusive
 #SBATCH --time=06:00:00
@@ -83,7 +82,7 @@ printf 'node=%s job=%s configurations=%s workers=%s\n' \
 # Each process owns one CFG.h5 and its persistent CFG.lock. Never remove lock files.
 printf '%s\0' "${CFGS[@]}" | xargs -0 -r -n 1 -P "$WORKERS" bash -c '
     cfg=$1
-    exec python -u "$CODE/disconnected_3pt.py" \
+    exec python3 -u "$CODE/disconnected_3pt.py" \
         --cfg "$cfg" --ensemble "$ENSEMBLE" \
         --output-root "$OUTPUT_ROOT" --run-label "$RUN_LABEL" \
         --sink-n2-max 16 --transfer-n2-max 16 \
