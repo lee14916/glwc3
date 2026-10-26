@@ -9,6 +9,7 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 
 - Put well-organized, reusable assistant-written code in `codex/` or suitable subdirectories.
 - Put disposable scripts, one-off diagnostics, small exploratory tests, and their temporary outputs in `codex/_ignore/`.
+- Keep exploratory momentum, rank, and coverage investigations in `codex/_ignore/` unless the user adopts them as maintained project code; these investigations are not GitHub-maintained sources.
 - Maintained validation code can live with the reusable implementation; it is not automatically disposable.
 - Preserve the existing lowercase directory names `codex` and `_ignore`.
 - Files outside `codex/` are primarily the user's working area. Modify or move them only when the user's requested task calls for it; do not reorganize them as part of routine Codex work.
