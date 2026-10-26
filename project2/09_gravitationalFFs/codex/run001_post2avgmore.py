@@ -2,7 +2,9 @@
 
 From this directory, using your usual activated HPC virtual environment:
 
-    cat ../../05_moments/dataPrepare/cB211.072.64/data_aux/cfgs_run | xargs -I @ -P 10 python3 -u run001_post2avgmore.py -c @ > _ignore/run001.out 2>&1 &
+    cat data_aux/cfgs_run | xargs -I @ -P 10 python3 -u run001_post2avgmore.py -c @ > _ignore/run001.out 2>&1 &
+
+Add --verbose to the Python command when testing to see detailed progress.
 
 Procedure run001 uses gluon loops at stout level 10 only, with integer squared
 sink/insertion momenta <=16, separations 2..22 and the original common725
@@ -49,7 +51,7 @@ from sympy.combinatorics import Permutation
 HERE = Path(__file__).resolve().parent
 RUN_ID = "run001"
 RUN_LABEL = "run001_gluon_stout_level10"
-DEFAULT_CFG_LIST = HERE.parents[1] / "05_moments/dataPrepare/cB211.072.64/data_aux/cfgs_run"
+DEFAULT_CFG_LIST = HERE / "data_aux/cfgs_run"
 COHORT_SHA256 = "7b340fef3af0f7d12aa12b8b7fb63e0597bb00f35a6861b259e751f4b1ccdaf7"
 DEFAULT_REFERENCE = HERE.parents[1] / "05_moments/dataPrepare/cB211.072.64/post2avgmore.py"
 DATA_ROOT = Path("/p/project1/ngff/li47/code/projectData/02_discNJN_1D")
@@ -60,6 +62,65 @@ SCHEMA = "gff-disconnected-1dv-v1"
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def calculation_signature(source):
+    """Compare calculations while allowing console and cohort-location changes."""
+    class WithoutProgress(ast.NodeTransformer):
+        def visit_Expr(self, node):
+            if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name):
+                if node.value.func.id in {"log", "print"}:
+                    return None
+            return self.generic_visit(node)
+
+        def visit_If(self, node):
+            test = node.test
+            if (isinstance(test, ast.Call) and isinstance(test.func, ast.Attribute)
+                    and isinstance(test.func.value, ast.Name)
+                    and test.func.value.id == "final" and test.func.attr == "exists"):
+                return None  # Completed-output reuse is checked separately.
+            return self.generic_visit(node)
+
+    nodes = []
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            continue
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "DEFAULT_CFG_LIST" for t in node.targets):
+            continue  # The ordered cohort content is compared in run_identity.
+        if isinstance(node, ast.FunctionDef):
+            if node.name in {"log", "build_parser", "calculation_signature", "completed_output_matches"}:
+                continue
+            if node.name == "_produce":
+                node = WithoutProgress().visit(node)
+        nodes.append(node)
+    tree = ast.Module(body=nodes, type_ignores=[])
+    return hashlib.sha256(ast.dump(tree, include_attributes=False).encode()).hexdigest()
+
+
+def completed_output_matches(output, identity_json, run_hash):
+    """Reuse completed data without rewriting its original provenance."""
+    if not output.attrs.get("complete", False):
+        return False
+    if output.attrs.get("run_hash") == run_hash:
+        return True
+    try:
+        previous = json.loads(output["metadata/run_identity"][()])
+        canonical = json.dumps(previous, sort_keys=True, separators=(",", ":"))
+        if hashlib.sha256(canonical.encode()).hexdigest() != output.attrs.get("run_hash"):
+            return False
+        source = output["metadata/producer_source"][()]
+        source = source.decode() if isinstance(source, bytes) else source
+        if hashlib.sha256(source.encode()).hexdigest() != previous["implementation_sha256"]:
+            return False
+        if calculation_signature(source) != calculation_signature(Path(__file__).read_text()):
+            return False
+        current = json.loads(identity_json)
+        previous["implementation_sha256"] = current["implementation_sha256"]
+        previous["cohort"].pop("source", None)
+        current["cohort"].pop("source", None)
+        return previous == current
+    except (KeyError, ValueError, TypeError, UnicodeError, SyntaxError, AttributeError):
+        return False
 
 
 def load_run_cohort(path=DEFAULT_CFG_LIST):
@@ -391,8 +452,9 @@ def parse_tfs(text):
     return selections(text)
 
 
-def log(message):
-    print(time.strftime("%Y-%m-%d %H:%M:%S"), message, flush=True)
+def log(message, verbose=False):
+    if verbose:
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), message, flush=True)
 
 
 def peak_mib():
@@ -426,6 +488,7 @@ def build_parser():
     p.add_argument("--save-avgsrc", action="store_true")
     p.add_argument("--momenta-json", type=Path, help="optional selected canonical momenta for validation")
     p.add_argument("--limit-momenta", type=int, help="small pilot only; use a distinct run-label")
+    p.add_argument("--verbose", "-v", action="store_true", help="show detailed progress for testing")
     return p
 
 
@@ -542,9 +605,10 @@ def _produce(args):
     partial = directory/(args.cfg+".partial.h5")
     if final.exists():
         with h5py.File(final, "r") as f:
-            if f.attrs.get("run_hash") != run_hash or not f.attrs.get("complete", False):
+            if not completed_output_matches(f, identity_json, run_hash):
                 raise ValueError(f"Existing output has a different run identity: {final}")
-        log(f"cfg={args.cfg} already complete: {final}")
+        log(f"cfg={args.cfg} already complete: {final}", args.verbose)
+        print(f"flag_cfg_done: {args.cfg}", flush=True)
         return
     mode = "r+" if partial.exists() else "x"
     # HDF5's exclusive writer lock prevents simultaneous processes for one cfg.
@@ -587,7 +651,7 @@ def _produce(args):
             output.attrs["initialized"] = True
             output.flush()
         done = output["status/completed_blocks"][:]
-        log(f"cfg={args.cfg} sources={len(records)} mom={len(moms)} raw_pairs={len(all_raw)} block={block_size} cache_MiB={cache_bytes/1024**2:.1f} threads=1 resumed={int(done.sum())}/{block_count}")
+        log(f"cfg={args.cfg} sources={len(records)} mom={len(moms)} raw_pairs={len(all_raw)} block={block_size} cache_MiB={cache_bytes/1024**2:.1f} threads=1 resumed={int(done.sum())}/{block_count}", args.verbose)
         coordinates = np.asarray([r[2] for r in records])
         c2f, c2b = read_c2(files, records, pvec, tfs, ref)
         loops = read_loops(loop_root/args.cfg, qvec, channels)
@@ -598,7 +662,7 @@ def _produce(args):
             stacked_loops = np.stack([loops[ch] for ch in channels], axis=-1)
             # Keep dictionary order/API without retaining a second loop cache.
             loops = {ch: stacked_loops[..., ci] for ci, ch in enumerate(channels)}
-        log(f"cfg={args.cfg} inputs_loaded_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f}")
+        log(f"cfg={args.cfg} inputs_loaded_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f}", args.verbose)
         for bi, start in enumerate(range(0, len(moms), block_size)):
             stop = min(start+block_size, len(moms))
             if done[bi]:
@@ -621,7 +685,7 @@ def _produce(args):
             output.flush()
             output["status/completed_blocks"][bi] = True
             output.flush()
-            log(f"cfg={args.cfg} block={bi+1}/{block_count} mom={stop}/{len(moms)} elapsed_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f}")
+            log(f"cfg={args.cfg} block={bi+1}/{block_count} mom={stop}/{len(moms)} elapsed_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f}", args.verbose)
             del wf, wb
         # Detect inputs replaced while this configuration was being processed.
         if manifests != [file_manifest(Path(m["path"])) for m in manifests]:
@@ -630,7 +694,8 @@ def _produce(args):
                             thread_limits=json.dumps({name: os.environ.get(name) for name in THREAD_ENV}, sort_keys=True))
         output.flush()
     os.rename(partial, final)
-    log(f"flag_cfg_done: {args.cfg} elapsed_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f} file={final}")
+    log(f"cfg={args.cfg} finished elapsed_s={time.monotonic()-started:.2f} peak_RSS_MiB={peak_mib():.1f} file={final}", args.verbose)
+    print(f"flag_cfg_done: {args.cfg}", flush=True)
 
 
 def main():

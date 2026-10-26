@@ -41,6 +41,8 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 
 - In an allocated CPU job, run `python3 -u run001_post2avgmore.py -c CFG`; the familiar one-line `xargs -P` launch command is in the script header.
 - Use the user's existing HPC virtual environment at `/p/project1/ngff/li47/code/.venv`. Keep the header launch command in the familiar one-line `cat ... | xargs ...` form; do not add repeated module-loading or environment-setup blocks.
+- Keep the fixed configuration list locally in `codex/data_aux/cfgs_run`; the launch command should not reach into another project for the list.
+- By default print exactly one `flag_cfg_done: CFG` line per completed or already-complete configuration. Keep detailed block, momentum, timing and memory progress behind `--verbose` for testing.
 - Only this production Python file is required. It reads the existing `05_moments` scientific helpers and source-resolved inputs; the extra notes, checks and job example in `_ignore/` are optional.
 - Procedure run001 is B64, gluon only at stout level 10, using the original common725 cohort without superjackknife. The script verifies cohort membership before writing output.
 - Its default output is one HDF5 file per configuration under the scratch root's `<ensemble>/run001_gluon_stout_level10/data_avgmore/`; `avgsrc` is disabled unless requested.
