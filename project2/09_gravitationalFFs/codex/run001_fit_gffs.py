@@ -190,6 +190,11 @@ def fit_sector(y_jk, k, q2, order, tcut, utility, grid):
                    mean=cmean, error=cerror,
                    two_error_interval_contains_zero=bool(abs(cmean) <= 2*cerror)
                    if identifiable[cindex] else None),
+        # Convention audited against util_moments.ME2FF: factorC=1 and
+        # lc=I/m*(q_mu*q_nu-delta_mu_nu*Q2/4). The traceless projection of
+        # Eq. (1) of arXiv:2310.08484v3 has D/(4*m) multiplying this tensor.
+        # The paper 2607.20337 appendix's tt, xx and xy coefficients agree
+        # numerically with that legacy C column; no extra factor two applies.
         D_0=dict(convention="bare D=4*C20; no renormalization/mixing applied",
                  mean=4*cmean, error=4*cerror), fit_seconds=time.monotonic()-started,
     )
