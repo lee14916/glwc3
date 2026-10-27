@@ -8,6 +8,14 @@ jackknife fits follow run001_fit_gffs.py. Q2=0 is isolated in every scheme.
 Binned points assume constant form factors within each bin; both existing
 curve models are used to quantify the resulting approximation in a closure
 test. No new form-factor curves are fitted to these extracted points.
+
+    python3 -u run001_svd_plateaus.py --cumulative --cumulative-q2-max .2
+
+Cumulative mode excludes Q2=0, fixes the smallest retained positive Q2, and
+adds every distinct exact-Q2 group in order. It writes separate cumulative
+outputs. Nested-cut significances are descriptive and unadjusted for scanning;
+the paired samples retain their cross-cut correlations. This is not a Q2=0
+extrapolation. --zoom-start changes display limits only.
 """
 
 from __future__ import annotations
@@ -272,6 +280,25 @@ def make_schemes(exact):
     return result
 
 
+def make_cumulative_groups(exact, q2_max):
+    """One nested group at every positive exact-Q2 entry, with no duplicate fits."""
+    positive = [group for group in exact if group["q2"] > 1e-12
+                and group["q2_max"] <= q2_max+1e-12]
+    if not positive:
+        raise ValueError("No positive exact-Q2 groups lie inside the cumulative range")
+    positive.sort(key=lambda group: group["q2"])
+    minimum = positive[0]["q2"]
+    indices, centers, result = [], [], []
+    for group in positive:
+        indices.append(group["indices"])
+        centers.append(group["q2"])
+        result.append(dict(indices=np.concatenate(indices), q2=float(np.mean(centers)),
+                           q2_min=positive[0]["q2_min"], q2_max=group["q2_max"],
+                           actual_q2_max=group["q2_max"], requested_cut=group["q2_max"],
+                           fixed_q2_min=minimum, distinct_q2=len(centers)))
+    return result
+
+
 def initialize_solver(path):
     global SOLVER_UTILITY
     SOLVER_UTILITY = base.load_utility(path)[0]
@@ -301,7 +328,7 @@ def load_curves(path):
     return result, parameters, tcut
 
 
-def add_closure(point, coefficients, q2, parameters, tcut):
+def add_closure(point, coefficients, q2, parameters, tcut, lowest_q2=None):
     response = point["response_matrix"]
     basis = point["combination_basis"]
     projection = basis.T@basis
@@ -323,6 +350,15 @@ def add_closure(point, coefficients, q2, parameters, tcut):
             bias_over_error=np.divide(bias, point["ff_error"],
                 out=np.full(3, np.nan), where=point["ff_error"] > 0),
             combination_bias=combo_bias)
+        if lowest_q2 is not None:
+            lowest = pars.reshape(3, order+1)@base.z_basis(np.asarray([lowest_q2]), order, tcut)[0]
+            transport = response@matrix_elements-projection@lowest
+            transport = np.where(point["identifiable"], transport, np.nan)
+            point["closure"][model].update(
+                lowest_q2_reference=lowest, lowest_q2_bias=transport,
+                lowest_q2_bias_over_error=np.divide(transport, point["ff_error"],
+                    out=np.full(3, np.nan), where=point["ff_error"] > 0),
+                lowest_q2_combination_bias=point["combination_response"]@matrix_elements-basis@lowest)
 
 
 def save_points(output, results, cfgs, report):
@@ -334,6 +370,9 @@ def save_points(output, results, cfgs, report):
                         "ff_mean", "ff_error", "identifiable", "condition", "retained_condition",
                         "rank_tolerance", "ndata", "dof", "chi2", "warning_count"):
                 group.create_dataset(key, data=np.asarray([p[key] for p in points]))
+            for key in ("requested_cut", "fixed_q2_min", "actual_q2_max", "bin_width", "C_z"):
+                if all(key in point for point in points):
+                    group.create_dataset(key, data=np.asarray([point[key] for point in points]))
             singular = np.zeros((len(points), 3))
             for i, point in enumerate(points):
                 singular[i, :len(point["singular_values"])] = point["singular_values"]
@@ -361,6 +400,18 @@ def save_points(output, results, cfgs, report):
                 for i, point in enumerate(points):
                     combination_bias[i, :rank[i]] = point["closure"][model]["combination_bias"]
                 group.create_dataset(f"closure/{model}/combination_bias", data=combination_bias)
+                if all("lowest_q2_bias" in point["closure"][model] for point in points):
+                    for key in ("lowest_q2_reference", "lowest_q2_bias", "lowest_q2_bias_over_error"):
+                        group.create_dataset(f"closure/{model}/{key}",
+                            data=np.asarray([point["closure"][model][key] for point in points]))
+                    lowest_combinations = np.full((len(points), 3), np.nan)
+                    for i, point in enumerate(points):
+                        lowest_combinations[i, :rank[i]] = point["closure"][model]["lowest_q2_combination_bias"]
+                    group.create_dataset(f"closure/{model}/lowest_q2_combination_bias", data=lowest_combinations)
+                    for label, original in (("bincenter_bias", "bias"),
+                                            ("bincenter_bias_over_error", "bias_over_error"),
+                                            ("bincenter_combination_bias", "combination_bias")):
+                        group[f"closure/{model}/{label}"] = group[f"closure/{model}/{original}"]
     output.create_dataset("metadata/report", data=json.dumps(base.json_ready(report), allow_nan=False))
     output.create_dataset("metadata/producer_source", data=Path(__file__).read_text())
 
@@ -517,19 +568,259 @@ def plot_svd_results(results, curves, outdir, dpi=200):
         ]
 
 
-def reload_points(path):
-    results = {s: {} for s in SCHEMES}
+def reload_points(path, schemes=SCHEMES):
+    results = {s: {} for s in schemes}
     with h5py.File(path, "r") as source:
         if not source.attrs["complete"]:
             raise ValueError("SVD output is incomplete")
         report = json.loads(source["metadata/report"][()])
-        for scheme in SCHEMES:
+        for scheme in schemes:
             for sector in SECTORS:
                 g = source[f"schemes/{scheme}/{sector}"]
                 keys = ("q2", "q2_min", "q2_max", "rank", "ff_mean", "ff_error", "identifiable")
                 arrays = {k: g[k][:] for k in keys}
+                for key in ("requested_cut", "fixed_q2_min", "actual_q2_max", "bin_width", "C_z"):
+                    if key in g:
+                        arrays[key] = g[key][:]
                 results[scheme][sector] = [{k: v[i] for k, v in arrays.items()} for i in range(len(arrays["q2"]))]
     return results, report
+
+
+def summarize_cumulative(points, scan_max):
+    summary = summarize(points)
+    summary["cutoffs"] = summary.pop("groups")
+    summary["summed_nested_row_uses"] = summary.pop("rows")
+    summary["unique_rows_at_max"] = len(points[-1]["row_indices"])
+    summary["fixed_q2_min"] = points[0]["fixed_q2_min"]
+    summary["actual_q2_max"] = points[-1]["q2_max"]
+    summary["interpretation"] = "Nested, highly correlated interval estimates; counts are cutoffs, not independent observations. C/error crossings are unadjusted descriptive scan diagnostics."
+
+    def describe(index):
+        point = points[index]
+        return dict(group_index=index, requested_cut=point["requested_cut"],
+                    actual_q2_max=point["q2_max"], bin_width=point["bin_width"],
+                    center_distinct_q2=point["q2"], distinct_q2=point["distinct_q2"],
+                    rows=len(point["row_indices"]), rank=point["rank"],
+                    ff_mean=point["ff_mean"], ff_error=point["ff_error"], C_z=point["C_z"])
+
+    z = np.asarray([point["C_z"] for point in points])
+    for level in (2, 3):
+        crossings = np.flatnonzero(np.isfinite(z) & (np.abs(z) >= level))
+        summary[f"first_{level}sigma_crossing"] = describe(int(crossings[0])) if len(crossings) else None
+    finite = np.flatnonzero(np.isfinite(z))
+    summary["maximum_absolute_C_z"] = describe(int(finite[np.argmax(np.abs(z[finite]))])) if len(finite) else None
+    summary["requested_endpoints"] = []
+    for requested in sorted(set((.1, .2, float(scan_max)))):
+        available = [i for i, point in enumerate(points) if point["q2_max"] <= requested+1e-12]
+        if requested > scan_max+1e-12 or not available:
+            summary["requested_endpoints"].append(dict(requested_cut=requested, group_index=None,
+                status="above_scan_limit" if requested > scan_max+1e-12 else "below_first_positive_Q2"))
+            continue
+        index = available[-1]
+        endpoint = describe(index)
+        endpoint.update(requested_cut=requested, status="mapped_to_last_included_exact_Q2")
+        endpoint["model_closure"] = {
+            model: dict(bincenter_bias=values["bias"],
+                        lowest_q2_transport_bias=values["lowest_q2_bias"],
+                        lowest_q2_reference=values["lowest_q2_reference"])
+            for model, values in points[index]["closure"].items()}
+        summary["requested_endpoints"].append(endpoint)
+    return summary
+
+
+def save_cumulative_covariance(output, results, utility):
+    """Retain covariance between nested C estimates with undefined entries masked."""
+    for sector, points in results["cumulative"].items():
+        samples = np.stack([point["ff_jk"][:, 2] for point in points], axis=1)
+        valid = np.asarray([point["identifiable"][2] for point in points]) & np.all(np.isfinite(samples), axis=0)
+        covariance = np.full((len(points), len(points)), np.nan)
+        if np.any(valid):
+            _, _, measured = utility.jackmec(samples[:, valid])
+            covariance[np.ix_(valid, valid)] = measured
+            expected = np.asarray([point["ff_error"][2] for point in points])[valid]**2
+            if not np.allclose(np.diag(measured), expected, rtol=1e-9, atol=0):
+                raise ValueError("C covariance diagonal disagrees with the paired jackknife errors")
+        group = output[f"schemes/cumulative/{sector}"]
+        group.create_dataset("C_cov", data=covariance, compression="gzip")
+        group.create_dataset("C_cov_valid", data=valid)
+        group.attrs["cross_cut_covariance"] = "C_cov indexes all nested cutoffs; invalid rows/columns are NaN. Full joint ff_jk permits covariance for every FF/cut pair."
+
+
+def cumulative_zoom_limits(results, zoom_start):
+    limits = []
+    for ff, minimum_span in enumerate((.1, .1, .2)):
+        intervals = []
+        fallback = []
+        for points in results["cumulative"].values():
+            for point in points:
+                mean, error = point["ff_mean"][ff], point["ff_error"][ff]
+                if not point["identifiable"][ff] or not np.all(np.isfinite([mean, error])):
+                    continue
+                if error < 0:
+                    raise ValueError("Negative cumulative error")
+                interval = (float(mean-error), float(mean+error))
+                fallback.append(interval)
+                if point["q2_max"] >= zoom_start:
+                    intervals.append(interval)
+        intervals = intervals or fallback or [(-minimum_span/2, minimum_span/2)]
+        low, high = min(pair[0] for pair in intervals), max(pair[1] for pair in intervals)
+        span = max(high-low, minimum_span)
+        center = (low+high)/2
+        limits.append((center-.7*span, center+.7*span))
+    return limits
+
+
+def plot_cumulative_results(results, outdir, scan_max, zoom_start=.05, dpi=200):
+    """Every nested cutoff remains in both views; zoom only sets display limits."""
+    outdir = Path(outdir)
+    limits = cumulative_zoom_limits(results, zoom_start)
+    style = {"font.family": "serif", "mathtext.fontset": "dejavuserif",
+             "axes.labelsize": 18, "xtick.labelsize": 13, "ytick.labelsize": 13,
+             "axes.linewidth": 1.3, "xtick.direction": "in", "ytick.direction": "in",
+             "xtick.top": True, "ytick.right": True, "figure.facecolor": "white", "axes.grid": False}
+    paths = []
+    with plt.rc_context(style):
+        for filename, zoom in (("cumulative_svd_full.png", None), ("cumulative_svd.png", limits)):
+            fig, axes = plt.subplots(2, 3, figsize=(16, 8.5), sharex=True)
+            for row, sector in enumerate(SECTORS):
+                points = results["cumulative"][sector]
+                x = np.asarray([point["q2_max"] for point in points])
+                color = SVD_PLOT_COLORS[sector]
+                for ff, ax in enumerate(axes[row]):
+                    mean = np.asarray([point["ff_mean"][ff] if point["identifiable"][ff] else np.nan for point in points])
+                    error = np.asarray([point["ff_error"][ff] if point["identifiable"][ff] else np.nan for point in points])
+                    ax.fill_between(x, mean-error, mean+error, step="post", color=color, alpha=.2, linewidth=0)
+                    ax.step(x, mean, where="post", color=color, linestyle="-", marker="", linewidth=1.4,
+                            label=r"cumulative SVD ($1\sigma$)")
+                    if zoom is not None:
+                        ax.set_ylim(*zoom[ff])
+                    lo, hi = ax.get_ylim()
+                    if lo <= 0 <= hi:
+                        ax.axhline(0, color=".5", linestyle=":", marker="", linewidth=.7)
+                    if x[0] <= .1 <= scan_max:
+                        ax.axvline(.1, color=".65", linestyle="--", marker="", linewidth=.8)
+                    ax.set_xlim(max(0., x[0]-.02*(scan_max-x[0])), scan_max)
+                    ax.set_ylabel(r"$\widehat{"+("A", "B", "C")[ff]+r"}_{20}^{g,\mathrm{bare}}$")
+                    ax.ticklabel_format(axis="y", style="sci", scilimits=(-3, 4), useMathText=True)
+                    if row == 1:
+                        ax.set_xlabel(r"$Q^2_{\max}\;[\mathrm{GeV}^2]$")
+                axes[row, 0].text(.035, .965, SVD_PLOT_SECTOR_LABELS[sector], transform=axes[row, 0].transAxes,
+                                  ha="left", va="top", fontsize=12)
+                axes[row, 0].legend(frameon=False, loc="upper right", fontsize=11)
+            fig.tight_layout()
+            path = outdir/filename
+            fig.savefig(path, dpi=dpi)
+            plt.close(fig)
+            paths.append(str(path))
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharex=True)
+        for ax, sector in zip(axes, SECTORS):
+            points = results["cumulative"][sector]
+            x = np.asarray([point["q2_max"] for point in points])
+            z = np.asarray([point["C_z"] for point in points])
+            ax.step(x, z, where="post", color=SVD_PLOT_COLORS[sector], linestyle="-", marker="", linewidth=1.4)
+            ax.axhline(0, color=".5", linestyle="-", marker="", linewidth=.7)
+            for level in (-3, -2, 2, 3):
+                ax.axhline(level, color=".65", linestyle="--" if abs(level) == 2 else ":", marker="", linewidth=.8)
+            if x[0] <= .1 <= scan_max:
+                ax.axvline(.1, color=".65", linestyle="--", marker="", linewidth=.8)
+            ax.set_xlim(max(0., x[0]-.02*(scan_max-x[0])), scan_max)
+            ax.set_xlabel(r"$Q^2_{\max}\;[\mathrm{GeV}^2]$")
+            ax.set_ylabel(r"$C_{20}^{g,\mathrm{bare}}/\sigma_C$")
+            ax.text(.035, .965, SVD_PLOT_SECTOR_LABELS[sector], transform=ax.transAxes,
+                    ha="left", va="top", fontsize=12)
+        fig.tight_layout()
+        path = outdir/"cumulative_C_significance.png"
+        fig.savefig(path, dpi=dpi)
+        plt.close(fig)
+        paths.append(str(path))
+    return paths, limits
+
+
+def run_cumulative(args):
+    started = time.monotonic()
+    _, parameters, tcut = load_curves(args.curves)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    path = args.output_dir/"cumulative_svd.h5"
+    if args.plot_only:
+        results, report = reload_points(path, ("cumulative",))
+        scan_max = report["settings"]["cumulative_q2_max"]
+    else:
+        scan_max = args.cumulative_q2_max
+        if path.exists() or path.with_suffix(".partial.h5").exists():
+            raise FileExistsError("Cumulative output exists; use --plot-only or a distinct --output-dir")
+        utility, utility_signature = base.load_utility(args.util)
+        with h5py.File(args.input, "r") as source:
+            if not source.attrs["complete"]:
+                raise ValueError("Plateau input is incomplete")
+            cfgs = source["cfgs"][:]
+            sectors = source["sector"].asstr()[:]
+            moms, k, q2 = source["moms"][:], source["K"][:], source["Q2"][:]
+            keep = source["selections/baseline/fit_ok"][:]&~source["kinematic_null"][:]
+            keep &= (q2 > 1e-12)&(q2 <= scan_max+1e-12)
+            y_jk = source["selections/baseline/plateau_jk"][:]
+        if len(cfgs) != len(y_jk):
+            raise ValueError("Configuration metadata and paired jackknife sample count differ")
+        report = dict(procedure_id="run001", mode="cumulative", input=str(args.input.resolve()),
+            input_sha256=base.digest(args.input), curves=str(args.curves.resolve()),
+            curves_sha256=base.digest(args.curves), producer_sha256=base.digest(__file__),
+            utility_sha256=base.digest(args.util), utility_ast_sha256=utility_signature,
+            jackknife_samples=len(cfgs), settings=dict(cumulative_q2_max=scan_max,
+                thresholds="Every distinct positive exact-Q2 group enters once; no duplicate fits at requested endpoints.",
+                zero_excluded=True, zero_tolerance=1e-12, exact_q2_tolerance=1e-12,
+                rank_relative_tolerance=1e-10, weighting="fixed diagonal plateau errors; paired jackknife fits",
+                sector_separation=True, source_sink_exchange=False, ratio_and_plateaus_unchanged=True,
+                renormalized=False, kinematics="central K and Q2", threshold_indexing="zero-based",
+                bin_center="arithmetic mean of DISTINCT included exact Q2 values",
+                bincenter_closure="apply the estimator to K_i F_model(Q2_i), compare with the identifiable projection of F_model at the distinct-Q2 center",
+                lowest_q2_transport="same estimator, compared with F_model at the fixed smallest positive Q2; no extrapolation to Q2=0",
+                significance="Signed C/paired-JK error; nested, correlated and unadjusted for scanning. No calibrated scan p-value or selective stopping.",
+                cross_cut_covariance="C_cov plus valid mask is stored; joint ff_jk retains all FF/cut correlations."),
+            summaries={"cumulative": {}})
+        results = {"cumulative": {}}
+        executor = ProcessPoolExecutor(max_workers=args.workers, initializer=initialize_solver,
+            initargs=(args.util,), mp_context=multiprocessing.get_context("spawn")) if args.workers > 1 else None
+        if executor is None:
+            initialize_solver(args.util)
+        try:
+            for sector in SECTORS:
+                rows = np.flatnonzero(keep&(sectors == sector))
+                groups = make_cumulative_groups(exact_Q2_groups(moms[rows], q2[rows]), scan_max)
+                payloads = ((y_jk[:, rows[group["indices"]]], k[rows[group["indices"]]]) for group in groups)
+                fitted = executor.map(calculate_group, payloads, chunksize=1) if executor else map(calculate_group, payloads)
+                points = []
+                for number, (group, solution) in enumerate(zip(groups, fitted), start=1):
+                    indices = rows[group["indices"]]
+                    point = dict(solution, **{key: group[key] for key in (
+                        "q2", "q2_min", "q2_max", "requested_cut", "actual_q2_max", "fixed_q2_min", "distinct_q2")},
+                        row_indices=indices, bin_width=group["q2_max"]-group["fixed_q2_min"])
+                    point["C_z"] = (float(point["ff_mean"][2]/point["ff_error"][2])
+                        if point["identifiable"][2] and point["ff_error"][2] > 0 else np.nan)
+                    add_closure(point, k[indices], q2[indices], parameters[sector], tcut,
+                                lowest_q2=point["fixed_q2_min"])
+                    points.append(point)
+                    if number % 25 == 0 or number == len(groups):
+                        print(f"cumulative_progress: {sector} {number}/{len(groups)}", flush=True)
+                results["cumulative"][sector] = points
+                report["summaries"]["cumulative"][sector] = summarize_cumulative(points, scan_max)
+        finally:
+            if executor:
+                executor.shutdown()
+        report["elapsed_seconds"] = time.monotonic()-started
+        partial = path.with_suffix(".partial.h5")
+        with h5py.File(partial, "x") as output:
+            output.attrs.update(schema="gff-plateau-cumulative-svd-v1", procedure_id="run001", complete=False)
+            save_points(output, results, cfgs, report)
+            save_cumulative_covariance(output, results, utility)
+            output.attrs["complete"] = True
+        partial.rename(path)
+    report["plots"], limits = plot_cumulative_results(results, args.output_dir, scan_max, args.zoom_start, args.dpi)
+    report["plot_display"] = dict(zoom_start=args.zoom_start, zoom_limits=limits,
+        limits_rule="Union of identified mean plus/minus1sigma for cutoffs>=zoom_start, across sectors, with20percent padding; fallback to all estimates if none qualify.",
+        all_cutoffs_preserved=True, no_global_curve_overlay=True)
+    report["plot_producer_sha256"] = base.digest(__file__)
+    report_path = args.output_dir/"cumulative_svd.json"
+    report_path.write_text(json.dumps(base.json_ready(report), indent=2, allow_nan=False)+"\n")
+    print(json.dumps(dict(output=str(path), report=str(report_path), mode="cumulative")), flush=True)
 
 
 def run(args):
@@ -621,10 +912,15 @@ def main():
     parser.add_argument("--q2-max", type=float, default=1.)
     parser.add_argument("--dpi", type=int, default=200)
     parser.add_argument("--plot-only", action="store_true")
+    parser.add_argument("--cumulative", action="store_true", help="nested positive-Q2 scan; writes separate cumulative outputs")
+    parser.add_argument("--cumulative-q2-max", type=float, default=.2)
+    parser.add_argument("--zoom-start", type=float, default=.05, help="cumulative display-limit reference only; all cutoffs remain fitted/plotted")
     args = parser.parse_args()
     if args.workers < 1 or args.dpi < 1 or not np.isfinite(args.q2_max) or args.q2_max <= 0:
         parser.error("Positive workers, dpi and Q2 cutoff are required")
-    run(args)
+    if not np.isfinite(args.cumulative_q2_max) or args.cumulative_q2_max <= 0 or not np.isfinite(args.zoom_start) or args.zoom_start < 0:
+        parser.error("Positive cumulative Q2 limit and nonnegative finite zoom start are required")
+    run_cumulative(args) if args.cumulative else run(args)
 
 
 if __name__ == "__main__":
