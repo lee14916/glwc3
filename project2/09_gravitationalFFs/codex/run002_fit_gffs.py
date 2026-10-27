@@ -1,6 +1,6 @@
 """run002: fit bare A20, B20 and C20 directly to plateau matrix elements.
 
-    python3 -u run002_fit_gffs.py --input PLATEAUS.h5
+    python3 -u run002_fit_gffs.py --input /p/project1/ngff/li47/code/scratch/run/09_gravitationalFFs/cB211.072.64/run002_gluon_plateau/matrix_elements.h5
 
 The diagonal and off-diagonal sectors are fitted independently. Every retained
 oriented row uses its actual Q2; there is no per-Q2 rank selection or exchange
