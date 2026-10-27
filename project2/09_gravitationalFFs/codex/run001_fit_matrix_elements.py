@@ -1,8 +1,8 @@
-"""run002: bare B64 gluon plateau matrix elements from run001, stout level10.
+"""run001: bare B64 gluon plateau matrix elements, stout level10.
 
 Using the usual activated HPC virtual environment, in an allocated CPU job:
 
-    python3 -u run002_fit_matrix_elements.py --workers 8 > _ignore/run002.out 2>&1
+    python3 -u run001_fit_matrix_elements.py --workers 8 > _ignore/run001_plateau.out 2>&1
 
 Baseline uses one correlated constant over tf=8..16, tau=4..tf-4. Forward q=0
 uses tf=8..13. The earlier asymmetric-cut scan is omitted for this simple common
@@ -47,12 +47,12 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 core = importlib.import_module("run001_post2avgmore")
 LEGACY = HERE.parents[1]/"05_moments"
-RUN_ID = "run002"
+RUN_ID = "run001"
 SCHEMA = "gff-plateau-v1"
 A_FM = 0.07948
 LENGTH = 64
 DEFAULT_INPUT = core.OUTPUT_ROOT/"cB211.072.64"/core.RUN_LABEL/"data_avgmore"
-DEFAULT_OUTPUT = core.OUTPUT_ROOT/"cB211.072.64/run002_gluon_plateau/matrix_elements.h5"
+DEFAULT_OUTPUT = core.OUTPUT_ROOT/"cB211.072.64/run001_gluon_plateau/matrix_elements.h5"
 DEFAULT_C2 = core.DATA_ROOT.parent/"05_moments/cB211.072.64/data_merge/disc_2pt.h5"
 DEFAULT_VEV = DEFAULT_C2.with_name("disc_jvev.h5")
 DEFAULT_MASS = LEGACY/"pkl/analysis_c2pt/reg_ignore/ens2msq2pars_jk.pkl"
@@ -288,7 +288,7 @@ def cache_c3(cfgs, input_dir, cache_path, moms, slots, workers=1, expected_vev_r
             if row["raw_vev"] is not None:
                 raw_vev[index] = row["raw_vev"]
             if (index+1) % 50 == 0 or index+1 == len(cfgs):
-                print(f"run002_cache_done: {index+1}/{len(cfgs)}", flush=True)
+                print(f"run001_cache_done: {index+1}/{len(cfgs)}", flush=True)
     finally:
         if executor is not None:
             executor.shutdown()
@@ -511,7 +511,7 @@ def run(args):
             raise ValueError("A limited pilot requires a distinct --output")
         moms = moms[:args.limit_momenta]
     partial = args.output.with_name(args.output.stem+".partial.h5")
-    cache = args.output.with_name(args.output.stem+".run002_cache.npy")
+    cache = args.output.with_name(args.output.stem+".run001_cache.npy")
     if any(path.exists() for path in (args.output, partial, cache)):
         raise FileExistsError("Output, partial output, or cache already exists; review it or choose a new --output")
     args.output.parent.mkdir(parents=True, exist_ok=True)

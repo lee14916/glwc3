@@ -35,6 +35,7 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 
 - Prefix code files and output folders with `run` plus a three-digit procedure ID (`run001_`, `run002_`, ...), followed by a descriptive name.
 - An ID identifies a whole analysis procedure, which may contain several codes and datasets. It is not an individual code version or a one-file run number.
+- Data production, plateau fits, SVD extractions and form-factor fits within one analysis stream share its run ID. Do not allocate a new run ID without discussing it with the user and receiving their agreement; adding an analysis stage alone does not create a new run.
 - A procedure may depend on codes or results with the same or an earlier ID. Keep `runs.md` as a short change history: name the earlier run(s) it builds on and explain the meaningful changes. Do not repeat defaults, launch instructions, validation details or long dependency mappings. The first entry can simply say "Initial version."
 
 ## Current production command
@@ -47,12 +48,12 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 - Procedure run001 is B64, gluon only at stout level 10, using the original common725 cohort without superjackknife. The script verifies cohort membership before writing output.
 - Its default output is one HDF5 file per configuration under the scratch root's `<ensemble>/run001_gluon_stout_level10/data_avgmore/`; `avgsrc` is disabled unless requested.
 
-## Preliminary matrix-element analysis (run002)
+## Preliminary matrix-element analysis (run001)
 
-- `run002_fit_matrix_elements.py` applies the paper's full energy exponent, trace-projects the raw gluon diagonals, and subtracts the q=0 vacuum product using matched jackknife means. The checked-in legacy `doSVD.py` has an extra square root in the energy correction; do not inherit that half exponent.
+- `run001_fit_matrix_elements.py` applies the paper's full energy exponent, trace-projects the raw gluon diagonals, and subtracts the q=0 vacuum product using matched jackknife means. The checked-in legacy `doSVD.py` has an extra square root in the energy correction; do not inherit that half exponent.
 - The initial symmetric constant-fit window is tf=8..16 and tau=4..tf-4, with tf<=13 for q=0 following the forward analysis's upper bound. The legacy asymmetric-cut optimization is deferred. Cases with nonpositive two-point normalization in any required jackknife sample are flagged rather than repaired with absolute values.
 - Remove exact signed cubic/operator dependencies, preserving distinct noisy estimators and rank-deficient ground-state information. Keep source-sink orientations separate; no time-reflection average is imposed.
-- `run002_fit_gffs.py` fits the bare diagonal and off-diagonal sectors independently. Its initial linear/quadratic z models use actual Q2, fixed diagonal fit weights and paired jackknife propagation. They are preliminary extrapolations, without renormalization or quark-gluon mixing.
+- `run001_fit_gffs.py` fits the bare diagonal and off-diagonal sectors independently. Its initial linear/quadratic z models use actual Q2, fixed diagonal fit weights and paired jackknife propagation. They are preliminary extrapolations, without renormalization or quark-gluon mixing.
 
 ## Existing kinematic preview
 
