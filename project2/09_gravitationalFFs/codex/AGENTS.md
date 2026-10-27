@@ -54,6 +54,7 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 - The initial symmetric constant-fit window is tf=8..16 and tau=4..tf-4, with tf<=13 for q=0 following the forward analysis's upper bound. The legacy asymmetric-cut optimization is deferred. Cases with nonpositive two-point normalization in any required jackknife sample are flagged rather than repaired with absolute values.
 - Remove exact signed cubic/operator dependencies, preserving distinct noisy estimators and rank-deficient ground-state information. Keep source-sink orientations separate; no time-reflection average is imposed.
 - `run001_fit_gffs.py` fits the bare diagonal and off-diagonal sectors independently. Its initial linear/quadratic z models use actual Q2, fixed diagonal fit weights and paired jackknife propagation. They are preliminary extrapolations, without renormalization or quark-gluon mixing.
+- `run001_svd_plateaus.py` extracts exact-Q2 and binned points from those saved plateaus without changing their fits. Report an individual form factor only when its coordinate annihilates the SVD null space; preserve the other measured linear combinations. Keep Q2=0 isolated in all binning choices, and distinguish bin spans and model-based binning closure from statistical errors.
 
 ## Existing kinematic preview
 
