@@ -47,6 +47,13 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 - Procedure run001 is B64, gluon only at stout level 10, using the original common725 cohort without superjackknife. The script verifies cohort membership before writing output.
 - Its default output is one HDF5 file per configuration under the scratch root's `<ensemble>/run001_gluon_stout_level10/data_avgmore/`; `avgsrc` is disabled unless requested.
 
+## Preliminary matrix-element analysis (run002)
+
+- `run002_fit_matrix_elements.py` applies the paper's full energy exponent, trace-projects the raw gluon diagonals, and subtracts the q=0 vacuum product using matched jackknife means. The checked-in legacy `doSVD.py` has an extra square root in the energy correction; do not inherit that half exponent.
+- The initial symmetric constant-fit window is tf=8..16 and tau=4..tf-4, with tf<=13 for q=0 following the forward analysis's upper bound. The legacy asymmetric-cut optimization is deferred. Cases with nonpositive two-point normalization in any required jackknife sample are flagged rather than repaired with absolute values.
+- Remove exact signed cubic/operator dependencies, preserving distinct noisy estimators and rank-deficient ground-state information. Keep source-sink orientations separate; no time-reflection average is imposed.
+- `run002_fit_gffs.py` fits the bare diagonal and off-diagonal sectors independently. Its initial linear/quadratic z models use actual Q2, fixed diagonal fit weights and paired jackknife propagation. They are preliminary extrapolations, without renormalization or quark-gluon mixing.
+
 ## Existing kinematic preview
 
 - The earlier `project2/05_moments/general.ipynb` contains `getRank`, `getRanks`, and `ranks2fillstyle`, followed by the `momDistribution` plot.
