@@ -1,4 +1,4 @@
-"""run001: preliminary B64 gluon GFF study, stout level 10, common 725 configs.
+"""run001: preliminary B64 gluon GFF study, stout levels 10/20/30, 725 configs.
 
 From this directory, using your usual activated HPC virtual environment:
 
@@ -6,10 +6,12 @@ From this directory, using your usual activated HPC virtual environment:
 
 Add --verbose to the Python command when testing to see detailed progress.
 
-Procedure run001 uses gluon loops at stout level 10 only, with integer squared
+Procedure run001 uses gluon loops at stout levels 10, 20 and 30 together, with integer squared
 sink/insertion momenta <=16, separations 2..22 and the original common725
 cohort. Its ordered configuration list is checked against a fixed hash.
-Each output is data_avgmore/CFG.h5 with arrays (time,momentum,projector,insert).
+Output is cB211.072.64/run001_gluon_stout_levels10_20_30/data_avgmore/CFG.h5
+under the existing scratch run root. Each stout has separate datasets with
+arrays (time,momentum,projector,insert). The old stout-10 directory is retained.
 Only avgmore is saved by default. The command redirects progress to one output
 file. Numerical-library threads are limited to one per configuration process.
 
@@ -50,7 +52,9 @@ from sympy.combinatorics import Permutation
 
 HERE = Path(__file__).resolve().parent
 RUN_ID = "run001"
-RUN_LABEL = "run001_gluon_stout_level10"
+LEGACY_RUN_LABEL = "run001_gluon_stout_level10"
+RUN_LABEL = "run001_gluon_stout_levels10_20_30"
+STOUT_LEVELS = (10, 20, 30)
 DEFAULT_CFG_LIST = HERE / "data_aux/cfgs_run"
 COHORT_SHA256 = "7b340fef3af0f7d12aa12b8b7fb63e0597bb00f35a6861b259e751f4b1ccdaf7"
 DEFAULT_REFERENCE = HERE.parents[1] / "05_moments/dataPrepare/cB211.072.64/post2avgmore.py"
@@ -135,8 +139,12 @@ def load_run_cohort(path=DEFAULT_CFG_LIST):
 
 
 def validate_run_selection(args):
-    if args.ensemble != "cB211.072.64" or selections(args.stouts) != [10] or args.currents.split():
-        raise ValueError("Procedure run001 is B64 gluon-only at stout level 10; use a new procedure ID for another channel selection")
+    stouts = selections(args.stouts)
+    if (args.ensemble != "cB211.072.64" or not stouts or len(set(stouts)) != len(stouts)
+            or not set(stouts).issubset(STOUT_LEVELS) or args.currents.split()):
+        raise ValueError("Procedure run001 currently supports B64 gluon stout levels 10,20,30 only")
+    if args.run_label == RUN_LABEL and set(stouts) != set(STOUT_LEVELS):
+        raise ValueError("The default output directory requires all three stout levels; use a distinct --run-label for a subset test")
 
 
 def load_reference(path, ensemble="cB211.072.64", tfs=(2, 22), currents=(), stouts=()):
@@ -473,7 +481,7 @@ def build_parser():
     p.add_argument("--sink-n2-max", type=int, default=16)
     p.add_argument("--transfer-n2-max", type=int, default=16)
     p.add_argument("--initial-n2-max", type=int)
-    p.add_argument("--stouts", default="10", help="procedure run001 fixes this to level10 only")
+    p.add_argument("--stouts", default="10,20,30", help="default: all three run001 stout levels; subset tests need a distinct --run-label")
     p.add_argument("--currents", default="", help="procedure run001 excludes quark currents")
     p.add_argument("--tfs", default="2:22", help="inclusive low:high or comma-separated list")
     p.add_argument("--c2-root", type=Path)

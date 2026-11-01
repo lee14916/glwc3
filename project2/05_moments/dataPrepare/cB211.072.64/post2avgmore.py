@@ -164,7 +164,7 @@ if case=='1DV':
         jqs=['j+','js','jc'] # disc
         stouts=range(40+1) # gluon
     if input=='GFF':
-        moms_target=get_moms(25,5)
+        moms_target=get_moms(25,4)
         jqs=['j+','js','jc'] # disc
         stouts=range(40+1) # gluon
         

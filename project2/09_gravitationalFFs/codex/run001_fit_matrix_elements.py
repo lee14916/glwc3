@@ -1,4 +1,4 @@
-"""run001: bare B64 gluon plateau matrix elements, stout level10.
+"""run001: bare B64 gluon plateau matrix elements, stout level10 by default.
 
 Using the usual activated HPC virtual environment, in an allocated CPU job:
 
@@ -7,6 +7,7 @@ Using the usual activated HPC virtual environment, in an allocated CPU job:
 Baseline uses one correlated constant over tf=8..16, tau=4..tf-4. Forward q=0
 uses tf=8..13. The earlier asymmetric-cut scan is omitted for this simple common
 window. No source/sink exchange or insertion-time averaging is performed.
+Select --stout 20 or 30 with explicit matching --input-dir and --output paths.
 Ratios use the full energy exponent in paper Eq19, with dispersion energies
 from the existing matched jackknife mass. Diagonal gluon operators are made
 traceless before local CPT real/imaginary projection. Only bare quantities are
@@ -51,7 +52,7 @@ RUN_ID = "run001"
 SCHEMA = "gff-plateau-v1"
 A_FM = 0.07948
 LENGTH = 64
-DEFAULT_INPUT = core.OUTPUT_ROOT/"cB211.072.64"/core.RUN_LABEL/"data_avgmore"
+DEFAULT_INPUT = core.OUTPUT_ROOT/"cB211.072.64"/core.LEGACY_RUN_LABEL/"data_avgmore"
 DEFAULT_OUTPUT = core.OUTPUT_ROOT/"cB211.072.64/run001_gluon_plateau/matrix_elements.h5"
 DEFAULT_C2 = core.DATA_ROOT.parent/"05_moments/cB211.072.64/data_merge/disc_2pt.h5"
 DEFAULT_VEV = DEFAULT_C2.with_name("disc_jvev.h5")
@@ -79,6 +80,22 @@ def load_statistics(path):
                  if isinstance(node, ast.FunctionDef) and node.name in names}
     if set(functions) != set(names):
         raise ValueError("Established resampling/fitting definitions are missing")
+    jackfit = functions["jackfit"]
+    capture = next(node for node in jackfit.body if isinstance(node, ast.With)
+                   and any(isinstance(item.optional_vars, ast.Name)
+                           and item.optional_vars.id == "list_warnings" for item in node.items))
+    replay = [node for node in capture.body if isinstance(node, ast.For)
+              and isinstance(node.iter, ast.Name) and node.iter.id == "list_warnings"]
+    if replay:
+        # Replaying inside the legacy recording context appends each warning
+        # to the list being iterated indefinitely. Preserve the fit operations
+        # and report their captured warnings only after leaving that context.
+        count, loop = capture.body[-2:]
+        if loop is not replay[0] or not isinstance(count, ast.Assign):
+            raise ValueError("Unexpected legacy warning-report layout")
+        capture.body = capture.body[:-2]
+        position = jackfit.body.index(capture)+1
+        jackfit.body[position:position] = [count, loop]
     module = ast.Module(body=[functions[name] for name in names], type_ignores=[])
     namespace = dict(np=np, warnings=warnings, cholesky=cholesky, leastsq=leastsq, flag_fast=False)
     exec(compile(module, str(path), "exec"), namespace)
@@ -119,12 +136,21 @@ def make_time_slots(tfmin=8, tfmax=16, cut=4):
     return [(tf, tau) for tf in range(tfmin, tfmax+1) for tau in range(cut, tf-cut+1)]
 
 
-def load_normalization(c2_path, vev_path, mass_path, cfgs, moms, stats, ref=None):
+def gluon_channel(stout):
+    if not isinstance(stout, (int, np.integer)) or stout not in (10, 20, 30):
+        raise ValueError("run001 gluon stout level must be 10, 20 or 30")
+    return f"jg;stout{stout}"
+
+
+def load_normalization(c2_path, vev_path, mass_path, cfgs, moms, stats, ref=None, tfs=None, stout=10):
     """Legacy shell weighting; separate orbit C2 for the q0 vacuum product."""
+    channel = gluon_channel(stout)
     paths = tuple(map(Path, (c2_path, vev_path, mass_path)))
     manifests = [io_file_manifest(path) for path in paths]
     cfgs, moms = list(cfgs), np.asarray(moms, dtype=int)
-    tfs = np.arange(8, 17, dtype=int)
+    tfs = np.arange(8, 17, dtype=int) if tfs is None else np.asarray(tfs, dtype=int)
+    if tfs.ndim != 1 or not len(tfs) or np.any(tfs < 0) or np.any(np.diff(tfs) <= 0):
+        raise ValueError("Requested C2 times must be nonnegative and strictly increasing")
     if moms.ndim != 2 or moms.shape[1] != 6:
         raise ValueError("Expected six-integer momentum rows")
     sink_vectors, source_vectors = moms[:, :3], moms[:, :3]+moms[:, 3:]
@@ -171,7 +197,7 @@ def load_normalization(c2_path, vev_path, mass_path, cfgs, moms, stats, ref=None
     shell_values = np.asarray(required_shells, dtype=int)
     energies_jk = np.sqrt(mass_jk[:, None]**2+(2*np.pi/LENGTH)**2*shell_values[None])
     with h5py.File(paths[1], "r") as source:
-        vev_raw = np.asarray(source["jg;stout10"][:], dtype=np.complex128)
+        vev_raw = np.asarray(source[channel][:], dtype=np.complex128)
     if vev_raw.shape != (len(cfgs), len(INSERTS)) or not np.all(np.isfinite(vev_raw)):
         raise ValueError("Invalid gluon VEV dimensions/values")
     spatial = vev_raw[:, [4, 7, 9]].mean(axis=1)
@@ -182,7 +208,7 @@ def load_normalization(c2_path, vev_path, mass_path, cfgs, moms, stats, ref=None
     vev_traceless_jk = stats.jackknife(projected, d=1)
     if manifests != [io_file_manifest(path) for path in paths]:
         raise RuntimeError("A normalization input changed while being read")
-    return dict(tfs=tfs, shell_values=shell_values, shell_c2_jk=shell_c2_jk,
+    return dict(stout=int(stout), channel=channel, tfs=tfs, shell_values=shell_values, shell_c2_jk=shell_c2_jk,
                 mass_jk=mass_jk, energies_jk=energies_jk,
                 orbit_moms=np.asarray(required_orbits, dtype=int), orbit_c2_jk=orbit_c2_jk,
                 vev_raw=vev_raw, vev_traceless_jk=vev_traceless_jk, manifests=manifests)
@@ -208,7 +234,7 @@ def _read_cache_configuration(task):
                 raise ValueError("Expected exactly one q=0 gluon-loop row")
             inserts = tuple(value.decode() if isinstance(value, bytes) else str(value) for value in loop["inserts"][:])
             order = [inserts.index(insert) for insert in INSERTS]
-            values = np.asarray(loop["data/jg;stout10"][:, int(qzero[0]), :], dtype=np.complex128)
+            values = np.asarray(loop["data/"+plan["channel"]][:, int(qzero[0]), :], dtype=np.complex128)
             raw_vev = values[:, order].mean(axis=0)
         expected = plan["expected_vev_raw"]
         if expected is not None and not np.allclose(raw_vev, expected[index], rtol=1e-12, atol=1e-10):
@@ -226,7 +252,7 @@ def _read_cache_configuration(task):
                 if actual != labels:
                     raise ValueError(f"Unexpected C3 {key} ordering")
             for tf, lo, hi, taus in plan["groups"]:
-                data = source[f"data/jg;stout10_{tf}"]
+                data = source[f"data/{plan['channel']}_{tf}"]
                 if data.shape != (tf+1, len(stored_moms), 4, 10):
                     raise ValueError(f"Unexpected C3 dimensions at tf={tf}")
                 if np.array_equal(stored_moms, plan["moms"]):
@@ -249,8 +275,9 @@ def _read_cache_configuration(task):
                     error=f"{type(error).__name__}: {error}")
 
 
-def cache_c3(cfgs, input_dir, cache_path, moms, slots, workers=1, expected_vev_raw=None, loop_root=IO_LOOP_ROOT):
+def cache_c3(cfgs, input_dir, cache_path, moms, slots, workers=1, expected_vev_raw=None, loop_root=IO_LOOP_ROOT, stout=10):
     """Fill one parent-created .npy with disjoint configuration-plane writes."""
+    channel = gluon_channel(stout)
     cfgs, moms, slots = list(cfgs), np.asarray(moms, dtype=int), list(slots)
     if workers < 1:
         raise ValueError("workers must be positive")
@@ -267,7 +294,7 @@ def cache_c3(cfgs, input_dir, cache_path, moms, slots, workers=1, expected_vev_r
         groups.append((tf, positions[0], positions[-1]+1, taus))
     eta = np.asarray([(-1)**insert.count("t") for insert in INSERTS])
     real_channels = np.asarray((1, -1, -1, -1))[:, None]*eta[None] > 0
-    plan = dict(cache_path=str(cache_path), input_dir=str(input_dir), loop_root=str(loop_root),
+    plan = dict(cache_path=str(cache_path), input_dir=str(input_dir), loop_root=str(loop_root), channel=channel,
                 moms=moms, groups=groups, real_channels=real_channels,
                 expected_vev_raw=None if expected_vev_raw is None else np.asarray(expected_vev_raw))
     raw_vev = np.full((len(cfgs), 10), np.nan+1j*np.nan, dtype=np.complex128)
@@ -297,7 +324,8 @@ def cache_c3(cfgs, input_dir, cache_path, moms, slots, workers=1, expected_vev_r
         final = np.load(cache_path, mmap_mode="r+")
         final.flush()
         del final
-    return dict(manifests=manifests, vev_manifests=vev_manifests, raw_vev=raw_vev, failures=failures)
+    return dict(stout=int(stout), channel=channel, manifests=manifests,
+                vev_manifests=vev_manifests, raw_vev=raw_vev, failures=failures)
 
 
 def candidate_components():
@@ -458,6 +486,7 @@ def strings(values):
 
 def write_setup(output, args, cfgs, moms, rows, basis, ranges, decisions, candidates, slots, norm, valid_tf, reasons, provenance):
     output.attrs.update(schema=SCHEMA, procedure_id=RUN_ID, complete=False, a_fm=A_FM,
+                        stout=args.stout, gluon_channel=gluon_channel(args.stout),
                         mass_lattice=float(np.mean(norm["mass_jk"])), normalized_ratio="paperEq19full",
                         source_sink_exchange=False, time_average=False, renormalized=False)
     output.create_dataset("cfgs", data=strings(cfgs))
@@ -500,6 +529,10 @@ def write_setup(output, args, cfgs, moms, rows, basis, ranges, decisions, candid
 
 def run(args):
     started = time.monotonic()
+    channel = gluon_channel(args.stout)
+    if args.stout != 10 and (args.input_dir.resolve() == DEFAULT_INPUT.resolve()
+                            or args.output.resolve() == DEFAULT_OUTPUT.resolve()):
+        raise ValueError("Stout20/30 require explicit matching --input-dir and distinct --output paths")
     cohort = core.load_run_cohort(args.cfg_list)
     cfgs = cohort["cfgs"]
     with h5py.File(args.input_dir/(cfgs[0]+".h5"), "r") as source:
@@ -518,10 +551,11 @@ def run(args):
     stats, statistics_signature = load_statistics(args.util)
     ref = core.load_reference(args.reference_script)
     slots = make_time_slots()
-    norm = load_normalization(args.c2, args.vev, args.mass_cache, cfgs, moms, stats, ref)
+    norm = load_normalization(args.c2, args.vev, args.mass_cache, cfgs, moms, stats, ref, stout=args.stout)
     rows, basis, ranges, decisions, candidates = select_rows(ref, moms)
     mappings, valid_tf, reasons = normalization_maps(norm, moms, slots)
     provenance = dict(cohort=cohort, cfg_list=manifest(args.cfg_list, True),
+                      stout=args.stout, gluon_channel=channel,
                       producer=manifest(__file__, True), run001=manifest(core.__file__, True),
                       reference=manifest(args.reference_script, True), statistics=manifest(args.util, True),
                       kinematics=manifest(args.kinematics, True), statistics_ast_sha256=statistics_signature,
@@ -540,7 +574,7 @@ def run(args):
     mapped.flush()
     del mapped
     collected = cache_c3(cfgs, args.input_dir, cache, moms, slots, args.workers,
-                         expected_vev_raw=norm["vev_raw"], loop_root=args.loop_root)
+                         expected_vev_raw=norm["vev_raw"], loop_root=args.loop_root, stout=args.stout)
     if collected["failures"]:
         with h5py.File(partial, "r+") as output:
             output.create_dataset("metadata/collection_failures", data=json.dumps(collected["failures"]))
@@ -594,6 +628,7 @@ def build_parser():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--input-dir", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--stout", type=int, choices=(10, 20, 30), default=10)
     parser.add_argument("--cfg-list", type=Path, default=core.DEFAULT_CFG_LIST)
     parser.add_argument("--c2", type=Path, default=DEFAULT_C2)
     parser.add_argument("--vev", type=Path, default=DEFAULT_VEV)

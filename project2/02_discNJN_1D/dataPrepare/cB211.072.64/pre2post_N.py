@@ -8,14 +8,14 @@ import numpy as np
 
 ens='cB211.072.64'
 
-basePath=f'/p/project/ngff/li47/code/projectData/02_discNJN_1D/{ens}/'
+basePath=f'/p/project1/ngff/li47/code/projectData/02_discNJN_1D/{ens}/'
 tmax={'cB211.072.64':36}[ens]
 
 
 cfg2old=lambda cfg: cfg[1:]+'_r'+{'a':'0','b':'1','c':'2','d':'3'}[cfg[0]]
 cfg2new=lambda cfg: {'0':'a','1':'b','2':'c','3':'d'}[cfg[-1]] + cfg[:4]
 
-Nmax=4
+Nmax=25
 Nmax_sq=int(np.floor(np.sqrt(Nmax))); t_range=range(-Nmax_sq,Nmax_sq+1)
 moms_N=[[x,y,z] for x in t_range for y in t_range for z in t_range if np.linalg.norm([x,y,z])**2<=Nmax]
 moms_N.sort()

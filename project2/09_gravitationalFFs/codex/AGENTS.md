@@ -5,6 +5,14 @@ The HPC project directory is `/p/project1/ngff/li47/code/glwc3/project2/09_gravi
 
 Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also consult `glwc3/agents_paper_writing.md`.
 
+## Scientific notation
+
+- Follow the notation of the user's spin and momentum fraction paper (arXiv:2607.21230) and its detailed one-derivative EMT companion (arXiv:2607.20337) in explanations, derivations, notes and figure labels.
+- Use `p` for the initial/source momentum and `p'` for the final/sink momentum, with `q = p - p'` and `P = (p + p')/2`. Use vector notation for spatial momenta. Avoid `p_i`/`p_f` in new exposition.
+- Use `t_s` for the source-sink separation and `t_ins` (typeset with roman ins) for the insertion time, with the source at zero. Avoid `T`/`tau` for these times. Distinguish physical times from lattice-unit integers: the current midpoint diagnostic has `t_s/a = 16` and `t_ins/a = 8`.
+- Prefer the paper's `m_N`, `E_N(p)`, `E_N(p')`, `Gamma_0`, `Gamma_k`, `N_conf`, and `n_s` for nucleon mass, energies, projectors, configuration count, and stout steps. Define additional noise-model symbols explicitly.
+- This is an exposition convention; existing numerical normalizations, utility APIs, stored keys and CLI options retain their established meanings.
+
 ## File locations and ownership
 
 - Keep `codex/` focused on production entry points and analysis adopted by the user. The current production entry point is `run001_post2avgmore.py`.
@@ -27,9 +35,10 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 
 ## Local and HPC work
 
-- Synchronize maintained project sources through the existing `glwc3` GitHub repository so the local and HPC checkouts can both be used.
+- Commits and pushes require the user's explicit permission. Do not create routine checkpoint or synchronization commits.
+- Synchronize local and HPC files directly when needed; using both checkouts does not authorize a commit or push.
 - Use local work for source editing and lightweight diagnostics. Keep bulk production data and large computations on the HPC.
-- Check both working-tree states before synchronizing and preserve unrelated edits. Stage and publish only changes belonging to the current task.
+- Check both working-tree states before synchronizing and preserve unrelated edits. When a commit or push is explicitly authorized, include only the authorized changes.
 
 ## Analysis procedure IDs
 
@@ -45,8 +54,8 @@ Follow the shared `glwc3/agents_glwc_coding.md` guide. For manuscript work, also
 - Keep the fixed configuration list locally in `codex/data_aux/cfgs_run`; the launch command should not reach into another project for the list.
 - By default print exactly one `flag_cfg_done: CFG` line per completed or already-complete configuration. Keep detailed block, momentum, timing and memory progress behind `--verbose` for testing.
 - Only this production Python file is required. It reads the existing `05_moments` scientific helpers and source-resolved inputs; the extra notes, checks and job example in `_ignore/` are optional.
-- Procedure run001 is B64, gluon only at stout level 10, using the original common725 cohort without superjackknife. The script verifies cohort membership before writing output.
-- Its default output is one HDF5 file per configuration under the scratch root's `<ensemble>/run001_gluon_stout_level10/data_avgmore/`; `avgsrc` is disabled unless requested.
+- Procedure run001 is B64, gluon at stout levels 10, 20 and 30 together, using the original common725 cohort without superjackknife. This generalizes the original stout-10 stream under the same user-approved run ID. The script verifies cohort membership before writing output.
+- Its default output is one HDF5 file per configuration under the scratch root's `<ensemble>/run001_gluon_stout_levels10_20_30/data_avgmore/`; each stout has separate datasets, and `avgsrc` is disabled unless requested. Retain the existing `run001_gluon_stout_level10` data. The existing stout-10 analysis keeps its original input default until an explicit input selection is made.
 
 ## Preliminary matrix-element analysis (run001)
 
